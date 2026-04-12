@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold } from '@expo-google-fonts/dm-sans';
+import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold } from '@expo-google-fonts/dm-sans';
+import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { initI18n } from '@/lib/i18n';
 import { I18nextProvider } from 'react-i18next';
@@ -17,6 +19,7 @@ export default function RootLayout() {
     DMSans_500Medium,
     DMSans_600SemiBold,
     DMSans_700Bold,
+    DMSans_800ExtraBold,
   });
 
   useEffect(() => {
@@ -62,7 +65,13 @@ export default function RootLayout() {
     }
   }, [session, segments]);
 
-  if (!fontsLoaded || !i18nReady) return null;
+  if (!fontsLoaded || !i18nReady) {
+    return (
+      <LinearGradient colors={['#08080F', '#100830', '#1A0845']} style={splash.container}>
+        <Text style={splash.title}>SkinX</Text>
+      </LinearGradient>
+    );
+  }
 
   return (
     <I18nextProvider i18n={i18n}>
@@ -70,3 +79,17 @@ export default function RootLayout() {
     </I18nextProvider>
   );
 }
+
+const splash = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: {
+    fontFamily: 'DMSans_800ExtraBold',
+    fontSize: 52,
+    color: '#FFFFFF',
+    letterSpacing: -1.5,
+  },
+});

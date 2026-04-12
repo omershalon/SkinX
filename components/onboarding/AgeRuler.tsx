@@ -95,5 +95,8 @@ const s = StyleSheet.create({
   tickWrap: { width: TICK_W, alignItems: 'center' },
   tick: { width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.12)' },
   tickMajor: { height: 32, backgroundColor: 'rgba(255,255,255,0.3)' },
-  tickLabel: { fontFamily: Fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.25)', marginTop: 4 },
+  tickLabel: {
+    fontFamily: Fonts.regular, fontSize: 10, color: 'rgba(255,255,255,0.25)',
+    marginTop: 4, width: 30, textAlign: 'center', marginLeft: -9,
+  },
 });

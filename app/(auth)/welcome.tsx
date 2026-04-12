@@ -210,7 +210,7 @@ export default function WelcomeScreen() {
       {/* Bottom */}
       <View style={s.bottom}>
         <Text style={s.tagline}>{t('welcome.tagline')}</Text>
-        <TouchableOpacity style={s.ctaButton} onPress={() => router.push('/(auth)/social-proof')} activeOpacity={0.85}>
+        <TouchableOpacity style={s.ctaButton} onPress={() => router.push('/(auth)/onboarding')} activeOpacity={0.85}>
           <Text style={s.ctaText}>{t('welcome.getStarted')}</Text>
         </TouchableOpacity>
 
