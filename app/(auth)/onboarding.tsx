@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
 import AnimatedGraph from '@/components/onboarding/AnimatedGraph';
+import { Ionicons } from '@expo/vector-icons';
 import {
   MaleIcon, FemaleIcon, OtherGenderIcon,
   OilyIcon, DryIcon, ComboIcon, SensitiveIcon, NormalIcon, QuestionIcon,
@@ -17,6 +18,9 @@ import {
   LeafIcon, BlockIcon, FlameIcon,
   PillIcon, BottleIcon, SaladIcon, DoctorIcon, FacialIcon, EmptyIcon,
   BreakoutIcon, ScarIcon, SunIcon,
+  XBrandIcon, AppStoreBrandIcon, YouTubeBrandIcon, FriendsBrandIcon,
+  TVBrandIcon, InstagramBrandIcon, TikTokBrandIcon, GoogleBrandIcon,
+  FacebookBrandIcon, OtherBrandIcon, ThumbsUpIcon, ThumbsDownIcon,
 } from '@/components/onboarding/Icons';
 
 const { width: SW } = Dimensions.get('window');
@@ -29,20 +33,20 @@ type Ans = {
 const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2000 };
 const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', duration: '', tried: [], concerns: [], goal: '', holistic: '', barriers: [], commitment: '', hearAbout: '', triedApps: '' };
 
-// 12 questions + 3 affirmations + 1 graph = 16 screens
-const TOTAL = 16;
+// 11 questions + 3 affirmations + 1 graph = 15 screens
+const TOTAL = 15;
 
 const HEAR_SOURCES = [
-  { id: 'x',              label: 'X',               emoji: '🐦' },
-  { id: 'app_store',      label: 'App Store',        emoji: '📱' },
-  { id: 'youtube',        label: 'YouTube',          emoji: '▶️' },
-  { id: 'friend_family',  label: 'Friend or family', emoji: '👥' },
-  { id: 'tv',             label: 'TV',               emoji: '📺' },
-  { id: 'instagram',      label: 'Instagram',        emoji: '📸' },
-  { id: 'tiktok',         label: 'TikTok',           emoji: '🎵' },
-  { id: 'google',         label: 'Google',           emoji: '🔍' },
-  { id: 'facebook',       label: 'Facebook',         emoji: '👍' },
-  { id: 'other',          label: 'Other',            emoji: '•••' },
+  { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
+  { id: 'app_store',      label: 'App Store',        icon: (_s: boolean) => <AppStoreBrandIcon size={36} /> },
+  { id: 'youtube',        label: 'YouTube',          icon: (_s: boolean) => <YouTubeBrandIcon size={36} /> },
+  { id: 'friend_family',  label: 'Friend or family', icon: (_s: boolean) => <FriendsBrandIcon size={36} /> },
+  { id: 'tv',             label: 'TV',               icon: (_s: boolean) => <TVBrandIcon size={36} /> },
+  { id: 'instagram',      label: 'Instagram',        icon: (_s: boolean) => <InstagramBrandIcon size={36} /> },
+  { id: 'tiktok',         label: 'TikTok',           icon: (_s: boolean) => <TikTokBrandIcon size={36} /> },
+  { id: 'google',         label: 'Google',           icon: (_s: boolean) => <GoogleBrandIcon size={36} /> },
+  { id: 'facebook',       label: 'Facebook',         icon: (_s: boolean) => <FacebookBrandIcon size={36} /> },
+  { id: 'other',          label: 'Other',            icon: (_s: boolean) => <OtherBrandIcon size={36} /> },
 ];
 
 // ═══════════════════════════════════════════════════
@@ -50,34 +54,27 @@ const HEAR_SOURCES = [
 // ═══════════════════════════════════════════════════
 
 function Option({ label, selected, onPress, icon }: { label: string; selected: boolean; onPress: () => void; icon?: React.ReactNode }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const fade  = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const fade = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(fade, { toValue: selected ? 1 : 0, duration: 220, useNativeDriver: false }).start();
+    if (selected) {
+      fade.setValue(0);
+      Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: false }).start();
+    } else {
+      fade.setValue(0);
+    }
   }, [selected]);
 
-  const bgColor  = fade.interpolate({ inputRange: [0, 1], outputRange: ['#1C1C1E', '#FFFFFF'] });
+  const bgColor  = fade.interpolate({ inputRange: [0, 1], outputRange: ['#1A1A1E', '#FFFFFF'] });
   const txtColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#000000'] });
 
-  const handlePress = () => {
-    Haptics.selectionAsync();
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 0.96, friction: 5, tension: 300, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1,    friction: 4, tension: 100, useNativeDriver: true }),
-    ]).start();
-    onPress();
-  };
-
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity onPress={handlePress} activeOpacity={1}>
-        <Animated.View style={[st.option, { backgroundColor: bgColor }]}>
-          {icon && <View style={st.optionIcon}>{icon}</View>}
-          <Animated.Text style={[st.optionText, { color: txtColor }]}>{label}</Animated.Text>
-        </Animated.View>
-      </TouchableOpacity>
-    </Animated.View>
+    <TouchableOpacity onPress={() => { Haptics.selectionAsync(); onPress(); }} activeOpacity={0.9}>
+      <Animated.View style={[st.option, { backgroundColor: bgColor }]}>
+        {icon && <View style={st.optionIcon}>{icon}</View>}
+        <Animated.Text style={[st.optionText, { color: txtColor }]}>{label}</Animated.Text>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -90,37 +87,56 @@ function Chip({ label, selected, onPress }: { label: string; selected: boolean; 
   );
 }
 
-function RowOption({ label, emoji, selected, onPress }: { label: string; emoji: string; selected: boolean; onPress: () => void }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const fade  = useRef(new Animated.Value(selected ? 1 : 0)).current;
+function CheckOption({ title, subtitle, selected, onPress }: { title: string; subtitle: string; selected: boolean; onPress: () => void }) {
+  const fade = useRef(new Animated.Value(selected ? 1 : 0)).current;
 
   useEffect(() => {
-    Animated.timing(fade, { toValue: selected ? 1 : 0, duration: 220, useNativeDriver: false }).start();
+    Animated.timing(fade, { toValue: selected ? 1 : 0, duration: 300, useNativeDriver: false }).start();
   }, [selected]);
 
-  const bgColor  = fade.interpolate({ inputRange: [0, 1], outputRange: ['#1C1C1E', '#FFFFFF'] });
-  const txtColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#000000'] });
-
-  const handlePress = () => {
-    Haptics.selectionAsync();
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 0.97, friction: 5, tension: 300, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1,    friction: 4, tension: 100, useNativeDriver: true }),
-    ]).start();
-    onPress();
-  };
+  const bgColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['#1A1A1E', '#FFFFFF'] });
+  const titleColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#000000'] });
+  const subColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.4)', '#888'] });
+  const borderColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.25)', '#000'] });
+  const fillColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['transparent', '#000'] });
 
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
-      <TouchableOpacity onPress={handlePress} activeOpacity={1}>
-        <Animated.View style={[st.rowOption, { backgroundColor: bgColor }]}>
-          <View style={st.rowOptionIcon}>
-            <Text style={st.rowOptionEmoji}>{emoji}</Text>
-          </View>
-          <Animated.Text style={[st.rowOptionText, { color: txtColor }]}>{label}</Animated.Text>
+    <TouchableOpacity onPress={() => { Haptics.selectionAsync(); onPress(); }} activeOpacity={0.9}>
+      <Animated.View style={[st.checkOption, { backgroundColor: bgColor }]}>
+        <Animated.View style={[st.checkbox, { borderColor }]}>
+          {selected && <View style={st.checkboxFill} />}
         </Animated.View>
-      </TouchableOpacity>
-    </Animated.View>
+        <View style={st.checkOptionText}>
+          <Animated.Text style={[st.checkOptionTitle, { color: titleColor }]}>{title}</Animated.Text>
+          {subtitle ? <Animated.Text style={[st.checkOptionSub, { color: subColor }]}>{subtitle}</Animated.Text> : null}
+        </View>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+function RowOption({ label, icon, selected, onPress }: { label: string; icon: (selected: boolean) => React.ReactNode; selected: boolean; onPress: () => void }) {
+  const fade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (selected) {
+      fade.setValue(0);
+      Animated.timing(fade, { toValue: 1, duration: 300, useNativeDriver: false }).start();
+    } else {
+      fade.setValue(0);
+    }
+  }, [selected]);
+
+  const bgColor  = fade.interpolate({ inputRange: [0, 1], outputRange: ['#1A1A1E', '#FFFFFF'] });
+  const txtColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#000000'] });
+
+  return (
+    <TouchableOpacity onPress={() => { Haptics.selectionAsync(); onPress(); }} activeOpacity={0.9}>
+      <Animated.View style={[st.rowOption, { backgroundColor: bgColor }]}>
+        {icon(selected)}
+        <Animated.Text style={[st.rowOptionText, { color: txtColor }]}>{label}</Animated.Text>
+      </Animated.View>
+    </TouchableOpacity>
   );
 }
 
@@ -165,6 +181,7 @@ export default function OnboardingScreen() {
     setA(p => ({ ...p, [key]: p[key].includes(val) ? p[key].filter((v: string) => v !== val) : [...p[key], val] }));
   };
 
+
   const canNext = (): boolean => {
     switch (step) {
       case 0:  return !!a.gender;
@@ -176,18 +193,17 @@ export default function OnboardingScreen() {
       case 6:  return !!a.duration;
       case 7:  return true; // affirmation
       case 8:  return a.tried.length > 0;
-      case 9:  return a.concerns.length > 0;
-      case 10: return true; // affirmation
-      case 11: return !!a.goal;
-      case 12: return true; // affirmation
-      case 13: return !!a.holistic;
-      case 14: return a.barriers.length > 0;
-      case 15: return !!a.commitment;
+      case 9:  return true; // affirmation
+      case 10: return !!a.goal;
+      case 11: return true; // affirmation
+      case 12: return !!a.holistic;
+      case 13: return a.barriers.length > 0;
+      case 14: return !!a.commitment;
       default: return false;
     }
   };
 
-  const isLastStep = step === 15;
+  const isLastStep = step === 14;
 
   const Q = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
     <View style={st.qWrap}>
@@ -224,7 +240,7 @@ export default function OnboardingScreen() {
         <Q title="Where did you hear about us?">
           <View style={st.optionList}>
             {HEAR_SOURCES.map(src => (
-              <RowOption key={src.id} label={src.label} emoji={src.emoji} selected={a.hearAbout === src.id} onPress={() => setA(p => ({ ...p, hearAbout: src.id }))} />
+              <RowOption key={src.id} label={src.label} icon={src.icon} selected={a.hearAbout === src.id} onPress={() => setA(p => ({ ...p, hearAbout: src.id }))} />
             ))}
           </View>
         </Q>
@@ -234,8 +250,8 @@ export default function OnboardingScreen() {
       case 3: return (
         <Q title="Have you tried other skincare apps?">
           <View style={st.optionList}>
-            <RowOption label="Yes" emoji="👍" selected={a.triedApps === 'yes'} onPress={() => setA(p => ({ ...p, triedApps: 'yes' }))} />
-            <RowOption label="No"  emoji="👎" selected={a.triedApps === 'no'}  onPress={() => setA(p => ({ ...p, triedApps: 'no' }))} />
+            <RowOption label="Yes" icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsUpIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'yes'} onPress={() => setA(p => ({ ...p, triedApps: 'yes' }))} />
+            <RowOption label="No"  icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsDownIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'no'}  onPress={() => setA(p => ({ ...p, triedApps: 'no' }))} />
           </View>
         </Q>
       );
@@ -244,7 +260,7 @@ export default function OnboardingScreen() {
       case 4: return (
         <Q title="What's your skin type?">
           <View style={st.optionList}>
-            {['Oily', 'Dry', 'Normal'].map(o => (
+            {['Normal', 'Oily', 'Dry'].map(o => (
               <Option key={o} label={o} selected={a.skinType === o} onPress={() => setA(p => ({ ...p, skinType: o }))} />
             ))}
           </View>
@@ -258,7 +274,7 @@ export default function OnboardingScreen() {
       case 6: return (
         <Q title="How long have you dealt with skin issues?">
           <View style={st.optionList}>
-            {['Just started', 'Less than a year', '1 - 3 years', '3 - 5 years', '5+ years'].map(o => (
+            {['Just recently', 'Less than a year', '1 - 3 years', '3 - 5 years', '5+ years'].map(o => (
               <Option key={o} label={o} selected={a.duration === o} onPress={() => setA(p => ({ ...p, duration: o }))} />
             ))}
           </View>
@@ -275,32 +291,29 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 8: What tried ──
+      // ── 8: Skin concerns ──
       case 8: return (
-        <Q title="What have you tried so far?" subtitle="Select everything that applies">
-          <View style={st.chipGrid}>
-            {['Prescription medications', 'Products from the store', 'Home remedies', 'Changed my diet', 'Saw a dermatologist', 'Facials or peels', 'Nothing yet'].map(o => (
-              <Chip key={o} label={o} selected={a.tried.includes(o)} onPress={() => toggleMulti('tried', o)} />
+        <Q title="What are your main skin concerns?" subtitle="Select all that apply.">
+          <View style={st.optionList}>
+            {[
+              { id: 'acne', title: 'Acne and Breakouts', sub: 'Pimples, blackheads, and clogged pores.' },
+              { id: 'redness', title: 'Redness or Irritation', sub: 'Rosacea, inflamed, or irritated skin.' },
+              { id: 'oiliness', title: 'Oiliness and Shine', sub: 'Excess oil with shiny or greasy skin.' },
+              { id: 'dryness', title: 'Dryness or Flakiness', sub: 'Tight, rough, or peeling skin.' },
+              { id: 'tone', title: 'Uneven Tone or Pigmentation', sub: 'Dark spots or discoloration on skin.' },
+              { id: 'aging', title: 'Aging Concerns', sub: 'Wrinkles, fine lines, crow\'s feet.' },
+              { id: 'pores', title: 'Enlarged Pores and Texture', sub: 'Large pores or rough skin surface.' },
+              { id: 'dark_circles', title: 'Dark Circles and Puffiness', sub: 'Darkness or swelling around eyes.' },
+              { id: 'maintaining', title: 'Maintaining Skin Health', sub: 'Keeping skin balanced and healthy.' },
+            ].map(o => (
+              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.tried.includes(o.id)} onPress={() => toggleMulti('tried', o.id)} />
             ))}
           </View>
         </Q>
       );
 
-      // ── 9: Concerns ──
+      // ── 9: Affirmation 2 ──
       case 9: return (
-        <Q title="What bothers you the most?" subtitle="Pick up to 3">
-          <View style={st.chipGrid}>
-            {['Breakouts', 'Acne scars', 'Dark spots', 'Large pores', 'Oily skin', 'Dry patches', 'Redness', 'Blackheads', 'Cystic acne', 'Uneven skin tone'].map(o => (
-              <Chip key={o} label={o} selected={a.concerns.includes(o)}
-                onPress={() => { if (a.concerns.includes(o) || a.concerns.length < 3) toggleMulti('concerns', o); }} />
-            ))}
-          </View>
-          {a.concerns.length > 0 && <Text style={st.countLabel}>{a.concerns.length}/3 selected</Text>}
-        </Q>
-      );
-
-      // ── 10: Affirmation 2 ──
-      case 10: return (
         <View style={st.affirmCenter}>
           <Text style={st.affirmHuge}>67%</Text>
           <Text style={st.affirmBody}>
@@ -309,8 +322,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 11: Goal ──
-      case 11: return (
+      // ── 10: Goal ──
+      case 10: return (
         <Q title="What's your goal?" subtitle="We'll build your plan around this">
           <View style={st.optionList}>
             {['Completely clear skin', 'Fewer breakouts', 'Manage what I have', 'Prevent future issues', 'Fade scars and marks'].map(o => (
@@ -320,8 +333,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 12: Affirmation 3 ──
-      case 12: return (
+      // ── 11: Affirmation 3 ──
+      case 11: return (
         <View style={st.affirmCenter}>
           <Text style={st.affirmBig}>Totally achievable.</Text>
           <Text style={st.affirmBody}>
@@ -330,8 +343,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 13: Holistic ──
-      case 13: return (
+      // ── 12: Holistic ──
+      case 12: return (
         <Q title="Are you open to natural approaches?" subtitle="Things like herbal remedies, diet changes, and clean skincare">
           <View style={st.optionList}>
             {['Yes, I prefer natural', 'Open to trying', 'Not really', 'Tell me more'].map(o => (
@@ -341,24 +354,25 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 14: Barriers ──
-      case 14: return (
+      // ── 13: Barriers ──
+      case 13: return (
         <Q title="What's been your biggest challenge?">
-          <View style={st.chipGrid}>
+          <View style={st.optionList}>
             {["Don't know what to use", 'Too much conflicting info', "Can't afford a dermatologist", 'Nothing seems to work', 'No consistent routine', "Don't know what's causing it"].map(o => (
-              <Chip key={o} label={o} selected={a.barriers.includes(o)} onPress={() => toggleMulti('barriers', o)} />
+              <Option key={o} label={o} selected={a.barriers[0] === o} onPress={() => setA(p => ({ ...p, barriers: [o] }))} />
             ))}
           </View>
         </Q>
       );
 
-      // ── 15: Commitment ──
-      case 15: return (
+      // ── 14: Commitment ──
+      case 14: return (
         <Q title="How committed are you?">
           <View style={st.optionList}>
             {['Just browsing', 'Willing to try', 'Ready to commit', 'All in'].map(o => (
               <Option key={o} label={o} selected={a.commitment === o} onPress={() => setA(p => ({ ...p, commitment: o }))} />
             ))}
+
           </View>
         </Q>
       );
@@ -369,7 +383,7 @@ export default function OnboardingScreen() {
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
-      <LinearGradient colors={['#08080F', '#100830', '#1A0845']} style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
 
       {/* Header */}
       <View style={st.header}>
@@ -388,18 +402,22 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
-          {renderStep()}
-        </ScrollView>
+        {step === 1 ? (
+          <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
+        ) : (
+          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
+            {renderStep()}
+          </ScrollView>
+        )}
       </Animated.View>
 
       {/* Next button */}
       <View style={[st.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
-          style={st.nextBtn}
-          onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); isLastStep ? finish() : next(); }}
-          activeOpacity={0.85}>
-          <Text style={st.nextBtnText}>{isLastStep ? "Let's go" : 'Next'}</Text>
+          style={[st.nextBtn, !canNext() && st.nextBtnDisabled]}
+          onPress={() => { if (!canNext()) return; Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); isLastStep ? finish() : next(); }}
+          activeOpacity={canNext() ? 0.85 : 1}>
+          <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? "Let's go" : 'Continue'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -438,8 +456,8 @@ const st = StyleSheet.create({
   optionList: { gap: 12 },
   option: {
     alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 18, paddingHorizontal: 20, borderRadius: 14,
-    backgroundColor: '#1C1C1E',
+    paddingVertical: 22, paddingHorizontal: 20, borderRadius: 14,
+    backgroundColor: '#1A1A1E',
   },
   optionIcon: { width: 24, alignItems: 'center' },
   optionSel: { backgroundColor: '#FFF' },
@@ -449,19 +467,37 @@ const st = StyleSheet.create({
   // Row options — icon on left, label centered in row
   rowOption: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 16, paddingHorizontal: 20, borderRadius: 14,
-    backgroundColor: '#1C1C1E', gap: 14,
+    paddingVertical: 20, paddingHorizontal: 20, borderRadius: 14,
+    backgroundColor: '#1A1A1E', gap: 14,
   },
   rowOptionIcon: {
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.08)',
     justifyContent: 'center', alignItems: 'center',
   },
-  rowOptionEmoji: { fontSize: 18 },
   rowOptionText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#FFF' },
 
   // Chips — lighter, more breathing room
   chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+
+  // Check option cards (skin concerns)
+  checkOption: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 18, paddingHorizontal: 18, borderRadius: 14,
+    backgroundColor: '#1A1A1E', gap: 14,
+  },
+  checkbox: {
+    width: 24, height: 24, borderRadius: 6,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  checkboxFill: {
+    width: 14, height: 14, borderRadius: 3,
+    backgroundColor: '#000',
+  },
+  checkOptionText: { flex: 1 },
+  checkOptionTitle: { fontFamily: Fonts.semibold, fontSize: 15, color: '#fff' },
+  checkOptionSub: { fontFamily: Fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
   chip: {
     paddingVertical: 11, paddingHorizontal: 18, borderRadius: 22,
     backgroundColor: 'transparent',
@@ -483,4 +519,6 @@ const st = StyleSheet.create({
   nextBtn: { height: 54, borderRadius: 14, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center' },
   nextBtnOff: { opacity: 0.2 },
   nextBtnText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#000' },
+  nextBtnDisabled: { backgroundColor: '#888' },
+  nextBtnTextDisabled: { color: '#000' },
 });

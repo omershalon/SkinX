@@ -1,137 +1,91 @@
-import { useRef, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { Fonts } from '@/lib/theme';
-
-const ITEM_H = 48;
-const VISIBLE = 5; // must be odd
-const PICKER_H = ITEM_H * VISIBLE;
-const PAD = ITEM_H * Math.floor(VISIBLE / 2);
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 
 export type BirthDate = { month: number; day: number; year: number };
 
-const MONTHS = [
-  'January','February','March','April','May','June',
-  'July','August','September','October','November','December',
-];
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 1939 }, (_, i) => 1940 + i).reverse();
 
-function Column({
-  items,
-  selectedIndex,
-  onSelect,
-  width,
-}: {
-  items: (string | number)[];
-  selectedIndex: number;
-  onSelect: (index: number) => void;
-  width: number;
-}) {
-  const scrollRef = useRef<ScrollView>(null);
+const MONTH_ITEMS = MONTHS.map((m, i) => ({ label: m, value: i + 1 }));
+const DAY_ITEMS = DAYS.map((d) => ({ label: String(d), value: d }));
+const YEAR_ITEMS = YEARS.map((y) => ({ label: String(y), value: y }));
 
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ y: selectedIndex * ITEM_H, animated: false });
+const itemStyle = { fontSize: 16, color: '#fff' };
+
+// Local state keeps selectedValue in sync (prevents snap-back)
+// valueRef is read by parent on unmount
+function WheelColumn({ items, initial, valueRef, style }: {
+  items: { label: string; value: number }[];
+  initial: number;
+  valueRef: React.MutableRefObject<number>;
+  style: any;
+}) {
+  const [val, setVal] = useState(initial);
+
+  const handleChange = useCallback((v: number) => {
+    setVal(v);
+    valueRef.current = v;
   }, []);
 
-  const onScrollEnd = useCallback((e: any) => {
-    const y = e.nativeEvent.contentOffset.y;
-    const index = Math.round(y / ITEM_H);
-    const clamped = Math.max(0, Math.min(items.length - 1, index));
-    onSelect(clamped);
-    scrollRef.current?.scrollTo({ y: clamped * ITEM_H, animated: true });
-  }, [items.length, onSelect]);
-
   return (
-    <View style={[col.wrap, { width }]}>
-      <ScrollView
-        ref={scrollRef}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={ITEM_H}
-        decelerationRate="fast"
-        onMomentumScrollEnd={onScrollEnd}
-        onScrollEndDrag={onScrollEnd}
-        contentContainerStyle={{ paddingVertical: PAD }}
-        scrollEventThrottle={16}
-      >
-        {items.map((item, i) => {
-          const dist = Math.abs(i - selectedIndex);
-          const opacity = dist === 0 ? 1 : dist === 1 ? 0.45 : 0.2;
-          const fontFamily = dist === 0 ? Fonts.semibold : Fonts.regular;
-          const fontSize = dist === 0 ? 20 : 17;
-          return (
-            <View key={i} style={col.item}>
-              <Text style={[col.text, { opacity, fontFamily, fontSize }]}>
-                {item}
-              </Text>
-            </View>
-          );
-        })}
-      </ScrollView>
-    </View>
+    <Picker selectedValue={val} onValueChange={handleChange} style={style} itemStyle={itemStyle}>
+      {items.map((item) => (
+        <Picker.Item key={item.value} label={item.label} value={item.value} />
+      ))}
+    </Picker>
   );
 }
 
-export default function DatePicker({
+export default React.memo(function DatePicker({
   value,
   onChange,
 }: {
   value: BirthDate;
   onChange: (v: BirthDate) => void;
 }) {
-  const monthIdx = value.month - 1;
-  const dayIdx = value.day - 1;
-  const yearIdx = YEARS.indexOf(value.year) === -1 ? 0 : YEARS.indexOf(value.year);
+  const monthRef = useRef(value.month);
+  const dayRef = useRef(value.day);
+  const yearRef = useRef(value.year);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Sync to parent only on unmount (when user taps Next)
+  useEffect(() => {
+    return () => {
+      onChangeRef.current({
+        month: monthRef.current,
+        day: dayRef.current,
+        year: yearRef.current,
+      });
+    };
+  }, []);
 
   return (
     <View style={s.container}>
-      {/* Selection highlight */}
-      <View pointerEvents="none" style={s.highlight} />
-
-      <Column
-        items={MONTHS}
-        selectedIndex={monthIdx}
-        onSelect={(i) => onChange({ ...value, month: i + 1 })}
-        width={150}
-      />
-      <Column
-        items={DAYS}
-        selectedIndex={dayIdx}
-        onSelect={(i) => onChange({ ...value, day: i + 1 })}
-        width={70}
-      />
-      <Column
-        items={YEARS}
-        selectedIndex={yearIdx}
-        onSelect={(i) => onChange({ ...value, year: YEARS[i] })}
-        width={90}
-      />
+      <WheelColumn items={MONTH_ITEMS} initial={value.month} valueRef={monthRef} style={s.monthPicker} />
+      <WheelColumn items={DAY_ITEMS} initial={value.day} valueRef={dayRef} style={s.dayPicker} />
+      <WheelColumn items={YEAR_ITEMS} initial={value.year} valueRef={yearRef} style={s.yearPicker} />
     </View>
   );
-}
-
-const col = StyleSheet.create({
-  wrap: { height: PICKER_H, overflow: 'hidden' },
-  item: { height: ITEM_H, justifyContent: 'center', alignItems: 'center' },
-  text: { color: '#fff' },
-});
+}, () => true);
 
 const s = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 32,
-    position: 'relative',
+    justifyContent: 'center',
+    marginTop: 16,
   },
-  highlight: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    top: '50%',
-    marginTop: -ITEM_H / 2,
-    height: ITEM_H,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 12,
+  monthPicker: {
+    flex: 3,
+  },
+  dayPicker: {
+    flex: 1.5,
+  },
+  yearPicker: {
+    flex: 1.8,
   },
 });

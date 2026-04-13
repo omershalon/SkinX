@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, Animated } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold } from '@expo-google-fonts/dm-sans';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,9 @@ export default function RootLayout() {
   const segments = useSegments();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [i18nReady, setI18nReady] = useState(false);
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
+  const splashOpacity = useRef(new Animated.Value(1)).current;
   const [fontsLoaded] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -24,13 +27,32 @@ export default function RootLayout() {
 
   useEffect(() => {
     initI18n().then(() => setI18nReady(true));
+    setTimeout(() => setMinTimeElapsed(true), 800);
   }, []);
+
+  const ready = fontsLoaded && i18nReady && minTimeElapsed;
+
+  useEffect(() => {
+    if (ready && showSplash && session !== undefined) {
+      if (session) {
+        // Logged in — skip splash immediately
+        splashOpacity.setValue(0);
+        setShowSplash(false);
+      } else {
+        // Logged out — fade out splash
+        Animated.timing(splashOpacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start(() => setShowSplash(false));
+      }
+    }
+  }, [ready, session]);
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
       if (error) {
-        // Invalid/expired refresh token — clear it and treat as logged out
         supabase.auth.signOut();
         setSession(null);
       } else {
@@ -38,7 +60,6 @@ export default function RootLayout() {
       }
     });
 
-    // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED' && !session) {
         supabase.auth.signOut();
@@ -52,31 +73,34 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (session === undefined) return; // still loading initial session
+    if (session === undefined) return;
 
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!session && !inAuthGroup) {
-      // Not logged in — send to login
       router.replace('/(auth)/welcome');
     } else if (session && inAuthGroup) {
-      // Logged in — send to app
       router.replace('/(tabs)');
     }
   }, [session, segments]);
 
-  if (!fontsLoaded || !i18nReady) {
-    return (
-      <LinearGradient colors={['#08080F', '#100830', '#1A0845']} style={splash.container}>
-        <Text style={splash.title}>SkinX</Text>
-      </LinearGradient>
-    );
-  }
-
   return (
-    <I18nextProvider i18n={i18n}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </I18nextProvider>
+    <View style={{ flex: 1 }}>
+      {ready && (
+        <I18nextProvider i18n={i18n}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </I18nextProvider>
+      )}
+      {showSplash && (
+        <Animated.View style={[StyleSheet.absoluteFill, { opacity: splashOpacity, zIndex: 10 }]}>
+          <View style={[splash.container, { backgroundColor: '#000' }]}>
+            <View style={splash.titleWrap}>
+              <Text style={splash.title}>Skin<Text style={splash.titleX}>X</Text></Text>
+            </View>
+          </View>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -86,10 +110,18 @@ const splash = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  titleWrap: {
+    overflow: 'visible',
+    paddingHorizontal: 20,
+  },
   title: {
     fontFamily: 'DMSans_800ExtraBold',
     fontSize: 52,
     color: '#FFFFFF',
     letterSpacing: -1.5,
+    textAlign: 'center',
+  },
+  titleX: {
+    color: '#7C5CFC',
   },
 });

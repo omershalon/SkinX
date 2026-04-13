@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, TextInput, Alert,
-  ActivityIndicator, Linking,
+  ActivityIndicator, Linking, Animated, PanResponder, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -60,18 +60,18 @@ function XIcon({ size = 14 }: { size?: number }) {
 // ── Language data ──
 
 const LANGUAGES = [
-  { code: 'en', label: 'English',      flag: '🇺🇸' },
-  { code: 'zh', label: '中国人',         flag: '🇨🇳' },
-  { code: 'hi', label: 'हिन्दी',          flag: '🇮🇳' },
-  { code: 'es', label: 'Español',       flag: '🇪🇸' },
-  { code: 'fr', label: 'Français',      flag: '🇫🇷' },
-  { code: 'de', label: 'Deutsch',       flag: '🇩🇪' },
-  { code: 'ru', label: 'Русский',       flag: '🇷🇺' },
-  { code: 'pt', label: 'Português',     flag: '🇧🇷' },
-  { code: 'it', label: 'Italiano',      flag: '🇮🇹' },
-  { code: 'ro', label: 'Română',        flag: '🇷🇴' },
-  { code: 'az', label: 'Azərbaycanca', flag: '🇦🇿' },
-  { code: 'nl', label: 'Nederlands',   flag: '🇳🇱' },
+  { code: 'en', label: 'English',      flag: '\u{1F1FA}\u{1F1F8}' },
+  { code: 'zh', label: '中国人',         flag: '\u{1F1E8}\u{1F1F3}' },
+  { code: 'hi', label: 'हिन्दी',          flag: '\u{1F1EE}\u{1F1F3}' },
+  { code: 'es', label: 'Español',       flag: '\u{1F1EA}\u{1F1F8}' },
+  { code: 'fr', label: 'Français',      flag: '\u{1F1EB}\u{1F1F7}' },
+  { code: 'de', label: 'Deutsch',       flag: '\u{1F1E9}\u{1F1EA}' },
+  { code: 'ru', label: 'Русский',       flag: '\u{1F1F7}\u{1F1FA}' },
+  { code: 'pt', label: 'Português',     flag: '\u{1F1E7}\u{1F1F7}' },
+  { code: 'it', label: 'Italiano',      flag: '\u{1F1EE}\u{1F1F9}' },
+  { code: 'ro', label: 'Română',        flag: '\u{1F1F7}\u{1F1F4}' },
+  { code: 'az', label: 'Azərbaycanca', flag: '\u{1F1E6}\u{1F1FF}' },
+  { code: 'nl', label: 'Nederlands',   flag: '\u{1F1F3}\u{1F1F1}' },
 ];
 
 function CheckmarkIcon({ size = 18 }: { size?: number }) {
@@ -83,6 +83,81 @@ function CheckmarkIcon({ size = 18 }: { size?: number }) {
 }
 
 // ── Screen ──
+
+const SCREEN_H = Dimensions.get('window').height;
+
+function DraggableSheet({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
+  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const dismissed = useRef(false);
+  const dragging = useRef(false);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 10, tension: 65 }),
+      Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => {
+        if (g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx)) {
+          dragging.current = true;
+          return true;
+        }
+        return false;
+      },
+      onMoveShouldSetPanResponderCapture: (_, g) => {
+        if (g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5) {
+          dragging.current = true;
+          return true;
+        }
+        return false;
+      },
+      onPanResponderTerminationRequest: () => !dragging.current,
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) {
+          translateY.setValue(g.dy);
+          overlayOpacity.setValue(Math.max(0, 1 - g.dy / 300));
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        dragging.current = false;
+        if (g.dy > 100 || g.vy > 0.4) {
+          dismissed.current = true;
+          Animated.parallel([
+            Animated.timing(translateY, { toValue: SCREEN_H, duration: 200, useNativeDriver: true }),
+            Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+          ]).start(() => {
+            onDismiss();
+            translateY.setValue(SCREEN_H);
+            dismissed.current = false;
+          });
+        } else {
+          Animated.parallel([
+            Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8 }),
+            Animated.timing(overlayOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        dragging.current = false;
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 8 }).start();
+      },
+    })
+  ).current;
+
+  return (
+    <>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#000', opacity: Animated.multiply(overlayOpacity, 0.45) }]} pointerEvents="none" />
+      <Animated.View style={{ transform: [{ translateY }], flex: 1, justifyContent: 'flex-end' }} {...panResponder.panHandlers}>
+        {children}
+      </Animated.View>
+    </>
+  );
+}
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -199,7 +274,7 @@ export default function WelcomeScreen() {
 
   return (
     <View style={[s.container, { paddingBottom: insets.bottom + 20 }]}>
-      <LinearGradient colors={['#08080F', '#100830', '#1A0845']} style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
 
       {/* Language button */}
       <TouchableOpacity style={[s.langBtn, { top: insets.top + 12 }]} onPress={() => setShowLang(true)} activeOpacity={0.8}>
@@ -223,10 +298,9 @@ export default function WelcomeScreen() {
       </View>
 
       {/* Language Modal */}
-      <Modal visible={showLang} animationType="slide" transparent onRequestClose={() => setShowLang(false)}>
-        <View style={s.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setShowLang(false)} />
-          <View style={[s.langSheet, { paddingBottom: insets.bottom + 16 }]}>
+      <Modal visible={showLang} animationType="none" transparent onRequestClose={() => setShowLang(false)}>
+          <DraggableSheet onDismiss={() => setShowLang(false)}>
+          <View style={[s.langSheet, { paddingBottom: insets.bottom + 16 }]} onStartShouldSetResponder={() => true}>
             <View style={s.langSheetHandle} />
             <View style={s.langSheetHeader}>
               <Text style={s.langSheetTitle}>{t('lang.selectLanguage')}</Text>
@@ -253,18 +327,13 @@ export default function WelcomeScreen() {
               ))}
             </View>
           </View>
-        </View>
+          </DraggableSheet>
       </Modal>
 
       {/* Sign In Modal */}
-      <Modal visible={showSignIn} animationType="slide" transparent onRequestClose={closeModal}>
-        <View style={s.modalOverlay}>
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={closeModal} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={s.sheetWrapper}
-          >
-            <View style={[s.sheet, { paddingBottom: insets.bottom + 28 }]}>
+      <Modal visible={showSignIn} animationType="none" transparent onRequestClose={closeModal}>
+            <DraggableSheet onDismiss={closeModal}>
+            <View style={[s.sheet, { paddingBottom: insets.bottom + 28 }]} onStartShouldSetResponder={() => true}>
 
               {/* Header */}
               <View style={s.sheetHeader}>
@@ -308,7 +377,7 @@ export default function WelcomeScreen() {
                   )}
 
                   <Text style={s.termsText}>
-                    {t('signIn.terms')}{' '}
+                    {t('signIn.terms')}{'\n'}
                     <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/terms')}>{t('signIn.termsLink')}</Text>
                     {' '}{t('signIn.and')}{' '}
                     <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/privacy')}>{t('signIn.privacyLink')}</Text>
@@ -374,8 +443,7 @@ export default function WelcomeScreen() {
                 </View>
               )}
             </View>
-          </KeyboardAvoidingView>
-        </View>
+            </DraggableSheet>
       </Modal>
     </View>
   );
@@ -400,7 +468,7 @@ const s = StyleSheet.create({
   signInLink: { fontFamily: Fonts.semibold, fontSize: 16, color: Colors.primaryLight },
 
   // Modal
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'transparent' },
   sheetWrapper: { width: '100%' },
   sheet: {
     backgroundColor: '#fff',
@@ -497,7 +565,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 20,
   },
-  langFlag: { fontSize: 16 },
+  langFlag: { fontSize: 18 },
   langCode: { fontFamily: Fonts.semibold, fontSize: 13, color: '#fff' },
 
   // Language sheet
@@ -520,7 +588,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 22, paddingVertical: 10, gap: 14,
   },
   langRowBorder: { borderBottomWidth: 1, borderBottomColor: '#e5e5e5' },
-  langRowFlag: { fontSize: 22 },
+  langRowFlag: { fontSize: 24 },
   langRowLabel: { fontFamily: Fonts.medium, fontSize: 15, color: '#111', flex: 1 },
   langCheck: {
     width: 32, height: 32, borderRadius: 16,
