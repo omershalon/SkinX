@@ -21,7 +21,6 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useTabTransition } from '@/hooks/useTabTransition';
 import { Colors, Typography, BorderRadius, Spacing, Shadows } from '@/lib/theme';
@@ -71,7 +70,7 @@ const ChevronRightIcon = ({ size = 28, color = Colors.primary }: { size?: number
   </Svg>
 );
 
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, differenceInWeeks } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, differenceInWeeks } from 'date-fns';
 
 type ProgressPhoto = {
   id: string;
@@ -107,12 +106,10 @@ export default function ProgressScreen() {
   const [uploading, setUploading] = useState(false);
 
   // Calendar state
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
-
-  useFocusEffect(useCallback(() => {
-    setCalendarMonth(new Date());
-  }, []));
+  const scrollRef = useRef<ScrollView>(null);
+  const currentMonthRef = useRef<View>(null);
+  const [scrollReady, setScrollReady] = useState(false);
 
   // Detail modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -130,18 +127,6 @@ export default function ProgressScreen() {
   const cellRefs = useRef<Record<string, View | null>>({});
   const burstRef = useRef<ParticleBurstHandle>(null);
 
-  // Calendar row entrance anims — 6 rows max
-  const calRowAnims = useRef(
-    Array.from({ length: 6 }, () => new Animated.Value(0))
-  ).current;
-
-  useEffect(() => {
-    if (loading) return;
-    calRowAnims.forEach(a => a.setValue(0));
-    Animated.stagger(40, calRowAnims.map(a =>
-      Animated.timing(a, { toValue: 1, duration: 350, useNativeDriver: true })
-    )).start();
-  }, [loading]);
 
   const fetchPhotos = useCallback(async () => {
     setLoading(true);
@@ -286,12 +271,13 @@ export default function ProgressScreen() {
   };
 
   // ─── Calendar helpers ─────────────────────────────────────────────────────
-  const calendarDays = eachDayOfInterval({
-    start: startOfMonth(calendarMonth),
-    end: endOfMonth(calendarMonth),
-  });
-  const firstWeekday = getDay(startOfMonth(calendarMonth));
-  const paddingCells = Array(firstWeekday).fill(null);
+  // Generate months: 12 past + current + 3 future = 16 months
+  const MONTHS_PAST = 12;
+  const MONTHS_FUTURE = 3;
+  const CURRENT_MONTH_INDEX = MONTHS_PAST; // index of the current month in the array
+  const allMonths = Array.from({ length: MONTHS_PAST + 1 + MONTHS_FUTURE }, (_, i) =>
+    addMonths(new Date(), i - MONTHS_PAST)
+  );
 
   // Group photos by date
   const photosByDate = photos.reduce<Record<string, ProgressPhoto[]>>((acc, p) => {
@@ -331,83 +317,100 @@ export default function ProgressScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
-        <View style={styles.calendarFull}>
-          {/* Month navigation */}
-          <View style={styles.monthNav}>
-            <TouchableOpacity onPress={() => setCalendarMonth(m => subMonths(m, 1))} style={styles.monthNavBtn}>
-              <ChevronLeftIcon size={28} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            <Text style={styles.monthTitle}>{format(calendarMonth, 'MMMM yyyy')}</Text>
-            <TouchableOpacity onPress={() => setCalendarMonth(m => addMonths(m, 1))} style={styles.monthNavBtn}>
-              <ChevronRightIcon size={28} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.calendarFull}
+          showsVerticalScrollIndicator={false}
+          onLayout={() => {
+            // Scroll to current month on first layout
+            if (!scrollReady) {
+              setTimeout(() => {
+                currentMonthRef.current?.measureLayout(
+                  scrollRef.current?.getInnerViewNode(),
+                  (_x, y) => { scrollRef.current?.scrollTo({ y: y - Spacing.md, animated: false }); },
+                  () => {}
+                );
+              }, 100);
+              setScrollReady(true);
+            }
+          }}
+        >
+          {allMonths.map((month, monthIdx) => {
+            const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
+            const pad = Array(getDay(startOfMonth(month))).fill(null);
+            const allCells = [...pad.map(() => null), ...days];
+            const isCurrentMonth = monthIdx === CURRENT_MONTH_INDEX;
 
-          {/* Weekday headers */}
-          <View style={{ flexDirection: 'row' }}>
-            {WEEKDAYS.map((d, i) => (
-              <View key={i} style={styles.dayHeader}>
-                <Text style={styles.dayHeaderText}>{d}</Text>
-              </View>
-            ))}
-          </View>
+            return (
+              <View
+                key={format(month, 'yyyy-MM')}
+                ref={isCurrentMonth ? currentMonthRef : undefined}
+                style={styles.monthBlock}
+              >
+                <Text style={styles.monthTitle}>{format(month, 'MMMM yyyy')}</Text>
 
-          {/* Day grid */}
-          <View style={styles.calendarGrid}>
-            {Array.from({ length: Math.ceil((paddingCells.length + calendarDays.length) / 7) }, (_, rowIdx) => {
-              const startCell = rowIdx * 7;
-              const allCells  = [...paddingCells.map(() => null), ...calendarDays];
-              const rowCells  = allCells.slice(startCell, startCell + 7);
-              const rowAnim   = calRowAnims[Math.min(rowIdx, calRowAnims.length - 1)];
-              return (
-                <Animated.View
-                  key={rowIdx}
-                  style={[styles.calendarRow, { opacity: rowAnim, transform: [{ translateY: rowAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}
-                >
-                  {rowCells.map((day, cellIdx) => {
-                    if (!day) return <View key={`pad-${cellIdx}`} style={styles.dayCell} />;
-                    const key        = format(day, 'yyyy-MM-dd');
-                    const dayPhotos  = photosByDate[key] ?? [];
-                    const latestDayPhoto = dayPhotos[0] ?? null;
-                    const hasPhotos  = dayPhotos.length > 0;
-                    const isToday    = isSameDay(day, new Date());
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        style={styles.dayCell}
-                        onPress={() => { if (!latestDayPhoto) return; setSelectedDay(day); expandFromCell(key, latestDayPhoto); }}
-                        activeOpacity={hasPhotos ? 0.7 : 1}
-                      >
-                        <View
-                          ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
-                          style={[
-                            styles.dayCellCircle,
-                            hasPhotos && styles.dayCellLogged,
-                            isToday && styles.dayCellTodayLogged,
-                          ]}
-                        >
-                          {hasPhotos && (
-                            <View style={styles.dayCellInner}>
-                              {latestDayPhoto?.photo_url ? (
-                                <Image source={{ uri: latestDayPhoto.photo_url }} style={styles.dayCellThumb} />
-                              ) : null}
+                {/* Weekday headers */}
+                <View style={{ flexDirection: 'row' }}>
+                  {WEEKDAYS.map((d, i) => (
+                    <View key={i} style={styles.dayHeader}>
+                      <Text style={styles.dayHeaderText}>{d}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Day grid */}
+                {Array.from({ length: Math.ceil(allCells.length / 7) }, (_, rowIdx) => {
+                  const startCell = rowIdx * 7;
+                  const rowCells  = allCells.slice(startCell, startCell + 7);
+                  return (
+                    <View key={rowIdx} style={styles.calendarRow}>
+                      {rowCells.map((day, cellIdx) => {
+                        if (!day) return <View key={`pad-${cellIdx}`} style={styles.dayCell} />;
+                        const key        = format(day, 'yyyy-MM-dd');
+                        const dayPhotos  = photosByDate[key] ?? [];
+                        const latestDayPhoto = dayPhotos[0] ?? null;
+                        const hasPhotos  = dayPhotos.length > 0;
+                        const isToday    = isSameDay(day, new Date());
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            style={styles.dayCell}
+                            onPress={() => { if (!latestDayPhoto) return; setSelectedDay(day); expandFromCell(key, latestDayPhoto); }}
+                            activeOpacity={hasPhotos ? 0.7 : 1}
+                          >
+                            <View
+                              ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
+                              style={[
+                                styles.dayCellCircle,
+                                hasPhotos && styles.dayCellLogged,
+                                isToday && styles.dayCellTodayLogged,
+                              ]}
+                            >
+                              {hasPhotos && (
+                                <View style={styles.dayCellInner}>
+                                  {latestDayPhoto?.photo_url ? (
+                                    <Image source={{ uri: latestDayPhoto.photo_url }} style={styles.dayCellThumb} />
+                                  ) : null}
+                                </View>
+                              )}
+                              <Text style={[
+                                styles.dayCellNumber,
+                                hasPhotos && styles.dayCellNumberLogged,
+                              ]}>
+                                {format(day, 'd')}
+                              </Text>
                             </View>
-                          )}
-                          <Text style={[
-                            styles.dayCellNumber,
-                            hasPhotos && styles.dayCellNumberLogged,
-                          ]}>
-                            {format(day, 'd')}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </Animated.View>
-              );
-            })}
-          </View>
-        </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          })}
+          <View style={{ height: 100 }} />
+        </ScrollView>
       )}
 
       {/* ── DETAIL MODAL ──────────────────────────────────────────────────── */}
@@ -685,15 +688,21 @@ const styles = StyleSheet.create({
   // Calendar full screen layout
   calendarFull: {
     flex: 1,
-    paddingHorizontal: 0,
   },
 
   // Calendar
-  monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
-  monthNavBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
-  monthTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
-  calendarGrid: { flex: 1 },
-  calendarRow: { flexDirection: 'row', flex: 1 },
+  monthBlock: {
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.sm,
+  },
+  monthTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: Colors.text,
+    paddingHorizontal: Spacing.lg,
+    marginBottom: Spacing.md,
+  },
+  calendarRow: { flexDirection: 'row' },
   dayHeader: { width: DAY_CELL, alignItems: 'center', paddingBottom: Spacing.sm },
   dayHeaderText: { fontSize: 12, color: Colors.white, fontWeight: '700', letterSpacing: 0.3 },
   dayCell: {
