@@ -71,21 +71,6 @@ const ChevronRightIcon = ({ size = 28, color = Colors.primary }: { size?: number
   </Svg>
 );
 
-/** Chevron down icon */
-const ChevronDownIcon = ({ size = 28, color = Colors.text }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Polyline points="6,9 12,15 18,9" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-  </Svg>
-);
-
-/** Down arrow icon for metrics */
-const ArrowDownIcon = ({ size = 14, color = Colors.success }: { size?: number; color?: string }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Line x1={12} y1={5} x2={12} y2={19} stroke={color} strokeWidth={2.5} strokeLinecap="round" />
-    <Polyline points="19,12 12,19 5,12" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-  </Svg>
-);
-import { ProgressChart } from '@/components/ProgressChart';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, subMonths, differenceInWeeks } from 'date-fns';
 
 type ProgressPhoto = {
@@ -101,9 +86,8 @@ type ProgressPhoto = {
   created_at: string;
 };
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-// Card inner width = screen - scrollContent padding (xxl*2) - card padding (xl*2)
-const DAY_CELL = Math.floor((SCREEN_WIDTH - Spacing.xxl * 2 - Spacing.xl * 2) / 7);
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const DAY_CELL = Math.floor(SCREEN_WIDTH / 7);
 
 const ZONE_LABELS: Record<string, string> = {
   forehead: 'Forehead',
@@ -137,12 +121,10 @@ export default function ProgressScreen() {
   const [savingNote, setSavingNote] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  // Fullscreen calendar state
-  const [calendarFullscreen, setCalendarFullscreen] = useState(false);
 
   // Expand animation state
   const expandAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(1)).current;
+
   const [expandPhoto, setExpandPhoto] = useState<ProgressPhoto | null>(null);
   const [expandOrigin, setExpandOrigin] = useState({ x: 0, y: 0, size: 0 });
   const cellRefs = useRef<Record<string, View | null>>({});
@@ -319,79 +301,7 @@ export default function ProgressScreen() {
     return acc;
   }, {});
 
-  // ─── Render a month grid ─────────────────────────────────────────────────
-  const renderMonthGrid = (month: Date, cellWidth: number) => {
-    const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
-    const pad = Array(getDay(startOfMonth(month))).fill(null);
 
-    return (
-      <View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-          {WEEKDAYS.map((d, i) => (
-            <View key={i} style={{ width: cellWidth, alignItems: 'center', paddingBottom: Spacing.sm }}>
-              <Text style={styles.dayHeaderText}>{d}</Text>
-            </View>
-          ))}
-          {pad.map((_, i) => <View key={`p-${i}`} style={{ width: cellWidth, height: cellWidth }} />)}
-          {days.map(day => {
-            const key = format(day, 'yyyy-MM-dd');
-            const dayPhotos = photosByDate[key] ?? [];
-            const latestDayPhoto = dayPhotos[0] ?? null;
-            const hasPhotos = dayPhotos.length > 0;
-            const isToday = isSameDay(day, new Date());
-            const circleSize = cellWidth * 0.78;
-
-            return (
-              <TouchableOpacity
-                key={key}
-                style={{ width: cellWidth, height: cellWidth, justifyContent: 'center', alignItems: 'center', marginBottom: 2 }}
-                onPress={() => {
-                  if (!latestDayPhoto) return;
-                  setCalendarFullscreen(false);
-                  setSelectedDay(day);
-                  expandFromCell(key, latestDayPhoto);
-                }}
-                activeOpacity={hasPhotos ? 0.7 : 1}
-              >
-                <View
-                  ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
-                  style={[
-                    { width: circleSize, height: circleSize, borderRadius: circleSize / 2, justifyContent: 'center', alignItems: 'center' },
-                    hasPhotos && styles.dayCellLogged,
-                    isToday && styles.dayCellTodayLogged,
-                  ]}
-                >
-                  {hasPhotos && (
-                    <View style={{ ...StyleSheet.absoluteFillObject, borderRadius: circleSize / 2, overflow: 'hidden', backgroundColor: 'rgba(124,92,252,0.25)' }}>
-                      {latestDayPhoto?.photo_url ? (
-                        <Image source={{ uri: latestDayPhoto.photo_url }} style={{ width: '100%', height: '100%' }} />
-                      ) : null}
-                    </View>
-                  )}
-                  <Text style={[
-                    styles.dayCellNumber,
-                    hasPhotos && styles.dayCellNumberLogged,
-                  ]}>
-                    {format(day, 'd')}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
-
-  // ─── Chart + before/after data ────────────────────────────────────────────
-  const chartData = [...photos].reverse().map(p => ({
-    x: p.week_number, y: p.severity_score, label: `Week ${p.week_number}`,
-  }));
-  const latestPhoto = photos[0];
-  const firstPhoto = photos[photos.length - 1];
-
-  // Determine current week for comparison header
-  const currentWeek = latestPhoto?.week_number ?? 1;
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
@@ -402,7 +312,6 @@ export default function ProgressScreen() {
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Progress log</Text>
-            <Text style={styles.headerSubtitle}>Monitor your skin journey week by week</Text>
           </View>
           <TouchableOpacity
             style={[styles.logButton, uploading && styles.buttonDisabled]}
@@ -422,299 +331,84 @@ export default function ProgressScreen() {
           <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-          {/* ── 1. CALENDAR ──────────────────────────────────────────────── */}
-          <View style={styles.card}>
-            <View style={styles.monthNav}>
-              <TouchableOpacity onPress={() => setCalendarMonth(m => subMonths(m, 1))} style={styles.monthNavBtn}>
-                <ChevronLeftIcon size={28} color={Colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setCalendarFullscreen(true)} activeOpacity={0.7}>
-                <Text style={styles.monthTitle}>{format(calendarMonth, 'MMMM yyyy')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setCalendarMonth(m => addMonths(m, 1))} style={styles.monthNavBtn}>
-                <ChevronRightIcon size={28} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.calendarGrid}>
-              <View style={{ flexDirection: 'row' }}>
-                {WEEKDAYS.map((d, i) => (
-                  <View key={i} style={styles.dayHeader}>
-                    <Text style={styles.dayHeaderText}>{d}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {Array.from({ length: Math.ceil((paddingCells.length + calendarDays.length) / 7) }, (_, rowIdx) => {
-                const startCell = rowIdx * 7;
-                const allCells  = [...paddingCells.map(() => null), ...calendarDays];
-                const rowCells  = allCells.slice(startCell, startCell + 7);
-                const rowAnim   = calRowAnims[Math.min(rowIdx, calRowAnims.length - 1)];
-                return (
-                  <Animated.View
-                    key={rowIdx}
-                    style={{ flexDirection: 'row', opacity: rowAnim, transform: [{ translateY: rowAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }}
-                  >
-                    {rowCells.map((day, cellIdx) => {
-                      if (!day) return <View key={`pad-${cellIdx}`} style={styles.dayCell} />;
-                      const key        = format(day, 'yyyy-MM-dd');
-                      const dayPhotos  = photosByDate[key] ?? [];
-                      const latestDayPhoto = dayPhotos[0] ?? null;
-                      const hasPhotos  = dayPhotos.length > 0;
-                      const isToday    = isSameDay(day, new Date());
-                      return (
-                        <TouchableOpacity
-                          key={key}
-                          style={styles.dayCell}
-                          onPress={() => { if (!latestDayPhoto) return; setSelectedDay(day); expandFromCell(key, latestDayPhoto); }}
-                          activeOpacity={hasPhotos ? 0.7 : 1}
-                        >
-                          <View
-                            ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
-                            style={[
-                              styles.dayCellCircle,
-                              hasPhotos && styles.dayCellLogged,
-                              isToday && styles.dayCellTodayLogged,
-                            ]}
-                          >
-                            {hasPhotos && (
-                              <View style={styles.dayCellInner}>
-                                {latestDayPhoto?.photo_url ? (
-                                  <Image source={{ uri: latestDayPhoto.photo_url }} style={styles.dayCellThumb} />
-                                ) : null}
-                              </View>
-                            )}
-                            <Text style={[
-                              styles.dayCellNumber,
-                              hasPhotos && styles.dayCellNumberLogged,
-                            ]}>
-                              {format(day, 'd')}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </Animated.View>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* ── 2. WEEK COMPARISON ───────────────────────────────────────── */}
-          {photos.length >= 2 ? (
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionLabel}>DAY {photos.length} COMPARISON</Text>
-              <View style={styles.comparisonRow}>
-                <TouchableOpacity style={styles.comparisonCard} onPress={() => openModal(0)}>
-                  <Image source={{ uri: latestPhoto.photo_url }} style={styles.compareImage} />
-                  <View style={styles.compareInfo}>
-                    <Text style={styles.compareDateText}>{format(new Date(latestPhoto.created_at), 'MMMM d')}</Text>
-                    <Text style={styles.compareWeekText}>Day {photos.length} · Today</Text>
-                  </View>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.comparisonCard} onPress={() => openModal(photos.length - 1)}>
-                  <Image source={{ uri: firstPhoto.photo_url }} style={styles.compareImage} />
-                  <View style={styles.compareInfo}>
-                    <Text style={styles.compareDateText}>{format(new Date(firstPhoto.created_at), 'MMMM d')}</Text>
-                    <Text style={styles.compareWeekText}>Day 1</Text>
-                  </View>
-                </TouchableOpacity>
-              </View>
-
-              {/* Metric cards */}
-              <View style={styles.metricsRow}>
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Active breakouts</Text>
-                  {latestPhoto.improvement_percentage != null ? (
-                    <View style={styles.metricValueRow}>
-                      <ArrowDownIcon size={14} color={Colors.primary} />
-                      <Text style={styles.metricValue}>
-                        {` ${Math.abs(latestPhoto.improvement_percentage).toFixed(0)}%`}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.metricValue}>--</Text>
-                  )}
-                </View>
-                <View style={styles.metricCard}>
-                  <Text style={styles.metricLabel}>Redness score</Text>
-                  {latestPhoto.severity_score != null ? (
-                    <View style={styles.metricValueRow}>
-                      <ArrowDownIcon size={14} color={Colors.primary} />
-                      <Text style={styles.metricValue}>
-                        {` ${Math.max(0, Math.round((1 - latestPhoto.severity_score / (firstPhoto?.severity_score || 10)) * 100))}%`}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.metricValue}>--</Text>
-                  )}
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Week Comparison</Text>
-              <Text style={styles.placeholderText}>Log a second check-in to compare your progress over time.</Text>
-            </View>
-          )}
-
-          {/* ── 3. SEVERITY CHART ────────────────────────────────────────── */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Severity Over Time</Text>
-            <Text style={styles.cardSubtitle}>Lower score = clearer skin</Text>
-            <ProgressChart data={chartData} />
-          </View>
-
-        </ScrollView>
-      )}
-
-      {/* ── FULLSCREEN CALENDAR ─────────────────────────────────────────── */}
-      <Modal visible={calendarFullscreen} animationType="slide" presentationStyle="fullScreen" onRequestClose={() => setCalendarFullscreen(false)}>
-        <View style={[styles.fullCalRoot, { paddingTop: insets.top }]}>
-          <View style={styles.fullCalHeader}>
-            <TouchableOpacity onPress={() => setCalendarFullscreen(false)} style={styles.fullCalBackBtn}>
-              <ChevronLeftIcon size={28} color={Colors.primary} />
+        <View style={styles.calendarFull}>
+          {/* Month navigation */}
+          <View style={styles.monthNav}>
+            <TouchableOpacity onPress={() => setCalendarMonth(m => subMonths(m, 1))} style={styles.monthNavBtn}>
+              <ChevronLeftIcon size={28} color={Colors.textSecondary} />
             </TouchableOpacity>
-            <Text style={styles.fullCalTitle}>Progress</Text>
-            <View style={{ width: 40 }} />
+            <Text style={styles.monthTitle}>{format(calendarMonth, 'MMMM yyyy')}</Text>
+            <TouchableOpacity onPress={() => setCalendarMonth(m => addMonths(m, 1))} style={styles.monthNavBtn}>
+              <ChevronRightIcon size={28} color={Colors.textSecondary} />
+            </TouchableOpacity>
           </View>
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.fullCalScroll}
-            ref={(ref) => {
-              if (ref) setTimeout(() => ref.scrollToEnd({ animated: false }), 50);
-            }}
-          >
-            {(() => {
-              const months: Date[] = [];
-              for (let i = -11; i <= 0; i++) {
-                months.push(addMonths(new Date(), i));
-              }
-              const tileSize = Math.floor((SCREEN_WIDTH - 6) / 7); // minimal gap
-              return months.map(month => {
-                const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
-                const pad = Array(getDay(startOfMonth(month))).fill(null);
-                return (
-                  <View key={format(month, 'yyyy-MM')} style={styles.fullCalMonth}>
-                    <Text style={styles.fullCalMonthTitle}>{format(month, 'MMMM yyyy')}</Text>
-                    {/* Weekday headers */}
-                    <View style={{ flexDirection: 'row' }}>
-                      {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(d => (
-                        <View key={d} style={{ width: tileSize, alignItems: 'center', paddingBottom: 6 }}>
-                          <Text style={styles.fullCalDayHeader}>{d}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    {/* Day grid */}
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                      {pad.map((_, i) => <View key={`p-${i}`} style={{ width: tileSize, height: tileSize }} />)}
-                      {days.map(day => {
-                        const key = format(day, 'yyyy-MM-dd');
-                        const dayPhotos = photosByDate[key] ?? [];
-                        const photo = dayPhotos[0] ?? null;
-                        const hasPhoto = !!photo;
-                        const isToday = isSameDay(day, new Date());
 
-                        return (
-                          <TouchableOpacity
-                            key={key}
-                            style={{ width: tileSize, height: tileSize, padding: 1 }}
-                            activeOpacity={hasPhoto ? 0.7 : 1}
-                            onPress={() => {
-                              if (!photo) return;
-                              slideAnim.setValue(1);
-                              setExpandPhoto(photo);
-                              Animated.timing(slideAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start();
-                            }}
-                          >
-                            {hasPhoto ? (
-                              <View style={styles.fullCalTile}>
-                                <Image source={{ uri: photo.photo_url }} style={styles.fullCalTileImage} />
-                                <Text style={styles.fullCalTileDay}>{format(day, 'd')}</Text>
-                              </View>
-                            ) : (
-                              <View style={[styles.fullCalEmptyTile, isToday && styles.fullCalTodayTile]}>
-                                <Text style={[styles.fullCalEmptyDay, isToday && styles.fullCalTodayDay]}>
-                                  {format(day, 'd')}
-                                </Text>
-                              </View>
-                            )}
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                );
-              });
-            })()}
-          </ScrollView>
+          {/* Weekday headers */}
+          <View style={{ flexDirection: 'row' }}>
+            {WEEKDAYS.map((d, i) => (
+              <View key={i} style={styles.dayHeader}>
+                <Text style={styles.dayHeaderText}>{d}</Text>
+              </View>
+            ))}
+          </View>
 
-          {/* Photo detail slides up from bottom in fullscreen calendar */}
-          <Modal
-            visible={!!expandPhoto}
-            animationType="none"
-            transparent
-            onRequestClose={() => {
-              Animated.timing(slideAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start(() => setExpandPhoto(null));
-            }}
-          >
-            {expandPhoto && (
-              <Animated.View style={[styles.slideUpRoot, {
-                transform: [{ translateY: slideAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 600] }) }],
-              }]}>
-                {/* Close button */}
-                <TouchableOpacity style={styles.slideUpCloseBtn} onPress={() => {
-                  Animated.timing(slideAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start(() => setExpandPhoto(null));
-                }} activeOpacity={0.7}>
-                  <ChevronDownIcon size={28} color={Colors.text} />
-                </TouchableOpacity>
-
-                {/* Swipeable photos */}
-                {/* Swipeable — chronological (oldest first, swipe right = forward) */}
-                <FlatList
-                  data={[...photos].reverse()}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  keyExtractor={p => p.id}
-                  initialScrollIndex={Math.max(0, photos.length - 1 - photos.findIndex(p => p.id === expandPhoto.id))}
-                  getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
-                  onMomentumScrollEnd={e => {
-                    const reversed = [...photos].reverse();
-                    const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-                    if (reversed[idx]) setExpandPhoto(reversed[idx]);
-                  }}
-                  renderItem={({ item: photo }) => (
-                    <ScrollView style={{ width: SCREEN_WIDTH }} showsVerticalScrollIndicator={false} bounces={false}>
-                      <Image
-                        source={{ uri: photo.photo_url, width: SCREEN_WIDTH, height: SCREEN_WIDTH }}
-                        style={{ width: SCREEN_WIDTH, aspectRatio: 1 }}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.expandInfo}>
-                        <Text style={styles.expandDate}>
-                          {format(new Date(photo.created_at), 'MMMM d, yyyy')}
-                        </Text>
-                        <Text style={styles.expandWeekLabel}>Week {photo.week_number}</Text>
-                        {photo.analysis_notes ? (
-                          <View style={styles.expandSection}>
-                            <Text style={styles.expandSectionTitle}>AI Analysis</Text>
-                            <View style={styles.expandAnalysisBox}>
-                              <Text style={styles.expandAnalysisText}>{photo.analysis_notes}</Text>
+          {/* Day grid */}
+          <View style={styles.calendarGrid}>
+            {Array.from({ length: Math.ceil((paddingCells.length + calendarDays.length) / 7) }, (_, rowIdx) => {
+              const startCell = rowIdx * 7;
+              const allCells  = [...paddingCells.map(() => null), ...calendarDays];
+              const rowCells  = allCells.slice(startCell, startCell + 7);
+              const rowAnim   = calRowAnims[Math.min(rowIdx, calRowAnims.length - 1)];
+              return (
+                <Animated.View
+                  key={rowIdx}
+                  style={[styles.calendarRow, { opacity: rowAnim, transform: [{ translateY: rowAnim.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }] }]}
+                >
+                  {rowCells.map((day, cellIdx) => {
+                    if (!day) return <View key={`pad-${cellIdx}`} style={styles.dayCell} />;
+                    const key        = format(day, 'yyyy-MM-dd');
+                    const dayPhotos  = photosByDate[key] ?? [];
+                    const latestDayPhoto = dayPhotos[0] ?? null;
+                    const hasPhotos  = dayPhotos.length > 0;
+                    const isToday    = isSameDay(day, new Date());
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={styles.dayCell}
+                        onPress={() => { if (!latestDayPhoto) return; setSelectedDay(day); expandFromCell(key, latestDayPhoto); }}
+                        activeOpacity={hasPhotos ? 0.7 : 1}
+                      >
+                        <View
+                          ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
+                          style={[
+                            styles.dayCellCircle,
+                            hasPhotos && styles.dayCellLogged,
+                            isToday && styles.dayCellTodayLogged,
+                          ]}
+                        >
+                          {hasPhotos && (
+                            <View style={styles.dayCellInner}>
+                              {latestDayPhoto?.photo_url ? (
+                                <Image source={{ uri: latestDayPhoto.photo_url }} style={styles.dayCellThumb} />
+                              ) : null}
                             </View>
-                          </View>
-                        ) : null}
-                      </View>
-                    </ScrollView>
-                  )}
-                />
-              </Animated.View>
-            )}
-          </Modal>
+                          )}
+                          <Text style={[
+                            styles.dayCellNumber,
+                            hasPhotos && styles.dayCellNumberLogged,
+                          ]}>
+                            {format(day, 'd')}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </Animated.View>
+              );
+            })}
+          </View>
         </View>
-      </Modal>
+      )}
 
       {/* ── DETAIL MODAL ──────────────────────────────────────────────────── */}
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setModalVisible(false)}>
@@ -950,9 +644,9 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    paddingHorizontal: Spacing.xxl,
+    paddingHorizontal: Spacing.xl,
     paddingTop: Spacing.md,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.sm,
     backgroundColor: Colors.background,
   },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -988,39 +682,30 @@ const styles = StyleSheet.create({
   },
   startButtonText: { ...Typography.headlineSmall, color: Colors.white },
 
-  // Scroll
-  scrollContent: { padding: Spacing.xxl, gap: Spacing.lg, paddingBottom: 100 },
-
-  // Cards
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    gap: Spacing.md,
+  // Calendar full screen layout
+  calendarFull: {
+    flex: 1,
+    paddingHorizontal: 0,
   },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: Colors.text },
-  cardSubtitle: { fontSize: 11, color: Colors.textSecondary, marginTop: -Spacing.sm },
 
   // Calendar
-  monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.sm },
-  monthNavBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
-  monthTitle: { fontSize: 18, fontWeight: '600', color: Colors.text },
-  calendarGrid: { flexDirection: 'column' },
+  monthNav: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: Spacing.md, marginBottom: Spacing.sm },
+  monthNavBtn: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  monthTitle: { fontSize: 20, fontWeight: '700', color: Colors.text },
+  calendarGrid: { flex: 1 },
+  calendarRow: { flexDirection: 'row', flex: 1 },
   dayHeader: { width: DAY_CELL, alignItems: 'center', paddingBottom: Spacing.sm },
-  dayHeaderText: { fontSize: 11, color: Colors.white, fontWeight: '700', letterSpacing: 0.3 },
+  dayHeaderText: { fontSize: 12, color: Colors.white, fontWeight: '700', letterSpacing: 0.3 },
   dayCell: {
     width: DAY_CELL,
-    height: DAY_CELL,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 2,
   },
   dayCellCircle: {
-    width: DAY_CELL * 0.78,
-    height: DAY_CELL * 0.78,
-    borderRadius: DAY_CELL * 0.39,
+    width: DAY_CELL * 0.82,
+    height: DAY_CELL * 0.82,
+    borderRadius: DAY_CELL * 0.41,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1038,14 +723,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: DAY_CELL * 0.39,
+    borderRadius: DAY_CELL * 0.41,
     overflow: 'hidden',
     backgroundColor: 'rgba(124,92,252,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   dayCellNumber: {
-    fontSize: 13,
+    fontSize: 15,
     color: Colors.white,
     fontWeight: '500',
   },
@@ -1061,44 +746,6 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-
-  // Week Comparison Section
-  sectionBlock: { gap: Spacing.md },
-  sectionLabel: {
-    ...Typography.labelSmall,
-    color: Colors.textMuted,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  comparisonRow: { flexDirection: 'row', gap: Spacing.md },
-  comparisonCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  compareImage: { width: '100%', aspectRatio: 1 },
-  compareInfo: { padding: Spacing.md },
-  compareDateText: { fontSize: 12, fontWeight: '600', color: Colors.text },
-  compareWeekText: { fontSize: 11, color: Colors.textSecondary, marginTop: Spacing.xxs },
-
-  // Metric cards
-  metricsRow: { flexDirection: 'row', gap: Spacing.md },
-  metricCard: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  metricLabel: { fontSize: 11, color: Colors.textSecondary, marginBottom: Spacing.xs },
-  metricValueRow: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  metricValue: { fontSize: 16, fontWeight: '700', color: Colors.primary },
-
-  placeholderText: { fontSize: 12, color: Colors.textSecondary },
 
   // Zone rows
   zoneRow: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: '#E8E2D8' },
@@ -1176,78 +823,6 @@ const styles = StyleSheet.create({
   },
   saveNoteBtnText: { ...Typography.labelLarge, color: Colors.white },
 
-  // Slide-up photo detail (fullscreen calendar)
-  slideUpRoot: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    maxHeight: '75%',
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: BorderRadius.xxl,
-    borderTopRightRadius: BorderRadius.xxl,
-    overflow: 'hidden',
-    ...Shadows.xl,
-  },
-  slideUpCloseBtn: {
-    alignSelf: 'center',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.xl,
-  },
-
-  // Fullscreen calendar
-  fullCalRoot: { flex: 1, backgroundColor: Colors.background },
-  fullCalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  fullCalBackBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  fullCalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
-  fullCalScroll: { paddingBottom: 60 },
-  fullCalMonth: { marginTop: Spacing.xl, paddingHorizontal: 3 },
-  fullCalMonthTitle: { fontSize: 22, fontWeight: '800', color: Colors.text, marginBottom: Spacing.sm, paddingHorizontal: Spacing.sm },
-  fullCalDayHeader: { fontSize: 10, fontWeight: '600', color: Colors.textMuted, letterSpacing: 0.5 },
-  fullCalTile: {
-    flex: 1,
-    borderRadius: 4,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  fullCalTileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 4,
-  },
-  fullCalTileDay: {
-    position: 'absolute',
-    bottom: 3,
-    left: 5,
-    fontSize: 13,
-    fontWeight: '700',
-    color: Colors.white,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  fullCalEmptyTile: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingBottom: 3,
-    paddingLeft: 5,
-  },
-  fullCalTodayTile: {},
-  fullCalEmptyDay: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textMuted,
-  },
-  fullCalTodayDay: {
-    color: Colors.secondary,
-    fontWeight: '800',
-  },
 
   // Expand overlay
   expandOverlay: {
