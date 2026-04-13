@@ -86,7 +86,8 @@ type ProgressPhoto = {
 };
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const DAY_CELL = Math.floor(SCREEN_WIDTH / 7);
+const DAY_CELL_W = Math.floor(SCREEN_WIDTH / 7);
+const DAY_CELL_H = Math.floor(DAY_CELL_W * 1.4); // taller rectangles like BeReal
 
 const ZONE_LABELS: Record<string, string> = {
   forehead: 'Forehead',
@@ -96,7 +97,7 @@ const ZONE_LABELS: Record<string, string> = {
   chin: 'Chin & Jaw',
 };
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export default function ProgressScreen() {
   const insets = useSafeAreaInsets();
@@ -381,7 +382,7 @@ export default function ProgressScreen() {
                             <View
                               ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
                               style={[
-                                styles.dayCellCircle,
+                                styles.dayCellRect,
                                 hasPhotos && styles.dayCellLogged,
                                 isToday && styles.dayCellTodayLogged,
                               ]}
@@ -702,28 +703,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginBottom: Spacing.md,
   },
-  calendarRow: { flexDirection: 'row' },
-  dayHeader: { width: DAY_CELL, alignItems: 'center', paddingBottom: Spacing.sm },
-  dayHeaderText: { fontSize: 12, color: Colors.white, fontWeight: '700', letterSpacing: 0.3 },
+  calendarRow: { flexDirection: 'row', marginBottom: 2 },
+  dayHeader: { width: DAY_CELL_W, alignItems: 'center', paddingBottom: Spacing.sm },
+  dayHeaderText: { fontSize: 11, color: Colors.textMuted, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' },
   dayCell: {
-    width: DAY_CELL,
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: DAY_CELL_W,
+    height: DAY_CELL_H,
+    padding: 1,
   },
-  dayCellCircle: {
-    width: DAY_CELL * 0.82,
-    height: DAY_CELL * 0.82,
-    borderRadius: DAY_CELL * 0.41,
-    justifyContent: 'center',
+  dayCellRect: {
+    flex: 1,
+    borderRadius: 8,
+    justifyContent: 'flex-end',
     alignItems: 'center',
+    paddingBottom: 4,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   dayCellLogged: {
-    borderWidth: 2,
-    borderColor: Colors.white,
+    overflow: 'hidden',
   },
   dayCellTodayLogged: {
-    borderWidth: 2.5,
+    borderWidth: 2,
     borderColor: Colors.primary,
   },
   dayCellInner: {
@@ -732,15 +732,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderRadius: DAY_CELL * 0.41,
+    borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: 'rgba(124,92,252,0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   dayCellNumber: {
-    fontSize: 15,
-    color: Colors.white,
+    fontSize: 14,
+    color: Colors.textMuted,
     fontWeight: '500',
   },
   dayCellThumb: {
@@ -751,9 +748,9 @@ const styles = StyleSheet.create({
   dayCellNumberLogged: {
     color: Colors.white,
     fontWeight: '700',
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
   },
 
   // Zone rows
