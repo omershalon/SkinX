@@ -16,6 +16,14 @@ import {
   Platform,
   Animated,
 } from 'react-native';
+import Reanimated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  interpolate,
+  runOnJS,
+} from 'react-native-reanimated';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -120,9 +128,8 @@ export default function ProgressScreen() {
   const flatListRef = useRef<FlatList>(null);
 
 
-  // Expand animation state
-  const expandAnim = useRef(new Animated.Value(0)).current;
-
+  // Bottom sheet animation (Reanimated — runs on UI thread)
+  const sheetProgress = useSharedValue(0);
   const [expandPhoto, setExpandPhoto] = useState<ProgressPhoto | null>(null);
   const burstRef = useRef<ParticleBurstHandle>(null);
 
@@ -237,24 +244,30 @@ export default function ProgressScreen() {
     }, 50);
   };
 
+  // Reanimated animated styles for the bottom sheet
+  const sheetAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(sheetProgress.value, [0, 1], [SCREEN_HEIGHT * 0.9, 0]) }],
+  }));
+  const backdropAnimStyle = useAnimatedStyle(() => ({
+    opacity: sheetProgress.value,
+  }));
+
   // ─── Expand from calendar cell ────────────────────────────────────────────
   const expandFromCell = (_dateKey: string, photo: ProgressPhoto) => {
     setExpandPhoto(photo);
-    expandAnim.setValue(0);
-    Animated.timing(expandAnim, {
-      toValue: 1,
+    sheetProgress.value = 0;
+    sheetProgress.value = withTiming(1, {
       duration: 350,
-      useNativeDriver: true,
-    }).start();
+      easing: Easing.out(Easing.cubic),
+    });
   };
 
   const closeExpand = () => {
-    Animated.timing(expandAnim, {
-      toValue: 0,
+    sheetProgress.value = withTiming(0, {
       duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      setExpandPhoto(null);
+      easing: Easing.in(Easing.cubic),
+    }, (finished) => {
+      if (finished) runOnJS(setExpandPhoto)(null);
     });
   };
 
@@ -535,19 +548,11 @@ export default function ProgressScreen() {
       {/* ── BOTTOM SHEET PHOTO DETAIL ──────────────────────────────────── */}
       {expandPhoto && (
         <View style={styles.expandOverlay}>
-          <Animated.View style={[styles.expandBackdrop, { opacity: expandAnim }]}>
+          <Reanimated.View style={[styles.expandBackdrop, backdropAnimStyle]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeExpand} />
-          </Animated.View>
-          <Animated.View
-            style={[
-              styles.expandSheet,
-              {
-                transform: [
-                  { translateY: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_HEIGHT * 0.9, 0] }) },
-                ],
-              },
-            ]}
-          >
+          </Reanimated.View>
+          <Reanimated.View style={[styles.expandSheet, sheetAnimStyle]}>
+
             {/* Drag handle */}
             <TouchableOpacity onPress={closeExpand} activeOpacity={0.7} style={styles.sheetHandleArea}>
               <View style={styles.sheetHandle} />
@@ -610,7 +615,7 @@ export default function ProgressScreen() {
                 </ScrollView>
               )}
             />
-          </Animated.View>
+          </Reanimated.View>
         </View>
       )}
       <ParticleBurst ref={burstRef} />
