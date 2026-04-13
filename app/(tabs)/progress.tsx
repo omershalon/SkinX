@@ -109,8 +109,7 @@ export default function ProgressScreen() {
   // Calendar state
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const scrollRef = useRef<ScrollView>(null);
-  const currentMonthRef = useRef<View>(null);
-  const [scrollReady, setScrollReady] = useState(false);
+  const hasScrolledRef = useRef(false);
 
   // Detail modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -322,19 +321,6 @@ export default function ProgressScreen() {
           ref={scrollRef}
           style={styles.calendarFull}
           showsVerticalScrollIndicator={false}
-          onLayout={() => {
-            // Scroll to current month on first layout
-            if (!scrollReady) {
-              setTimeout(() => {
-                currentMonthRef.current?.measureLayout(
-                  scrollRef.current?.getInnerViewNode(),
-                  (_x, y) => { scrollRef.current?.scrollTo({ y: y - Spacing.md, animated: false }); },
-                  () => {}
-                );
-              }, 100);
-              setScrollReady(true);
-            }
-          }}
         >
           {allMonths.map((month, monthIdx) => {
             const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
@@ -345,8 +331,13 @@ export default function ProgressScreen() {
             return (
               <View
                 key={format(month, 'yyyy-MM')}
-                ref={isCurrentMonth ? currentMonthRef : undefined}
                 style={styles.monthBlock}
+                onLayout={isCurrentMonth ? (e) => {
+                  if (!hasScrolledRef.current) {
+                    hasScrolledRef.current = true;
+                    scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: false });
+                  }
+                } : undefined}
               >
                 <Text style={styles.monthTitle}>{format(month, 'MMMM yyyy')}</Text>
 
