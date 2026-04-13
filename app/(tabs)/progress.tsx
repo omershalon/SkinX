@@ -118,7 +118,7 @@ export default function ProgressScreen() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const hasScrolledRef = useRef(false);
-  const currentMonthY = useRef(0);
+  const monthYPositions = useRef<Record<number, number>>({});
 
   // Detail modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -322,10 +322,13 @@ export default function ProgressScreen() {
           ref={scrollRef}
           style={styles.calendarFull}
           showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => {
-            if (!hasScrolledRef.current && currentMonthY.current > 0) {
-              hasScrolledRef.current = true;
-              scrollRef.current?.scrollTo({ y: currentMonthY.current, animated: false });
+          onContentSizeChange={(_w, h) => {
+            if (!hasScrolledRef.current && h > 0) {
+              const y = monthYPositions.current[CURRENT_MONTH_INDEX];
+              if (y != null && y > 0) {
+                hasScrolledRef.current = true;
+                scrollRef.current?.scrollTo({ y, animated: false });
+              }
             }
           }}
         >
@@ -339,16 +342,16 @@ export default function ProgressScreen() {
               <View
                 key={format(month, 'yyyy-MM')}
                 style={styles.monthBlock}
-                onLayout={isCurrentMonth ? (e) => {
-                  const y = e.nativeEvent.layout.y;
-                  currentMonthY.current = y;
-                  if (!hasScrolledRef.current) {
+                onLayout={(e) => {
+                  monthYPositions.current[monthIdx] = e.nativeEvent.layout.y;
+                  if (isCurrentMonth && !hasScrolledRef.current) {
+                    const y = e.nativeEvent.layout.y;
+                    // Try immediately and with delays to ensure ScrollView is ready
                     hasScrolledRef.current = true;
-                    requestAnimationFrame(() => {
-                      scrollRef.current?.scrollTo({ y, animated: false });
-                    });
+                    scrollRef.current?.scrollTo({ y, animated: false });
+                    setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50);
                   }
-                } : undefined}
+                }}
               >
                 <Text style={styles.monthTitle}>{format(month, 'MMMM yyyy')}</Text>
 
