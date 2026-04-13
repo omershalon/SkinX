@@ -110,6 +110,7 @@ export default function ProgressScreen() {
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const hasScrolledRef = useRef(false);
+  const currentMonthY = useRef(0);
 
   // Detail modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -309,6 +310,12 @@ export default function ProgressScreen() {
           ref={scrollRef}
           style={styles.calendarFull}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => {
+            if (!hasScrolledRef.current && currentMonthY.current > 0) {
+              hasScrolledRef.current = true;
+              scrollRef.current?.scrollTo({ y: currentMonthY.current, animated: false });
+            }
+          }}
         >
           {allMonths.map((month, monthIdx) => {
             const days = eachDayOfInterval({ start: startOfMonth(month), end: endOfMonth(month) });
@@ -321,9 +328,12 @@ export default function ProgressScreen() {
                 key={format(month, 'yyyy-MM')}
                 style={styles.monthBlock}
                 onLayout={isCurrentMonth ? (e) => {
+                  currentMonthY.current = e.nativeEvent.layout.y;
                   if (!hasScrolledRef.current) {
                     hasScrolledRef.current = true;
-                    scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: false });
+                    requestAnimationFrame(() => {
+                      scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: false });
+                    });
                   }
                 } : undefined}
               >
