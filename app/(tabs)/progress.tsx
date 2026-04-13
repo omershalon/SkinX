@@ -814,7 +814,7 @@ const styles = StyleSheet.create({
   },
   expandSheet: {
     width: SCREEN_WIDTH,
-    maxHeight: '80%',
+    maxHeight: '90%',
     backgroundColor: Colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
