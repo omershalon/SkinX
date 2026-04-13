@@ -328,11 +328,12 @@ export default function ProgressScreen() {
                 key={format(month, 'yyyy-MM')}
                 style={styles.monthBlock}
                 onLayout={isCurrentMonth ? (e) => {
-                  currentMonthY.current = e.nativeEvent.layout.y;
+                  const y = e.nativeEvent.layout.y;
+                  currentMonthY.current = y;
                   if (!hasScrolledRef.current) {
                     hasScrolledRef.current = true;
                     requestAnimationFrame(() => {
-                      scrollRef.current?.scrollTo({ y: e.nativeEvent.layout.y, animated: false });
+                      scrollRef.current?.scrollTo({ y, animated: false });
                     });
                   }
                 } : undefined}
