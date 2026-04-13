@@ -241,10 +241,9 @@ export default function ProgressScreen() {
   const expandFromCell = (_dateKey: string, photo: ProgressPhoto) => {
     setExpandPhoto(photo);
     expandAnim.setValue(0);
-    Animated.spring(expandAnim, {
+    Animated.timing(expandAnim, {
       toValue: 1,
-      tension: 65,
-      friction: 11,
+      duration: 350,
       useNativeDriver: true,
     }).start();
   };
@@ -252,7 +251,7 @@ export default function ProgressScreen() {
   const closeExpand = () => {
     Animated.timing(expandAnim, {
       toValue: 0,
-      duration: 200,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => {
       setExpandPhoto(null);
@@ -544,7 +543,7 @@ export default function ProgressScreen() {
               styles.expandSheet,
               {
                 transform: [
-                  { translateY: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_HEIGHT, 0] }) },
+                  { translateY: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_HEIGHT * 0.9, 0] }) },
                 ],
               },
             ]}
