@@ -575,40 +575,80 @@ export default function ProgressScreen() {
               renderItem={({ item: photo }) => (
                 <ScrollView
                   style={{ width: SCREEN_WIDTH }}
+                  contentContainerStyle={{ paddingBottom: 40 }}
                   showsVerticalScrollIndicator={false}
                   bounces={false}
                 >
-                  <Image
-                    source={{ uri: photo.photo_url }}
-                    style={styles.expandImage}
-                    resizeMode="cover"
-                  />
+                  {/* Photo with padding and rounded corners */}
+                  <View style={styles.expandImageWrap}>
+                    <Image
+                      source={{ uri: photo.photo_url }}
+                      style={styles.expandImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+
                   <View style={styles.expandInfo}>
-                    <Text style={styles.expandDate}>
-                      {format(new Date(photo.created_at), 'MMMM d, yyyy')}
-                    </Text>
-                    <Text style={styles.expandWeekLabel}>Week {photo.week_number}</Text>
+                    {/* Date + Week pill row */}
+                    <View style={styles.expandDateRow}>
+                      <Text style={styles.expandDate}>
+                        {format(new Date(photo.created_at), 'MMMM d, yyyy')}
+                      </Text>
+                      <View style={styles.expandWeekPill}>
+                        <Text style={styles.expandWeekPillText}>Week {photo.week_number}</Text>
+                      </View>
+                    </View>
+
+                    {/* Score badges */}
+                    <View style={styles.expandBadgeRow}>
+                      <View style={styles.expandBadge}>
+                        <Text style={styles.expandBadgeLabel}>Severity</Text>
+                        <Text style={styles.expandBadgeValue}>{photo.severity_score.toFixed(1)}</Text>
+                      </View>
+                      {photo.improvement_percentage != null && (
+                        <View style={[styles.expandBadge, {
+                          borderColor: photo.improvement_percentage >= 0 ? Colors.success + '40' : Colors.error + '40',
+                          backgroundColor: (photo.improvement_percentage >= 0 ? Colors.success : Colors.error) + '10',
+                        }]}>
+                          <Text style={[styles.expandBadgeLabel, {
+                            color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
+                          }]}>Change</Text>
+                          <Text style={[styles.expandBadgeValue, {
+                            color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
+                          }]}>
+                            {photo.improvement_percentage > 0 ? '+' : ''}{photo.improvement_percentage.toFixed(0)}%
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* AI Analysis card */}
                     {photo.analysis_notes ? (
-                      <View style={styles.expandSection}>
-                        <Text style={styles.expandSectionTitle}>AI Analysis</Text>
-                        <View style={styles.expandAnalysisBox}>
+                      <View style={styles.expandAnalysisCard}>
+                        <View style={styles.expandAnalysisAccent} />
+                        <View style={styles.expandAnalysisContent}>
+                          <Text style={styles.expandSectionTitle}>AI Analysis</Text>
                           <Text style={styles.expandAnalysisText}>{photo.analysis_notes}</Text>
                         </View>
                       </View>
                     ) : null}
+
+                    {/* Zone Breakdown */}
                     {photo.annotations && Object.values(photo.annotations).some(Boolean) && (
                       <View style={styles.expandSection}>
                         <Text style={styles.expandSectionTitle}>Zone Breakdown</Text>
-                        {Object.entries(ZONE_LABELS).map(([zoneKey, label]) => {
-                          const val = photo.annotations?.[zoneKey];
-                          if (!val) return null;
-                          return (
-                            <View key={zoneKey} style={styles.zoneRow}>
-                              <Text style={styles.zoneLabel}>{label}</Text>
-                              <Text style={styles.zoneValue}>{val}</Text>
-                            </View>
-                          );
-                        })}
+                        <View style={styles.zoneCard}>
+                          {Object.entries(ZONE_LABELS).map(([zoneKey, label]) => {
+                            const val = photo.annotations?.[zoneKey];
+                            if (!val) return null;
+                            return (
+                              <View key={zoneKey} style={styles.zoneRow}>
+                                <Text style={styles.zoneLabel}>{label}</Text>
+                                <Text style={styles.zoneValue}>{val}</Text>
+                              </View>
+                            );
+                          })}
+                        </View>
                       </View>
                     )}
                   </View>
@@ -741,9 +781,9 @@ const styles = StyleSheet.create({
   },
 
   // Zone rows
-  zoneRow: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.xs, borderBottomWidth: 1, borderBottomColor: '#E8E2D8' },
-  zoneLabel: { fontSize: 11, fontWeight: '500', color: '#7C5CFC', width: 90, letterSpacing: 0.5 },
-  zoneValue: { fontSize: 12, color: '#6B6358', flex: 1 },
+  zoneRow: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  zoneLabel: { fontSize: 12, fontWeight: '600', color: Colors.primary, width: 90, letterSpacing: 0.3 },
+  zoneValue: { fontSize: 12, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
 
   // Modal
   modalRoot: { flex: 1, backgroundColor: Colors.background },
@@ -817,7 +857,7 @@ const styles = StyleSheet.create({
   saveNoteBtnText: { ...Typography.labelLarge, color: Colors.white },
 
 
-  // Expand overlay
+  // Bottom sheet overlay
   expandOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1000,
@@ -825,47 +865,74 @@ const styles = StyleSheet.create({
   },
   expandBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
   },
   expandSheet: {
     width: SCREEN_WIDTH,
     maxHeight: '90%',
     backgroundColor: Colors.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: BorderRadius.xxl,
+    borderTopRightRadius: BorderRadius.xxl,
+    borderTopWidth: 1,
+    borderColor: Colors.border,
     overflow: 'hidden',
-    ...Shadows.xl,
   },
   sheetHandleArea: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
   },
   sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+
+  // Image
+  expandImageWrap: {
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.sm,
   },
   expandImage: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 12,
-    marginHorizontal: 0,
+    borderRadius: BorderRadius.xl,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+
+  // Info section
   expandInfo: {
-    padding: Spacing.xl,
-    gap: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.md,
+  },
+  expandDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   expandDate: {
     fontSize: 20,
     fontWeight: '700',
     color: Colors.text,
   },
-  expandWeekLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.textMuted,
+  expandWeekPill: {
+    backgroundColor: Colors.primary + '20',
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderWidth: 1,
+    borderColor: Colors.primary + '30',
   },
+  expandWeekPillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Colors.primary,
+    letterSpacing: 0.3,
+  },
+
+  // Score badges
   expandBadgeRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
@@ -873,9 +940,12 @@ const styles = StyleSheet.create({
   expandBadge: {
     flex: 1,
     alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.cardGlass,
     gap: 2,
   },
   expandBadgeLabel: {
@@ -883,29 +953,51 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   expandBadgeValue: {
-    ...Typography.headlineSmall,
+    fontSize: 18,
+    fontWeight: '700',
     color: Colors.text,
+  },
+
+  // AI Analysis card with accent bar
+  expandAnalysisCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  expandAnalysisAccent: {
+    width: 4,
+    backgroundColor: Colors.primary,
+  },
+  expandAnalysisContent: {
+    flex: 1,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
   },
   expandSection: {
     gap: Spacing.sm,
   },
   expandSectionTitle: {
-    ...Typography.headlineSmall,
+    fontSize: 14,
+    fontWeight: '700',
     color: Colors.text,
-  },
-  expandAnalysisBox: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    letterSpacing: 0.3,
   },
   expandAnalysisText: {
     ...Typography.bodySmall,
     color: Colors.textSecondary,
     lineHeight: 20,
   },
-  expandNotesText: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    lineHeight: 20,
+
+  // Zone breakdown
+  zoneCard: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    padding: Spacing.lg,
+    gap: Spacing.xs,
   },
 });
