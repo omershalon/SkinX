@@ -123,8 +123,6 @@ export default function ProgressScreen() {
   const expandAnim = useRef(new Animated.Value(0)).current;
 
   const [expandPhoto, setExpandPhoto] = useState<ProgressPhoto | null>(null);
-  const [expandOrigin, setExpandOrigin] = useState({ x: 0, y: 0, size: 0 });
-  const cellRefs = useRef<Record<string, View | null>>({});
   const burstRef = useRef<ParticleBurstHandle>(null);
 
 
@@ -239,31 +237,21 @@ export default function ProgressScreen() {
   };
 
   // ─── Expand from calendar cell ────────────────────────────────────────────
-  const expandFromCell = (dateKey: string, photo: ProgressPhoto) => {
-    const cellView = cellRefs.current[dateKey];
-    if (!cellView) {
-      // fallback to modal
-      const idx = photos.findIndex(p => p.id === photo.id);
-      if (idx >= 0) openModal(idx);
-      return;
-    }
-
-    cellView.measureInWindow((x, y, width, height) => {
-      setExpandOrigin({ x: x + width / 2, y: y + height / 2, size: width });
-      setExpandPhoto(photo);
-      expandAnim.setValue(0);
-      Animated.timing(expandAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    });
+  const expandFromCell = (_dateKey: string, photo: ProgressPhoto) => {
+    setExpandPhoto(photo);
+    expandAnim.setValue(0);
+    Animated.spring(expandAnim, {
+      toValue: 1,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
   };
 
   const closeExpand = () => {
     Animated.timing(expandAnim, {
       toValue: 0,
-      duration: 250,
+      duration: 200,
       useNativeDriver: true,
     }).start(() => {
       setExpandPhoto(null);
@@ -371,7 +359,6 @@ export default function ProgressScreen() {
                             activeOpacity={hasPhotos ? 0.7 : 1}
                           >
                             <View
-                              ref={(ref) => { if (hasPhotos) cellRefs.current[key] = ref; }}
                               style={[
                                 styles.dayCellRect,
                                 hasPhotos && styles.dayCellLogged,
@@ -535,7 +522,7 @@ export default function ProgressScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* ── SWIPEABLE PHOTO DETAIL OVERLAY ──────────────────────────────── */}
+      {/* ── BOTTOM SHEET PHOTO DETAIL ──────────────────────────────────── */}
       {expandPhoto && (
         <View style={styles.expandOverlay}>
           <Animated.View style={[styles.expandBackdrop, { opacity: expandAnim }]}>
@@ -543,26 +530,20 @@ export default function ProgressScreen() {
           </Animated.View>
           <Animated.View
             style={[
-              styles.expandCard,
+              styles.expandSheet,
               {
-                opacity: expandAnim,
                 transform: [
-                  { translateY: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [60, 0] }) },
+                  { translateY: expandAnim.interpolate({ inputRange: [0, 1], outputRange: [SCREEN_HEIGHT, 0] }) },
                 ],
               },
             ]}
           >
-            {/* Close button */}
-            <View style={styles.expandHeader}>
-              <Text style={styles.expandCounter}>
-                {photos.findIndex(p => p.id === expandPhoto.id) + 1} / {photos.length}
-              </Text>
-              <TouchableOpacity onPress={closeExpand} style={styles.expandCloseBtn}>
-                <CloseIcon size={16} color={Colors.white} />
-              </TouchableOpacity>
-            </View>
+            {/* Drag handle */}
+            <TouchableOpacity onPress={closeExpand} activeOpacity={0.7} style={styles.sheetHandleArea}>
+              <View style={styles.sheetHandle} />
+            </TouchableOpacity>
 
-            {/* Swipeable photos — chronological order (oldest first, swipe right = forward) */}
+            {/* Swipeable photos */}
             <FlatList
               data={[...photos].reverse()}
               horizontal
@@ -570,20 +551,20 @@ export default function ProgressScreen() {
               showsHorizontalScrollIndicator={false}
               keyExtractor={p => p.id}
               initialScrollIndex={Math.max(0, photos.length - 1 - photos.findIndex(p => p.id === expandPhoto.id))}
-              getItemLayout={(_, index) => ({ length: SCREEN_WIDTH - Spacing.lg * 2, offset: (SCREEN_WIDTH - Spacing.lg * 2) * index, index })}
+              getItemLayout={(_, index) => ({ length: SCREEN_WIDTH, offset: SCREEN_WIDTH * index, index })}
               onMomentumScrollEnd={e => {
                 const reversed = [...photos].reverse();
-                const idx = Math.round(e.nativeEvent.contentOffset.x / (SCREEN_WIDTH - Spacing.lg * 2));
+                const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
                 if (reversed[idx]) setExpandPhoto(reversed[idx]);
               }}
               renderItem={({ item: photo }) => (
                 <ScrollView
-                  style={{ width: SCREEN_WIDTH - Spacing.lg * 2 }}
+                  style={{ width: SCREEN_WIDTH }}
                   showsVerticalScrollIndicator={false}
                   bounces={false}
                 >
                   <Image
-                    source={{ uri: photo.photo_url, width: SCREEN_WIDTH, height: SCREEN_WIDTH }}
+                    source={{ uri: photo.photo_url }}
                     style={styles.expandImage}
                     resizeMode="cover"
                   />
@@ -825,51 +806,36 @@ const styles = StyleSheet.create({
   expandOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1000,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   expandBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  expandCard: {
-    width: SCREEN_WIDTH - Spacing.lg * 2,
-    maxHeight: '90%',
+  expandSheet: {
+    width: SCREEN_WIDTH,
+    maxHeight: '80%',
     backgroundColor: Colors.background,
-    borderRadius: BorderRadius.xxl,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: 'hidden',
     ...Shadows.xl,
+  },
+  sheetHandleArea: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  sheetHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   expandImage: {
     width: '100%',
     aspectRatio: 1,
-  },
-  expandHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    position: 'absolute',
-    top: Spacing.md,
-    left: Spacing.md,
-    right: Spacing.md,
-    zIndex: 10,
-  },
-  expandCounter: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.white,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.pill,
-  },
-  expandCloseBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 12,
+    marginHorizontal: 0,
   },
   expandInfo: {
     padding: Spacing.xl,
