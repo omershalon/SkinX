@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import Svg, { Path, Line, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import Svg, { Path, Line, Circle as SvgCircle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { Colors, Fonts } from '@/lib/theme';
 
 const { width: SW } = Dimensions.get('window');
@@ -11,16 +11,20 @@ const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export default function AnimatedGraph({ skinType }: { skinType: string }) {
   const drawProgress = useRef(new Animated.Value(0)).current;
+  const dotOpacity = useRef(new Animated.Value(0)).current;
+  const dotScale = useRef(new Animated.Value(0)).current;
   const statOpacity = useRef(new Animated.Value(0)).current;
   const statScale = useRef(new Animated.Value(0.8)).current;
 
   useEffect(() => {
-    // Draw the graph line, then pop in the stat
+    // Draw the graph line, then immediately show dot + stat together
     Animated.sequence([
       Animated.delay(400),
       Animated.timing(drawProgress, { toValue: 1, duration: 1800, useNativeDriver: false }),
       Animated.parallel([
-        Animated.timing(statOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.timing(dotOpacity, { toValue: 1, duration: 150, useNativeDriver: true }),
+        Animated.spring(dotScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
+        Animated.timing(statOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
         Animated.spring(statScale, { toValue: 1, friction: 6, tension: 60, useNativeDriver: true }),
       ]),
     ]).start();
@@ -66,6 +70,21 @@ export default function AnimatedGraph({ skinType }: { skinType: string }) {
             })}
           />
         </Svg>
+
+        {/* Endpoint dot — pops in when line finishes */}
+        <Animated.View style={{
+          position: 'absolute',
+          top: 20 + GH * 0.1 - 6,
+          left: 20 + GW - 6,
+          width: 12,
+          height: 12,
+          borderRadius: 6,
+          backgroundColor: Colors.primary,
+          borderWidth: 2,
+          borderColor: '#FFF',
+          opacity: dotOpacity,
+          transform: [{ scale: dotScale }],
+        }} />
 
         {/* X axis */}
         <View style={s.xAxis}>
