@@ -20,19 +20,21 @@ export default function AnimatedGraph({ skinType }: { skinType: string }) {
   const dotEndOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.sequence([
-      Animated.delay(300),
-      Animated.parallel([
-        Animated.timing(progress, { toValue: 1, duration: 2800, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-        Animated.timing(fillOpacity, { toValue: 0.18, duration: 2800, easing: Easing.out(Easing.quad), useNativeDriver: false }),
-      ]),
-      // Dot + stat appear together immediately after line finishes
-      Animated.parallel([
-        Animated.timing(dotEndOpacity, { toValue: 1, duration: 200, useNativeDriver: false }),
-        Animated.timing(statOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
-        Animated.spring(statScale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }),
-      ]),
-    ]).start();
+    const LINE_DELAY = 300;
+    const LINE_DURATION = 2800;
+
+    // Start line + fill after initial delay
+    setTimeout(() => {
+      Animated.timing(progress, { toValue: 1, duration: LINE_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+      Animated.timing(fillOpacity, { toValue: 0.18, duration: LINE_DURATION, easing: Easing.out(Easing.quad), useNativeDriver: false }).start();
+    }, LINE_DELAY);
+
+    // Start dot + stat right when line finishes
+    setTimeout(() => {
+      Animated.timing(dotEndOpacity, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+      Animated.timing(statOpacity, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+      Animated.spring(statScale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }).start();
+    }, LINE_DELAY + LINE_DURATION);
   }, []);
 
   const R = 6; // circle radius + breathing room
