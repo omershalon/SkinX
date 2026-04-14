@@ -11,6 +11,7 @@ import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
 import AnimatedGraph from '@/components/onboarding/AnimatedGraph';
 import BarComparison from '@/components/onboarding/BarComparison';
+import HighFiveAnimation from '@/components/onboarding/HighFiveAnimation';
 import { Ionicons } from '@expo/vector-icons';
 import {
   MaleIcon, FemaleIcon, OtherGenderIcon,
@@ -433,13 +434,7 @@ export default function OnboardingScreen() {
       // ── 16: Trust / Privacy ──
       case 16: return (
         <View style={st.trustWrap}>
-          <View style={st.trustIconWrap}>
-            <View style={st.trustCircleOuter}>
-              <View style={st.trustCircleInner}>
-                <Text style={st.trustHandEmoji}>🤚</Text>
-              </View>
-            </View>
-          </View>
+          <HighFiveAnimation />
           <Text style={st.trustTitle}>Thank you for{'\n'}trusting us</Text>
           <Text style={st.trustSubtitle}>Now let's personalize SkinX for you...</Text>
           <View style={st.trustCard}>
