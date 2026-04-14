@@ -26,9 +26,10 @@ export default function AnimatedGraph({ skinType }: { skinType: string }) {
         Animated.timing(progress, { toValue: 1, duration: 2800, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
         Animated.timing(fillOpacity, { toValue: 0.18, duration: 3200, easing: Easing.out(Easing.quad), useNativeDriver: false }),
       ]),
+      // Dot + stat appear together immediately after line finishes
       Animated.parallel([
-        Animated.timing(dotEndOpacity, { toValue: 1, duration: 300, useNativeDriver: false }),
-        Animated.timing(statOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.timing(dotEndOpacity, { toValue: 1, duration: 200, useNativeDriver: false }),
+        Animated.timing(statOpacity, { toValue: 1, duration: 250, useNativeDriver: true }),
         Animated.spring(statScale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }),
       ]),
     ]).start();
@@ -98,7 +99,6 @@ export default function AnimatedGraph({ skinType }: { skinType: string }) {
         {/* Line labels row */}
         <View style={s.lineLabels}>
           <View style={s.brandRow}>
-            <Text style={s.brandEmoji}>✨</Text>
             <Text style={s.brandName}>SkinX</Text>
           </View>
           <Text style={s.withoutText}>Without SkinX</Text>
@@ -140,10 +140,7 @@ const s = StyleSheet.create({
 
   lineLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
   brandRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  brandEmoji: { fontSize: 14 },
   brandName:  { fontFamily: Fonts.semibold, fontSize: 13, color: '#FFFFFF' },
-  clarityPill: { backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
-  clarityPillText: { fontFamily: Fonts.medium, fontSize: 11, color: '#1C1C1E' },
   withoutText: { fontFamily: Fonts.medium, fontSize: 13, color: '#E8766A' },
 
   xAxis:  { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
