@@ -8,6 +8,7 @@ import { initI18n } from '@/lib/i18n';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import type { Session } from '@supabase/supabase-js';
+import { takePendingPaywall } from '@/lib/pendingPaywall';
 
 export default function RootLayout() {
   const router   = useRouter();
@@ -79,8 +80,13 @@ export default function RootLayout() {
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/welcome');
-    } else if (session && inAuthGroup) {
-      router.replace('/(tabs)');
+    } else if (session && inAuthGroup && segments[1] !== 'paywall') {
+      const pending = takePendingPaywall();
+      if (pending) {
+        router.replace({ pathname: '/(auth)/paywall', params: pending });
+      } else {
+        router.replace('/(tabs)');
+      }
     }
   }, [session, segments]);
 
@@ -88,7 +94,9 @@ export default function RootLayout() {
     <View style={{ flex: 1 }}>
       {ready && (
         <I18nextProvider i18n={i18n}>
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)/paywall" options={{ gestureEnabled: false }} />
+          </Stack>
         </I18nextProvider>
       )}
       {showSplash && (

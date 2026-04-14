@@ -125,6 +125,16 @@ export function ShieldIcon({ size = S, color = C }: { size?: number; color?: str
   );
 }
 
+export function LockIcon({ size = S, color = C }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth={W} strokeLinejoin="round" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth={W} strokeLinecap="round" />
+      <Circle cx="12" cy="16" r="1.2" fill={color} />
+    </Svg>
+  );
+}
+
 export function SparkleIcon({ size = S, color = C }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

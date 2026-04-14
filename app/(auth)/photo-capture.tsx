@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import LottieView from 'lottie-react-native';
 import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -101,9 +102,12 @@ export default function PhotoCaptureScreen() {
       {/* Checkmark overlay */}
       {showCheck && (
         <View style={styles.checkOverlay}>
-          <View style={styles.checkCircle}>
-            <Text style={styles.checkMark}>✓</Text>
-          </View>
+          <LottieView
+            source={require('@/assets/checkmark-animation.json')}
+            autoPlay
+            loop={false}
+            style={{ width: 120, height: 120 }}
+          />
         </View>
       )}
 
@@ -135,7 +139,7 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: Colors.primary },
 
   checkOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 20 },
-  checkCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.success, justifyContent: 'center', alignItems: 'center' },
+  checkCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center' },
   checkMark: { fontSize: 36, color: '#FFF', fontWeight: '700' },
 
   instructionArea: { position: 'absolute', top: '35%', left: 0, right: 0, alignItems: 'center', gap: 8, zIndex: 10 },

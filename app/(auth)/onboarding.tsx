@@ -11,12 +11,12 @@ import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
 import AnimatedGraph from '@/components/onboarding/AnimatedGraph';
 import BarComparison from '@/components/onboarding/BarComparison';
-import HighFiveAnimation from '@/components/onboarding/HighFiveAnimation';
+import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
   MaleIcon, FemaleIcon, OtherGenderIcon,
   OilyIcon, DryIcon, ComboIcon, SensitiveIcon, NormalIcon, QuestionIcon,
-  ClockIcon, TargetIcon, TrendDownIcon, ShieldIcon, SparkleIcon,
+  ClockIcon, TargetIcon, TrendDownIcon, ShieldIcon, SparkleIcon, LockIcon,
   LeafIcon, BlockIcon, FlameIcon,
   PillIcon, BottleIcon, SaladIcon, DoctorIcon, FacialIcon, EmptyIcon,
   BreakoutIcon, ScarIcon, SunIcon,
@@ -154,6 +154,7 @@ export default function OnboardingScreen() {
   const [ageGateVisible, setAgeGateVisible] = useState(false);
   const prog = useRef(new Animated.Value(1 / TOTAL)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
+  const trustLottieRef = useRef<any>(null);
 
   const animateIn = () => {
     enterAnim.setValue(0);
@@ -434,11 +435,19 @@ export default function OnboardingScreen() {
       // ── 16: Trust / Privacy ──
       case 16: return (
         <View style={st.trustWrap}>
-          <HighFiveAnimation />
+          <LottieView
+            ref={trustLottieRef}
+            source={require('@/assets/trust-animation.json')}
+            autoPlay
+            loop={false}
+            speed={0.5}
+            style={{ width: 180, height: 180 }}
+            onAnimationFinish={() => trustLottieRef.current?.pause()}
+          />
           <Text style={st.trustTitle}>Thank you for{'\n'}trusting us</Text>
           <Text style={st.trustSubtitle}>Now let's personalize SkinX for you...</Text>
           <View style={st.trustCard}>
-            <Text style={st.trustLockEmoji}>🔒</Text>
+            <LockIcon size={32} color="#A855F7" />
             <Text style={st.trustCardTitle}>Your privacy and security matter to us.</Text>
             <Text style={st.trustCardBody}>
               We promise to always keep your personal information private and secure.

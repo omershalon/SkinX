@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { setPendingPaywall } from '@/lib/pendingPaywall';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -259,6 +260,19 @@ export default function CreateAccountScreen() {
         </View>
 
         <Text style={s.saved}>Your analysis is saved to your account</Text>
+
+        <TouchableOpacity
+          onPress={() => {
+            setPendingPaywall({
+              onboardingData: params.onboardingData ?? '',
+              analysisResult: params.analysisResult ?? '',
+              photoFront: params.photoFront ?? '',
+            });
+            router.push('/(auth)/login');
+          }}
+        >
+          <Text style={s.signInLink}>Already have an account? <Text style={s.signInLinkBold}>Sign in</Text></Text>
+        </TouchableOpacity>
       </View>
 
       {loading && (
@@ -317,4 +331,6 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
   },
+  signInLink: { fontFamily: Fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
+  signInLinkBold: { fontFamily: Fonts.semibold, color: 'rgba(255,255,255,0.75)' },
 });
