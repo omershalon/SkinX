@@ -1,11 +1,11 @@
-let _pending: { onboardingData: string; analysisResult: string; photoFront: string } | null = null;
+let _showPaywall = false;
 
-export function setPendingPaywall(data: { onboardingData: string; analysisResult: string; photoFront: string }) {
-  _pending = data;
+export function requestPaywall() {
+  _showPaywall = true;
 }
 
-export function takePendingPaywall() {
-  const v = _pending;
-  _pending = null;
+export function consumePaywallRequest(): boolean {
+  const v = _showPaywall;
+  _showPaywall = false;
   return v;
 }

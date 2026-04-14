@@ -76,9 +76,9 @@ export default function PaywallScreen() {
       >
         {/* ═══ SCREEN 1: "We want you to try it for free" ═══ */}
         <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={styles.pageCenter}>
-            <Text style={styles.heading}>We want you to{'\n'}try Glow for free.</Text>
+          <Text style={[styles.heading, { marginTop: 16 }]}>We want you to{'\n'}try Glow for free.</Text>
 
+          <View style={styles.pageCenter}>
             {/* Phone mockup placeholder */}
             <View style={styles.phoneMockup}>
               <View style={styles.mockScreen}>

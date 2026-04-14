@@ -8,7 +8,7 @@ import { initI18n } from '@/lib/i18n';
 import { I18nextProvider } from 'react-i18next';
 import i18n from '@/lib/i18n';
 import type { Session } from '@supabase/supabase-js';
-import { takePendingPaywall } from '@/lib/pendingPaywall';
+import { consumePaywallRequest } from '@/lib/pendingPaywall';
 
 export default function RootLayout() {
   const router   = useRouter();
@@ -18,6 +18,7 @@ export default function RootLayout() {
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const splashOpacity = useRef(new Animated.Value(1)).current;
+  const didRedirect = useRef(false);
   const [fontsLoaded] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -78,12 +79,13 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === '(auth)';
 
-    if (!session && !inAuthGroup) {
-      router.replace('/(auth)/welcome');
-    } else if (session && inAuthGroup && segments[1] !== 'paywall') {
-      const pending = takePendingPaywall();
-      if (pending) {
-        router.replace({ pathname: '/(auth)/paywall', params: pending });
+    if (!session) {
+      didRedirect.current = false;
+      if (!inAuthGroup) router.replace('/(auth)/welcome');
+    } else if (inAuthGroup && segments[1] !== 'paywall' && !didRedirect.current) {
+      didRedirect.current = true;
+      if (consumePaywallRequest()) {
+        router.replace('/(auth)/paywall');
       } else {
         router.replace('/(tabs)');
       }
@@ -94,9 +96,7 @@ export default function RootLayout() {
     <View style={{ flex: 1 }}>
       {ready && (
         <I18nextProvider i18n={i18n}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)/paywall" options={{ gestureEnabled: false }} />
-          </Stack>
+          <Stack screenOptions={{ headerShown: false }} />
         </I18nextProvider>
       )}
       {showSplash && (

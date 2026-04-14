@@ -43,7 +43,7 @@ export default function PhotoCaptureScreen() {
 
       // Show checkmark
       setShowCheck(true);
-      await new Promise(r => setTimeout(r, 600));
+      await new Promise(r => setTimeout(r, 2600));
       setShowCheck(false);
 
       if (phase < 2) {
@@ -106,6 +106,7 @@ export default function PhotoCaptureScreen() {
             source={require('@/assets/checkmark-animation.json')}
             autoPlay
             loop={false}
+            speed={2}
             style={{ width: 120, height: 120 }}
           />
         </View>
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
   dotDone: { backgroundColor: Colors.primary },
 
   checkOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 20 },
-  checkCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#A855F7', justifyContent: 'center', alignItems: 'center' },
+  checkCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.success, justifyContent: 'center', alignItems: 'center' },
   checkMark: { fontSize: 36, color: '#FFF', fontWeight: '700' },
 
   instructionArea: { position: 'absolute', top: '35%', left: 0, right: 0, alignItems: 'center', gap: 8, zIndex: 10 },

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ActivityIndicator, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { setPendingPaywall } from '@/lib/pendingPaywall';
+import { requestPaywall } from '@/lib/pendingPaywall';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -83,13 +83,6 @@ export default function CreateAccountScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const goToPaywall = () => {
-    router.push({
-      pathname: '/(auth)/paywall',
-      params: { onboardingData: params.onboardingData, analysisResult: params.analysisResult, photoFront: params.photoFront },
-    });
-  };
-
   // ── Apple Sign In ──
   const signInWithApple = async () => {
     try {
@@ -106,6 +99,7 @@ export default function CreateAccountScreen() {
       }
 
       setLoading(true);
+      requestPaywall();
       const { data, error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken,
@@ -120,8 +114,6 @@ export default function CreateAccountScreen() {
         await createProfile(data.user.id, data.user.email || '', fullName);
         if (params.onboardingData) await saveOnboardingData(data.user.id, params.onboardingData);
       }
-
-      goToPaywall();
     } catch (err: any) {
       if (err.code !== 'ERR_REQUEST_CANCELED') {
         Alert.alert('Apple Sign In failed', err?.message || 'Please try again.');
@@ -135,6 +127,7 @@ export default function CreateAccountScreen() {
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
+      requestPaywall();
       const redirectUrl = Linking.createURL('/');
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -164,7 +157,7 @@ export default function CreateAccountScreen() {
             }
           }
 
-          goToPaywall();
+          // _layout routing handles navigation to paywall
         }
       }
     } catch (err: any) {
@@ -181,6 +174,7 @@ export default function CreateAccountScreen() {
       return;
     }
     setLoading(true);
+    requestPaywall();
     try {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
@@ -193,7 +187,6 @@ export default function CreateAccountScreen() {
         await createProfile(data.user.id, email.trim(), name.trim());
         if (params.onboardingData) await saveOnboardingData(data.user.id, params.onboardingData);
       }
-      goToPaywall();
     } catch (err: any) {
       Alert.alert('Sign up failed', err?.message || 'Please try again.');
     } finally {
@@ -260,19 +253,6 @@ export default function CreateAccountScreen() {
         </View>
 
         <Text style={s.saved}>Your analysis is saved to your account</Text>
-
-        <TouchableOpacity
-          onPress={() => {
-            setPendingPaywall({
-              onboardingData: params.onboardingData ?? '',
-              analysisResult: params.analysisResult ?? '',
-              photoFront: params.photoFront ?? '',
-            });
-            router.push('/(auth)/login');
-          }}
-        >
-          <Text style={s.signInLink}>Already have an account? <Text style={s.signInLinkBold}>Sign in</Text></Text>
-        </TouchableOpacity>
       </View>
 
       {loading && (
@@ -331,6 +311,4 @@ const s = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center',
   },
-  signInLink: { fontFamily: Fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
-  signInLinkBold: { fontFamily: Fonts.semibold, color: 'rgba(255,255,255,0.75)' },
 });

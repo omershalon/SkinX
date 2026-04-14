@@ -9,6 +9,8 @@ export default function AuthLayout() {
         contentStyle: { backgroundColor: Colors.background },
         animation: 'fade',
       }}
-    />
+    >
+      <Stack.Screen name="paywall" options={{ gestureEnabled: false, presentation: 'fullScreenModal' }} />
+    </Stack>
   );
 }
