@@ -24,7 +24,7 @@ export default function AnimatedGraph({ skinType }: { skinType: string }) {
       Animated.delay(300),
       Animated.parallel([
         Animated.timing(progress, { toValue: 1, duration: 2800, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-        Animated.timing(fillOpacity, { toValue: 0.18, duration: 3200, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+        Animated.timing(fillOpacity, { toValue: 0.18, duration: 2800, easing: Easing.out(Easing.quad), useNativeDriver: false }),
       ]),
       // Dot + stat appear together immediately after line finishes
       Animated.parallel([
