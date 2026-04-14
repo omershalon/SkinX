@@ -254,9 +254,9 @@ export default function ScannerScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} showsVerticalScrollIndicator={false}>
-        {/* Search + Scan row */}
+        {/* Search row */}
         <View style={styles.searchRow}>
-          <View style={styles.searchBar}>
+          <View style={[styles.searchBar, { flex: 1 }]}>
             <TextInput
               style={styles.searchInput}
               placeholder="Search skincare, supplements, foods..."
@@ -272,14 +272,6 @@ export default function ScannerScreen() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={styles.scanBtn} onPress={startCamera} activeOpacity={0.8}>
-            <View style={styles.scanBtnIcon}>
-              <View style={[styles.scanCorner, { top: 0, left: 0, borderTopWidth: 2, borderLeftWidth: 2 }]} />
-              <View style={[styles.scanCorner, { top: 0, right: 0, borderTopWidth: 2, borderRightWidth: 2 }]} />
-              <View style={[styles.scanCorner, { bottom: 0, left: 0, borderBottomWidth: 2, borderLeftWidth: 2 }]} />
-              <View style={[styles.scanCorner, { bottom: 0, right: 0, borderBottomWidth: 2, borderRightWidth: 2 }]} />
-            </View>
-          </TouchableOpacity>
         </View>
 
         {/* Category tabs — hide during live search */}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, Dimensions,
+  Animated, Dimensions, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,11 +30,11 @@ type Ans = {
   tried: string[]; concerns: string[]; goal: string; holistic: string;
   barriers: string[]; commitment: string; hearAbout: string; triedApps: string;
 };
-const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2000 };
+const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
 const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', duration: '', tried: [], concerns: [], goal: '', holistic: '', barriers: [], commitment: '', hearAbout: '', triedApps: '' };
 
-// 11 questions + 3 affirmations + 1 graph = 15 screens
-const TOTAL = 15;
+// 11 questions + 3 affirmations + 1 graph + 1 trust = 16 screens
+const TOTAL = 16;
 
 const HEAR_SOURCES = [
   { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
@@ -149,7 +149,8 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Ans>(EMPTY);
-  const prog = useRef(new Animated.Value(0)).current;
+  const [ageGateVisible, setAgeGateVisible] = useState(false);
+  const prog = useRef(new Animated.Value(1 / TOTAL)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
 
   const animateIn = () => {
@@ -160,7 +161,7 @@ export default function OnboardingScreen() {
   const goTo = (s: number) => {
     Animated.timing(enterAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
       setStep(s);
-      Animated.spring(prog, { toValue: s / (TOTAL - 1), friction: 10, tension: 40, useNativeDriver: false }).start();
+      Animated.spring(prog, { toValue: (s + 1) / TOTAL, friction: 10, tension: 40, useNativeDriver: false }).start();
       animateIn();
     });
   };
@@ -185,25 +186,26 @@ export default function OnboardingScreen() {
   const canNext = (): boolean => {
     switch (step) {
       case 0:  return !!a.gender;
-      case 1:  return true; // birthDate always has a value
+      case 1:  return new Date(a.birthDate.year, a.birthDate.month - 1, a.birthDate.day) <= new Date();
       case 2:  return !!a.hearAbout;
       case 3:  return !!a.triedApps;
-      case 4:  return !!a.skinType;
-      case 5:  return true; // graph (always can proceed)
+      case 4:  return true; // graph (always can proceed)
+      case 5:  return !!a.skinType;
       case 6:  return !!a.duration;
       case 7:  return true; // affirmation
       case 8:  return a.tried.length > 0;
       case 9:  return true; // affirmation
       case 10: return !!a.goal;
       case 11: return true; // affirmation
-      case 12: return !!a.holistic;
-      case 13: return a.barriers.length > 0;
-      case 14: return !!a.commitment;
+      case 12: return true; // trust screen
+      case 13: return !!a.holistic;
+      case 14: return a.barriers.length > 0;
+      case 15: return !!a.commitment;
       default: return false;
     }
   };
 
-  const isLastStep = step === 14;
+  const isLastStep = step === 15;
 
   const Q = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
     <View style={st.qWrap}>
@@ -256,8 +258,11 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 4: Skin type ──
-      case 4: return (
+      // ── 4: Animated graph proof screen ──
+      case 4: return <AnimatedGraph skinType={a.skinType} />;
+
+      // ── 5: Skin type ──
+      case 5: return (
         <Q title="What's your skin type?">
           <View style={st.optionList}>
             {['Normal', 'Oily', 'Dry'].map(o => (
@@ -266,9 +271,6 @@ export default function OnboardingScreen() {
           </View>
         </Q>
       );
-
-      // ── 5: Animated graph proof screen ──
-      case 5: return <AnimatedGraph skinType={a.skinType} />;
 
       // ── 6: Duration ──
       case 6: return (
@@ -343,8 +345,30 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 12: Holistic ──
+      // ── 12: Trust / Privacy ──
       case 12: return (
+        <View style={st.trustWrap}>
+          <View style={st.trustIconWrap}>
+            <View style={st.trustCircleOuter}>
+              <View style={st.trustCircleInner}>
+                <Text style={st.trustHandEmoji}>🤚</Text>
+              </View>
+            </View>
+          </View>
+          <Text style={st.trustTitle}>Thank you for{'\n'}trusting us</Text>
+          <Text style={st.trustSubtitle}>Now let's personalize SkinX for you...</Text>
+          <View style={st.trustCard}>
+            <Text style={st.trustLockEmoji}>🔒</Text>
+            <Text style={st.trustCardTitle}>Your privacy and security matter to us.</Text>
+            <Text style={st.trustCardBody}>
+              We promise to always keep your personal information private and secure.
+            </Text>
+          </View>
+        </View>
+      );
+
+      // ── 13: Holistic ──
+      case 13: return (
         <Q title="Are you open to natural approaches?" subtitle="Things like herbal remedies, diet changes, and clean skincare">
           <View style={st.optionList}>
             {['Yes, I prefer natural', 'Open to trying', 'Not really', 'Tell me more'].map(o => (
@@ -354,8 +378,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 13: Barriers ──
-      case 13: return (
+      // ── 14: Barriers ──
+      case 14: return (
         <Q title="What's been your biggest challenge?">
           <View style={st.optionList}>
             {["Don't know what to use", 'Too much conflicting info', "Can't afford a dermatologist", 'Nothing seems to work', 'No consistent routine', "Don't know what's causing it"].map(o => (
@@ -365,14 +389,13 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 14: Commitment ──
-      case 14: return (
+      // ── 15: Commitment ──
+      case 15: return (
         <Q title="How committed are you?">
           <View style={st.optionList}>
             {['Just browsing', 'Willing to try', 'Ready to commit', 'All in'].map(o => (
               <Option key={o} label={o} selected={a.commitment === o} onPress={() => setA(p => ({ ...p, commitment: o }))} />
             ))}
-
           </View>
         </Q>
       );
@@ -402,7 +425,7 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 ? (
+        {step === 1 || step === 12 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
         ) : (
           <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
@@ -415,11 +438,42 @@ export default function OnboardingScreen() {
       <View style={[st.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
           style={[st.nextBtn, !canNext() && st.nextBtnDisabled]}
-          onPress={() => { if (!canNext()) return; Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); isLastStep ? finish() : next(); }}
+          onPress={() => {
+            if (!canNext()) return;
+            if (step === 1) {
+              const { month, day, year } = a.birthDate;
+              const today = new Date();
+              const dob = new Date(year, month - 1, day);
+              let age = today.getFullYear() - dob.getFullYear();
+              const m = today.getMonth() - dob.getMonth();
+              if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
+              if (age < 9) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAgeGateVisible(true); return; }
+            }
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            isLastStep ? finish() : next();
+          }}
           activeOpacity={canNext() ? 0.85 : 1}>
           <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? "Let's go" : 'Continue'}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Age gate modal */}
+      <Modal visible={ageGateVisible} transparent animationType="none" statusBarTranslucent>
+        <View style={st.modalOverlay}>
+          <View style={st.modalCard}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>We're sorry!</Text>
+              <TouchableOpacity style={st.modalClose} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAgeGateVisible(false); router.replace({ pathname: '/(auth)/welcome', params: { instant: '1' } }); }} activeOpacity={0.7}>
+                <Text style={st.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={st.modalBody}>You must be over 9 to use SkinX.</Text>
+            <TouchableOpacity style={st.modalBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAgeGateVisible(false); router.replace({ pathname: '/(auth)/welcome', params: { instant: '1' } }); }} activeOpacity={0.85}>
+              <Text style={st.modalBtnText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -508,6 +562,31 @@ const st = StyleSheet.create({
   chipTextSel: { color: '#FFF', fontFamily: Fonts.medium },
   countLabel: { fontFamily: Fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.2)', textAlign: 'center', marginTop: 8 },
 
+  // Trust / Privacy screen
+  trustWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40, gap: 24 },
+  trustIconWrap: { alignItems: 'center', marginBottom: 8 },
+  trustCircleOuter: {
+    width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  trustCircleInner: {
+    width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  trustHandEmoji: { fontSize: 64 },
+  trustTitle: { fontFamily: Fonts.bold, fontSize: 34, color: '#FFF', textAlign: 'center', lineHeight: 42, letterSpacing: -0.7 },
+  trustSubtitle: { fontFamily: Fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.35)', textAlign: 'center' },
+  trustCard: {
+    width: '100%', backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 18, padding: 22, alignItems: 'center', gap: 10,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  trustLockEmoji: { fontSize: 32, marginBottom: 4 },
+  trustCardTitle: { fontFamily: Fonts.bold, fontSize: 16, color: '#FFF', textAlign: 'center', lineHeight: 22 },
+  trustCardBody: { fontFamily: Fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 21 },
+
   // Affirmations — lots of space, calm
   affirmCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 60, minHeight: 420 },
   affirmBig: { fontFamily: Fonts.bold, fontSize: 32, color: '#FFF', textAlign: 'center', letterSpacing: -0.5, lineHeight: 40 },
@@ -521,4 +600,15 @@ const st = StyleSheet.create({
   nextBtnText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#000' },
   nextBtnDisabled: { backgroundColor: '#888' },
   nextBtnTextDisabled: { color: '#000' },
+
+  // Age gate modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  modalCard: { backgroundColor: '#FFF', borderRadius: 20, padding: 24, width: '100%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalTitle: { fontFamily: Fonts.bold, fontSize: 22, color: '#000' },
+  modalClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EFEFEF', justifyContent: 'center', alignItems: 'center' },
+  modalCloseText: { fontSize: 14, color: '#555' },
+  modalBody: { fontFamily: Fonts.regular, fontSize: 16, color: '#555', lineHeight: 23, marginBottom: 20 },
+  modalBtn: { backgroundColor: '#111', borderRadius: 14, height: 54, justifyContent: 'center', alignItems: 'center' },
+  modalBtnText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#FFF' },
 });

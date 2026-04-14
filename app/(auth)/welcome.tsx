@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, TextInput, Alert,
   ActivityIndicator, Linking, Animated, PanResponder, Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Polyline, Rect } from 'react-native-svg';
@@ -86,11 +87,22 @@ function CheckmarkIcon({ size = 18 }: { size?: number }) {
 
 const SCREEN_H = Dimensions.get('window').height;
 
-function DraggableSheet({ children, onDismiss }: { children: React.ReactNode; onDismiss: () => void }) {
+function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.ReactNode; onDismiss: () => void; dismissRef?: React.RefObject<(() => void) | null> }) {
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const dismissed = useRef(false);
   const dragging = useRef(false);
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  if (dismissRef) {
+    dismissRef.current = () => {
+      Animated.parallel([
+        Animated.timing(translateY, { toValue: SCREEN_H, duration: 200, useNativeDriver: true }),
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+      ]).start(() => onDismissRef.current());
+    };
+  }
 
   useEffect(() => {
     Animated.parallel([
@@ -162,11 +174,25 @@ function DraggableSheet({ children, onDismiss }: { children: React.ReactNode; on
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { instant } = useLocalSearchParams<{ instant?: string }>();
+  const navigation = useNavigation();
+  useLayoutEffect(() => {
+    if (instant === '1') navigation.setOptions({ animation: 'none' });
+  }, [instant]);
   const { t } = useTranslation();
 
   const [showSignIn, setShowSignIn] = useState(false);
-  const [mode, setMode] = useState<'choose' | 'email'>('choose');
   const [showLang, setShowLang] = useState(false);
+  const [showEmailScreen, setShowEmailScreen] = useState(false);
+  const signInDismissRef = useRef<(() => void) | null>(null);
+  const emailScreenSlide = useRef(new Animated.Value(SCREEN_H)).current;
+
+  useEffect(() => {
+    if (showEmailScreen) {
+      emailScreenSlide.setValue(SCREEN_H);
+      Animated.spring(emailScreenSlide, { toValue: 0, useNativeDriver: true, friction: 10, tension: 65 }).start();
+    }
+  }, [showEmailScreen]);
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
 
   useEffect(() => {
@@ -189,10 +215,18 @@ export default function WelcomeScreen() {
 
   const closeModal = () => {
     setShowSignIn(false);
-    setMode('choose');
+    setShowEmailScreen(false);
     setEmail(''); setPassword('');
     clearErrors();
     setShowPassword(false);
+  };
+
+  const openEmailScreen = () => {
+    signInDismissRef.current?.();
+    setTimeout(() => {
+      setShowSignIn(false);
+      setShowEmailScreen(true);
+    }, 210);
   };
 
   // ── Apple Sign In ──
@@ -285,7 +319,7 @@ export default function WelcomeScreen() {
       {/* Bottom */}
       <View style={s.bottom}>
         <Text style={s.tagline}>{t('welcome.tagline')}</Text>
-        <TouchableOpacity style={s.ctaButton} onPress={() => router.push('/(auth)/onboarding')} activeOpacity={0.85}>
+        <TouchableOpacity style={s.ctaButton} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/(auth)/onboarding'); }} activeOpacity={0.85}>
           <Text style={s.ctaText}>{t('welcome.getStarted')}</Text>
         </TouchableOpacity>
 
@@ -304,7 +338,7 @@ export default function WelcomeScreen() {
             <View style={s.langSheetHandle} />
             <View style={s.langSheetHeader}>
               <Text style={s.langSheetTitle}>{t('lang.selectLanguage')}</Text>
-              <TouchableOpacity style={s.closeBtn} onPress={() => setShowLang(false)}>
+              <TouchableOpacity style={s.closeBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowLang(false); }}>
                 <XIcon size={14} />
               </TouchableOpacity>
             </View>
@@ -313,7 +347,7 @@ export default function WelcomeScreen() {
                 <TouchableOpacity
                   key={lang.code}
                   style={[s.langRow, i < LANGUAGES.length - 1 && s.langRowBorder]}
-                  onPress={() => { setSelectedLang(lang); setShowLang(false); changeLanguage(lang.code); }}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSelectedLang(lang); setShowLang(false); changeLanguage(lang.code); }}
                   activeOpacity={0.7}
                 >
                   <Text style={s.langRowFlag}>{lang.flag}</Text>
@@ -332,119 +366,104 @@ export default function WelcomeScreen() {
 
       {/* Sign In Modal */}
       <Modal visible={showSignIn} animationType="none" transparent onRequestClose={closeModal}>
-            <DraggableSheet onDismiss={closeModal}>
-            <View style={[s.sheet, { paddingBottom: insets.bottom + 28 }]} onStartShouldSetResponder={() => true}>
-
-              {/* Header */}
-              <View style={s.sheetHeader}>
-                {mode === 'email' ? (
-                  <TouchableOpacity style={s.backBtn} onPress={() => { setMode('choose'); clearErrors(); }}>
-                    <Text style={s.backArrow}>{'‹'}</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View style={s.headerSpacer} />
-                )}
-                <Text style={s.sheetTitle}>{t('signIn.title')}</Text>
-                <TouchableOpacity style={s.closeBtn} onPress={closeModal}>
-                  <XIcon size={14} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={s.divider} />
-
-              {mode === 'choose' ? (
-                <View style={s.authBtns}>
-                  {/* Apple */}
-                  <TouchableOpacity style={s.appleBtn} onPress={Platform.OS === 'ios' ? signInWithApple : signInWithGoogle} activeOpacity={0.85} disabled={loading}>
-                    <AppleIcon size={20} />
-                    <Text style={s.appleTxt}>{t('signIn.signInWithApple')}</Text>
-                  </TouchableOpacity>
-
-                  {/* Google */}
-                  <TouchableOpacity style={s.googleBtn} onPress={signInWithGoogle} activeOpacity={0.85} disabled={loading}>
-                    <GoogleIcon size={20} />
-                    <Text style={s.googleTxt}>{t('signIn.signInWithGoogle')}</Text>
-                  </TouchableOpacity>
-
-                  {/* Email */}
-                  <TouchableOpacity style={s.emailBtn} onPress={() => setMode('email')} activeOpacity={0.85}>
-                    <MailIcon size={20} />
-                    <Text style={s.emailTxt}>{t('signIn.continueWithEmail')}</Text>
-                  </TouchableOpacity>
-
-                  {loading && (
-                    <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />
-                  )}
-
-                  <Text style={s.termsText}>
-                    {t('signIn.terms')}{'\n'}
-                    <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/terms')}>{t('signIn.termsLink')}</Text>
-                    {' '}{t('signIn.and')}{' '}
-                    <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/privacy')}>{t('signIn.privacyLink')}</Text>
-                  </Text>
-                </View>
-              ) : (
-                <View style={s.emailForm}>
-                  {formError ? <Text style={s.formError}>{formError}</Text> : null}
-
-                  <View style={s.fieldGroup}>
-                    <Text style={s.label}>{t('signIn.email')}</Text>
-                    <TextInput
-                      style={[s.input, focusedField === 'email' && s.inputFocused, emailError ? s.inputError : null]}
-                      placeholder="your@email.com"
-                      placeholderTextColor="#aaa"
-                      value={email}
-                      onChangeText={(t) => { setEmail(t); setEmailError(''); }}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      onFocus={() => setFocusedField('email')}
-                      onBlur={() => setFocusedField(null)}
-                    />
-                    {emailError ? <Text style={s.fieldError}>{emailError}</Text> : null}
-                  </View>
-
-                  <View style={s.fieldGroup}>
-                    <Text style={s.label}>{t('signIn.password')}</Text>
-                    <View style={s.passwordRow}>
-                      <TextInput
-                        style={[s.input, s.passwordInput, focusedField === 'password' && s.inputFocused, passwordError ? s.inputError : null]}
-                        placeholder="••••••••"
-                        placeholderTextColor="#aaa"
-                        value={password}
-                        onChangeText={(t) => { setPassword(t); setPasswordError(''); }}
-                        secureTextEntry={!showPassword}
-                        autoComplete="password"
-                        onFocus={() => setFocusedField('password')}
-                        onBlur={() => setFocusedField(null)}
-                      />
-                      <TouchableOpacity style={s.eyeBtn} onPress={() => setShowPassword(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={s.eyeText}>{showPassword ? t('signIn.hide') : t('signIn.show')}</Text>
-                      </TouchableOpacity>
-                    </View>
-                    {passwordError ? <Text style={s.fieldError}>{passwordError}</Text> : null}
-                  </View>
-
-                  <TouchableOpacity style={s.forgotRow} onPress={handleForgotPassword}>
-                    <Text style={s.forgotText}>{t('signIn.forgotPassword')}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[s.submitBtn, loading && s.submitBtnDisabled]}
-                    onPress={handleSignIn}
-                    disabled={loading}
-                    activeOpacity={0.85}
-                  >
-                    {loading
-                      ? <ActivityIndicator color="#fff" />
-                      : <Text style={s.submitTxt}>{t('signIn.title')}</Text>
-                    }
-                  </TouchableOpacity>
-                </View>
-              )}
+        <DraggableSheet onDismiss={closeModal} dismissRef={signInDismissRef}>
+          <View style={[s.sheet, { paddingBottom: insets.bottom + 28 }]} onStartShouldSetResponder={() => true}>
+            <View style={s.sheetHeader}>
+              <View style={s.headerSpacer} />
+              <Text style={s.sheetTitle}>{t('signIn.title')}</Text>
+              <TouchableOpacity style={s.closeBtn} onPress={closeModal}>
+                <XIcon size={14} />
+              </TouchableOpacity>
             </View>
-            </DraggableSheet>
+            <View style={s.divider} />
+            <View style={s.authBtns}>
+              <TouchableOpacity style={s.appleBtn} onPress={Platform.OS === 'ios' ? signInWithApple : signInWithGoogle} activeOpacity={0.85} disabled={loading}>
+                <AppleIcon size={20} />
+                <Text style={s.appleTxt}>{t('signIn.signInWithApple')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.googleBtn} onPress={signInWithGoogle} activeOpacity={0.85} disabled={loading}>
+                <GoogleIcon size={20} />
+                <Text style={s.googleTxt}>{t('signIn.signInWithGoogle')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.emailBtn} onPress={openEmailScreen} activeOpacity={0.85}>
+                <MailIcon size={20} />
+                <Text style={s.emailTxt}>{t('signIn.continueWithEmail')}</Text>
+              </TouchableOpacity>
+              {loading && <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />}
+              <Text style={s.termsText}>
+                {t('signIn.terms')}{'\n'}
+                <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/terms')}>{t('signIn.termsLink')}</Text>
+                {' '}{t('signIn.and')}{' '}
+                <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/privacy')}>{t('signIn.privacyLink')}</Text>
+              </Text>
+            </View>
+          </View>
+        </DraggableSheet>
       </Modal>
+
+      {/* Full-screen email sign-in */}
+      {showEmailScreen && (
+        <Animated.View style={[StyleSheet.absoluteFill, s.esScreen, { transform: [{ translateY: emailScreenSlide }] }]}>
+          <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 20, flex: 1 }}>
+            <TouchableOpacity style={s.esBackBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowEmailScreen(false); setShowSignIn(true); clearErrors(); }} activeOpacity={0.8}>
+              <Text style={s.esBackArrow}>←</Text>
+            </TouchableOpacity>
+            <Text style={s.esTitle}>What's your email?</Text>
+            <Text style={s.esSubtitle}>Enter your email and password to sign in.</Text>
+            {formError ? <Text style={[s.formError, { marginTop: 16 }]}>{formError}</Text> : null}
+            <View style={[s.esInputBox, focusedField === 'email' && s.esInputBoxFocused, emailError ? s.esInputBoxError : null, { marginTop: 24 }]}>
+              <Text style={s.esInputLabel}>Email</Text>
+              <TextInput
+                style={s.esInput}
+                placeholder=""
+                placeholderTextColor="#bbb"
+                value={email}
+                onChangeText={(v) => { setEmail(v); setEmailError(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                autoFocus
+                onFocus={() => setFocusedField('email')}
+                onBlur={() => setFocusedField(null)}
+              />
+            </View>
+            {emailError ? <Text style={s.fieldError}>{emailError}</Text> : null}
+            <View style={[s.esInputBox, focusedField === 'password' && s.esInputBoxFocused, passwordError ? s.esInputBoxError : null, { marginTop: 12, flexDirection: 'row', alignItems: 'center' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.esInputLabel}>Password</Text>
+                <TextInput
+                  style={s.esInput}
+                  placeholder=""
+                  placeholderTextColor="#bbb"
+                  value={password}
+                  onChangeText={(v) => { setPassword(v); setPasswordError(''); }}
+                  secureTextEntry={!showPassword}
+                  autoComplete="password"
+                  onFocus={() => setFocusedField('password')}
+                  onBlur={() => setFocusedField(null)}
+                />
+              </View>
+              <TouchableOpacity onPress={() => setShowPassword(v => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ fontFamily: Fonts.semibold, fontSize: 13, color: Colors.primary }}>{showPassword ? 'Hide' : 'Show'}</Text>
+              </TouchableOpacity>
+            </View>
+            {passwordError ? <Text style={s.fieldError}>{passwordError}</Text> : null}
+            <TouchableOpacity style={[s.forgotRow, { marginTop: 12 }]} onPress={handleForgotPassword}>
+              <Text style={s.forgotText}>{t('signIn.forgotPassword')}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={[s.esBottom, { paddingBottom: insets.bottom + 16 }]}>
+            <TouchableOpacity
+              style={[s.esSubmitBtn, (!email || !password || loading) && s.esSubmitBtnDisabled]}
+              onPress={handleSignIn}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.esSubmitTxt}>Sign in</Text>}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -547,7 +566,7 @@ const s = StyleSheet.create({
   passwordInput: { paddingRight: 60 },
   eyeBtn: { position: 'absolute', right: 16, top: 0, bottom: 0, justifyContent: 'center' },
   eyeText: { fontFamily: Fonts.semibold, fontSize: 13, color: Colors.primary },
-  forgotRow: { alignSelf: 'flex-end' },
+  forgotRow: { alignSelf: 'flex-start' },
   forgotText: { fontFamily: Fonts.semibold, fontSize: 13, color: Colors.primary },
   submitBtn: {
     height: 54, borderRadius: 50,
@@ -556,6 +575,26 @@ const s = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.65 },
   submitTxt: { fontFamily: Fonts.bold, fontSize: 16, color: '#fff' },
+
+  // Full-screen email sign-in
+  esScreen: { backgroundColor: '#f2f2f7', zIndex: 100 },
+  esBackBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e5e5ea', justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  esBackArrow: { fontSize: 20, color: '#333', lineHeight: 24 },
+  esTitle: { fontFamily: Fonts.bold, fontSize: 30, color: '#000', letterSpacing: -0.5, marginBottom: 8 },
+  esSubtitle: { fontFamily: Fonts.regular, fontSize: 15, color: '#888', lineHeight: 22 },
+  esInputBox: {
+    backgroundColor: '#fff', borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#e0e0e0',
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10,
+  },
+  esInputBoxFocused: { borderColor: '#007AFF' },
+  esInputBoxError: { borderColor: '#e53e3e' },
+  esInputLabel: { fontFamily: Fonts.regular, fontSize: 13, color: '#888', marginBottom: 2 },
+  esInput: { fontFamily: Fonts.regular, fontSize: 17, color: '#000', padding: 0, height: 26 },
+  esBottom: { paddingHorizontal: 20 },
+  esSubmitBtn: { height: 56, borderRadius: 50, backgroundColor: '#1c1c1e', justifyContent: 'center', alignItems: 'center' },
+  esSubmitBtnDisabled: { backgroundColor: '#aeaeb2' },
+  esSubmitTxt: { fontFamily: Fonts.semibold, fontSize: 17, color: '#fff' },
 
   // Language button (top-right of welcome screen)
   langBtn: {

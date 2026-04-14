@@ -1,119 +1,154 @@
 import { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
-import Svg, { Path, Line, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
+import { View, Text, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
+import Svg, { Path, Line, Circle } from 'react-native-svg';
 import { Colors, Fonts } from '@/lib/theme';
 
 const { width: SW } = Dimensions.get('window');
-const GW = SW - 96; // graph width
-const GH = 140; // graph height
+// Scroll has paddingHorizontal: 24 (48 total). Card has paddingHorizontal: 20 (40 total).
+const CARD_PAD = 20;
+const GW = SW - 48 - CARD_PAD * 2; // available SVG width
+const GH = 180;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 export default function AnimatedGraph({ skinType }: { skinType: string }) {
-  const drawProgress = useRef(new Animated.Value(0)).current;
+  const progress = useRef(new Animated.Value(0)).current;
+  const fillOpacity = useRef(new Animated.Value(0)).current;
   const statOpacity = useRef(new Animated.Value(0)).current;
-  const statScale = useRef(new Animated.Value(0.8)).current;
+  const statScale = useRef(new Animated.Value(0.85)).current;
+  const dotEndOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Draw the graph line, then pop in the stat
     Animated.sequence([
-      Animated.delay(400),
-      Animated.timing(drawProgress, { toValue: 1, duration: 1800, useNativeDriver: false }),
+      Animated.delay(300),
       Animated.parallel([
-        Animated.timing(statOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.spring(statScale, { toValue: 1, friction: 6, tension: 60, useNativeDriver: true }),
+        Animated.timing(progress, { toValue: 1, duration: 2800, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+        Animated.timing(fillOpacity, { toValue: 0.18, duration: 3200, easing: Easing.out(Easing.quad), useNativeDriver: false }),
+      ]),
+      Animated.parallel([
+        Animated.timing(dotEndOpacity, { toValue: 1, duration: 300, useNativeDriver: false }),
+        Animated.timing(statOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+        Animated.spring(statScale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }),
       ]),
     ]).start();
   }, []);
 
-  // SVG path for the improvement curve
-  const curvePath = `M 0 ${GH * 0.85} Q ${GW * 0.2} ${GH * 0.75}, ${GW * 0.35} ${GH * 0.55} Q ${GW * 0.5} ${GH * 0.35}, ${GW * 0.7} ${GH * 0.2} L ${GW} ${GH * 0.1}`;
-  const flatPath = `M 0 ${GH * 0.85} Q ${GW * 0.3} ${GH * 0.82}, ${GW * 0.5} ${GH * 0.88} Q ${GW * 0.7} ${GH * 0.92}, ${GW} ${GH * 0.95}`;
+  const R = 6; // circle radius + breathing room
+  const midY = GH * 0.5; // both lines start in the middle
 
-  // Approximate total path length for stroke animation
-  const pathLength = GW * 1.3;
+  // SkinX (white): starts middle, curves smoothly upward
+  const skinXPath = `M ${R} ${midY} C ${GW * 0.25} ${midY - 5}, ${GW * 0.45} ${GH * 0.28}, ${GW * 0.65} ${GH * 0.18} C ${GW * 0.8} ${GH * 0.1}, ${GW * 0.9} ${GH * 0.08}, ${GW - R} ${GH * 0.08}`;
+  const fillPath  = `${skinXPath} L ${GW - R} ${GH} L ${R} ${GH} Z`;
+
+  // Without SkinX (coral): single cubic bezier — flat then drops off smoothly
+  const withoutPath = `M ${R} ${midY} C ${GW * 0.62} ${midY}, ${GW * 0.72} ${GH * 0.91}, ${GW - R} ${GH * 0.91}`;
+
+  const pathLen = GW * 1.7;
 
   return (
-    <View style={s.container}>
-      <Text style={s.title}>Your skin can improve</Text>
-      <Text style={s.subtitle}>Based on users with {skinType?.toLowerCase() || 'similar'} skin</Text>
+    <View style={s.outer}>
+      <Text style={s.title}>Your skin can improve{'\n'}by using SkinX</Text>
 
-      <View style={s.graphCard}>
-        <Text style={s.graphLabel}>Skin Clarity</Text>
+      <View style={s.cardWrap}>
+      <View style={s.card}>
+        <Text style={s.cardTitle}>Skin Clarity</Text>
 
-        <Svg width={GW} height={GH} viewBox={`0 0 ${GW} ${GH}`}>
-          {/* Grid lines */}
-          {[0.25, 0.5, 0.75].map(pct => (
-            <Line key={pct} x1={0} y1={GH * pct} x2={GW} y2={GH * pct}
-              stroke="rgba(255,255,255,0.04)" strokeWidth={1} />
-          ))}
+        <View style={s.svgWrap}>
+          <Svg width={GW + 12} height={GH} viewBox={`-6 0 ${GW + 12} ${GH}`}>
+            {/* Dashed grid lines — span only where the curves/fill span */}
+            {[0.33, 0.66].map(pct => (
+              <Line key={pct} x1={R} y1={GH * pct} x2={GW - R} y2={GH * pct}
+                stroke="rgba(255,255,255,0.1)" strokeWidth={0.8} strokeDasharray="4,4" />
+            ))}
 
-          {/* "Without changes" dashed line */}
-          <Path d={flatPath} stroke="rgba(255,255,255,0.12)" strokeWidth={1.5}
-            fill="none" strokeDasharray="5,4" />
+            {/* Fill under SkinX curve */}
+            <AnimatedPath d={fillPath} fill="#fff" opacity={fillOpacity} stroke="none" />
 
-          {/* "With plan" animated line */}
-          <AnimatedPath
-            d={curvePath}
-            stroke={Colors.primary}
-            strokeWidth={2.5}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={pathLength}
-            strokeDashoffset={drawProgress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [pathLength, 0],
-            })}
-          />
-        </Svg>
+            {/* Without SkinX line (coral) */}
+            <AnimatedPath
+              d={withoutPath}
+              stroke="#E8766A"
+              strokeWidth={2.5}
+              fill="none"
+              strokeLinecap="butt"
+              strokeDasharray={pathLen}
+              strokeDashoffset={progress.interpolate({ inputRange: [0, 1], outputRange: [pathLen, 0] })}
+            />
 
-        {/* X axis */}
+            {/* SkinX line (white) */}
+            <AnimatedPath
+              d={skinXPath}
+              stroke="#FFFFFF"
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeDasharray={pathLen}
+              strokeDashoffset={progress.interpolate({ inputRange: [0, 1], outputRange: [pathLen, 0] })}
+            />
+
+            {/* Start dot */}
+            <Circle cx={R} cy={midY} r={5.5} fill={CARD_BG} stroke="#FFFFFF" strokeWidth={2.5} />
+
+            {/* End dot */}
+            <AnimatedCircle cx={GW - R} cy={GH * 0.08} r={5.5} fill={CARD_BG} stroke="#FFFFFF" strokeWidth={2.5} opacity={dotEndOpacity} />
+          </Svg>
+        </View>
+
+        {/* Line labels row */}
+        <View style={s.lineLabels}>
+          <View style={s.brandRow}>
+            <Text style={s.brandEmoji}>✨</Text>
+            <Text style={s.brandName}>SkinX</Text>
+          </View>
+          <Text style={s.withoutText}>Without SkinX</Text>
+        </View>
+
+        {/* X-axis */}
         <View style={s.xAxis}>
           <Text style={s.xLabel}>Week 1</Text>
-          <Text style={s.xLabel}>Week 3</Text>
-          <Text style={s.xLabel}>Week 6</Text>
+          <Text style={s.xLabel}>Week 4</Text>
         </View>
 
-        {/* Legend */}
-        <View style={s.legend}>
-          <View style={s.legendItem}>
-            <View style={[s.legendDot, { backgroundColor: Colors.primary }]} />
-            <Text style={s.legendText}>With SkinX</Text>
-          </View>
-          <View style={s.legendItem}>
-            <View style={[s.legendDot, { backgroundColor: 'rgba(255,255,255,0.15)' }]} />
-            <Text style={s.legendText}>Without changes</Text>
-          </View>
-        </View>
+        {/* Stat */}
+        <Animated.View style={[s.statRow, { opacity: statOpacity, transform: [{ scale: statScale }] }]}>
+          <Text style={s.statText}>92% of users see visible improvement{'\n'}by week 4</Text>
+        </Animated.View>
       </View>
-
-      {/* Stat that pops in after graph draws */}
-      <Animated.View style={[s.statRow, { opacity: statOpacity, transform: [{ scale: statScale }] }]}>
-        <Text style={s.statText}>92% of users see visible improvement by week 4</Text>
-      </Animated.View>
+      </View>
     </View>
   );
 }
 
+const CARD_BG = '#1C1C1E';
+
 const s = StyleSheet.create({
-  container: { gap: 16 },
+  outer: { flex: 1, paddingTop: 28, gap: 20 },
+  cardWrap: { flex: 1, justifyContent: 'center' },
   title: { fontFamily: Fonts.bold, fontSize: 28, color: '#FFF', lineHeight: 36, letterSpacing: -0.5 },
-  subtitle: { fontFamily: Fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.35)', marginTop: -8 },
 
-  graphCard: {
-    backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: 20,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', gap: 10, marginTop: 8,
+  card: {
+    backgroundColor: CARD_BG,
+    borderRadius: 20,
+    paddingHorizontal: CARD_PAD,
+    paddingTop: 20,
+    paddingBottom: 22,
   },
-  graphLabel: { fontFamily: Fonts.medium, fontSize: 13, color: 'rgba(255,255,255,0.3)' },
+  cardTitle: { fontFamily: Fonts.semibold, fontSize: 17, color: '#FFFFFF' },
 
-  xAxis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  xLabel: { fontFamily: Fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.2)' },
+  svgWrap: { marginTop: 14, marginHorizontal: -6 },
 
-  legend: { flexDirection: 'row', gap: 20, marginTop: 6 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 3, borderRadius: 1.5 },
-  legendText: { fontFamily: Fonts.regular, fontSize: 11, color: 'rgba(255,255,255,0.2)' },
+  lineLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 },
+  brandRow:   { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  brandEmoji: { fontSize: 14 },
+  brandName:  { fontFamily: Fonts.semibold, fontSize: 13, color: '#FFFFFF' },
+  clarityPill: { backgroundColor: '#FFFFFF', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  clarityPillText: { fontFamily: Fonts.medium, fontSize: 11, color: '#1C1C1E' },
+  withoutText: { fontFamily: Fonts.medium, fontSize: 13, color: '#E8766A' },
 
-  statRow: { alignItems: 'center', marginTop: 4 },
-  statText: { fontFamily: Fonts.medium, fontSize: 15, color: Colors.primaryLight, textAlign: 'center' },
+  xAxis:  { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  xLabel: { fontFamily: Fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.35)' },
+
+  statRow: { alignItems: 'center', marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  statText: { fontFamily: Fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 20 },
 });

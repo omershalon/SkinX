@@ -7,7 +7,7 @@ export type BirthDate = { month: number; day: number; year: number };
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS = Array.from({ length: 31 }, (_, i) => i + 1);
 const CURRENT_YEAR = new Date().getFullYear();
-const YEARS = Array.from({ length: CURRENT_YEAR - 1939 }, (_, i) => 1940 + i).reverse();
+const YEARS = Array.from({ length: 2030 - 1899 }, (_, i) => 1900 + i).reverse();
 
 const MONTH_ITEMS = MONTHS.map((m, i) => ({ label: m, value: i + 1 }));
 const DAY_ITEMS = DAYS.map((d) => ({ label: String(d), value: d }));
@@ -17,18 +17,20 @@ const itemStyle = { fontSize: 16, color: '#fff' };
 
 // Local state keeps selectedValue in sync (prevents snap-back)
 // valueRef is read by parent on unmount
-function WheelColumn({ items, initial, valueRef, style }: {
+function WheelColumn({ items, initial, valueRef, style, onChangeNotify }: {
   items: { label: string; value: number }[];
   initial: number;
   valueRef: React.MutableRefObject<number>;
   style: any;
+  onChangeNotify: () => void;
 }) {
   const [val, setVal] = useState(initial);
 
   const handleChange = useCallback((v: number) => {
     setVal(v);
     valueRef.current = v;
-  }, []);
+    onChangeNotify();
+  }, [onChangeNotify]);
 
   return (
     <Picker selectedValue={val} onValueChange={handleChange} style={style} itemStyle={itemStyle}>
@@ -52,22 +54,19 @@ export default React.memo(function DatePicker({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
-  // Sync to parent only on unmount (when user taps Next)
-  useEffect(() => {
-    return () => {
-      onChangeRef.current({
-        month: monthRef.current,
-        day: dayRef.current,
-        year: yearRef.current,
-      });
-    };
+  const notify = useCallback(() => {
+    onChangeRef.current({
+      month: monthRef.current,
+      day: dayRef.current,
+      year: yearRef.current,
+    });
   }, []);
 
   return (
     <View style={s.container}>
-      <WheelColumn items={MONTH_ITEMS} initial={value.month} valueRef={monthRef} style={s.monthPicker} />
-      <WheelColumn items={DAY_ITEMS} initial={value.day} valueRef={dayRef} style={s.dayPicker} />
-      <WheelColumn items={YEAR_ITEMS} initial={value.year} valueRef={yearRef} style={s.yearPicker} />
+      <WheelColumn items={MONTH_ITEMS} initial={value.month} valueRef={monthRef} style={s.monthPicker} onChangeNotify={notify} />
+      <WheelColumn items={DAY_ITEMS} initial={value.day} valueRef={dayRef} style={s.dayPicker} onChangeNotify={notify} />
+      <WheelColumn items={YEAR_ITEMS} initial={value.year} valueRef={yearRef} style={s.yearPicker} onChangeNotify={notify} />
     </View>
   );
 }, () => true);

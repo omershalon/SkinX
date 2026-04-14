@@ -51,8 +51,7 @@
           "speechRecognitionPermission": "Glow needs speech recognition to understand your voice"
         }
       ],
-      "expo-font",
-      "@react-native-community/datetimepicker"
+      "expo-font"
     ],
     "scheme": "glow"
   }
