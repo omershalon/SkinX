@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
 import AnimatedGraph from '@/components/onboarding/AnimatedGraph';
+import BarComparison from '@/components/onboarding/BarComparison';
 import { Ionicons } from '@expo/vector-icons';
 import {
   MaleIcon, FemaleIcon, OtherGenderIcon,
@@ -26,15 +27,15 @@ import {
 const { width: SW } = Dimensions.get('window');
 
 type Ans = {
-  gender: string; birthDate: BirthDate; skinType: string; duration: string;
-  tried: string[]; concerns: string[]; goal: string; holistic: string;
-  barriers: string[]; commitment: string; hearAbout: string; triedApps: string;
+  gender: string; birthDate: BirthDate; skinType: string; sensitivity: string; duration: string;
+  tried: string[]; concerns: string[]; breakoutZones: string[]; goal: string[]; holistic: string;
+  barriers: string[]; skincareRoutine: string; hearAbout: string; triedApps: string;
 };
 const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
-const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', duration: '', tried: [], concerns: [], goal: '', holistic: '', barriers: [], commitment: '', hearAbout: '', triedApps: '' };
+const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', tried: [], concerns: [], breakoutZones: [], goal: [], holistic: '', barriers: [], skincareRoutine: '', hearAbout: '', triedApps: '' };
 
-// 11 questions + 3 affirmations + 1 graph + 1 trust = 16 screens
-const TOTAL = 16;
+// 13 questions + 1 graph + 1 bar comparison + 1 affirmation + 1 trust = 17 screens
+const TOTAL = 17;
 
 const HEAR_SOURCES = [
   { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
@@ -178,7 +179,7 @@ export default function OnboardingScreen() {
     router.push({ pathname: '/(auth)/photo-capture', params: { onboardingData: JSON.stringify({ ...a, age: String(age) }) } });
   };
 
-  const toggleMulti = (key: 'tried' | 'concerns' | 'barriers', val: string) => {
+  const toggleMulti = (key: 'tried' | 'concerns' | 'barriers' | 'breakoutZones' | 'goal', val: string) => {
     setA(p => ({ ...p, [key]: p[key].includes(val) ? p[key].filter((v: string) => v !== val) : [...p[key], val] }));
   };
 
@@ -191,21 +192,22 @@ export default function OnboardingScreen() {
       case 3:  return !!a.triedApps;
       case 4:  return true; // graph (always can proceed)
       case 5:  return !!a.skinType;
-      case 6:  return !!a.duration;
-      case 7:  return true; // affirmation
-      case 8:  return a.tried.length > 0;
-      case 9:  return true; // affirmation
-      case 10: return !!a.goal;
-      case 11: return true; // affirmation
-      case 12: return true; // trust screen
-      case 13: return !!a.holistic;
-      case 14: return a.barriers.length > 0;
-      case 15: return !!a.commitment;
+      case 6:  return !!a.sensitivity;
+      case 7:  return a.tried.length > 0;
+      case 8:  return a.breakoutZones.length > 0;
+      case 9:  return !!a.duration;
+      case 10: return a.goal.length > 0;
+      case 11: return true; // bar comparison
+      case 12: return a.barriers.length > 0;
+      case 13: return !!a.skincareRoutine;
+      case 14: return !!a.holistic;
+      case 15: return true; // affirmation
+      case 16: return true; // trust screen
       default: return false;
     }
   };
 
-  const isLastStep = step === 15;
+  const isLastStep = step === 16;
 
   const Q = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
     <View style={st.qWrap}>
@@ -221,7 +223,7 @@ export default function OnboardingScreen() {
     switch (step) {
       // ── 0: Gender ──
       case 0: return (
-        <Q title="Choose your gender" subtitle="This helps us personalize your skin analysis">
+        <Q title="Choose your gender" subtitle="This helps us personalize your plan">
           <View style={st.optionList}>
             {['Male', 'Female', 'Other'].map(o => (
               <Option key={o} label={o} selected={a.gender === o} onPress={() => setA(p => ({ ...p, gender: o }))} />
@@ -232,7 +234,7 @@ export default function OnboardingScreen() {
 
       // ── 1: Birth date ──
       case 1: return (
-        <Q title="When were you born?" subtitle="This will be used to calibrate your custom plan">
+        <Q title="When were you born?" subtitle="This helps us personalize your plan">
           <DatePicker value={a.birthDate} onChange={v => setA(p => ({ ...p, birthDate: v }))} />
         </Q>
       );
@@ -259,7 +261,7 @@ export default function OnboardingScreen() {
       );
 
       // ── 4: Animated graph proof screen ──
-      case 4: return <AnimatedGraph skinType={a.skinType} />;
+      case 4: return <AnimatedGraph />;
 
       // ── 5: Skin type ──
       case 5: return (
@@ -272,29 +274,19 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 6: Duration ──
+      // ── 6: Skin sensitivity ──
       case 6: return (
-        <Q title="How long have you dealt with skin issues?">
+        <Q title="How sensitive is your skin?">
           <View style={st.optionList}>
-            {['Just recently', 'Less than a year', '1 - 3 years', '3 - 5 years', '5+ years'].map(o => (
-              <Option key={o} label={o} selected={a.duration === o} onPress={() => setA(p => ({ ...p, duration: o }))} />
+            {['Not sensitive', 'Slightly sensitive', 'Moderately sensitive', 'Very sensitive'].map(o => (
+              <Option key={o} label={o} selected={a.sensitivity === o} onPress={() => setA(p => ({ ...p, sensitivity: o }))} />
             ))}
           </View>
         </Q>
       );
 
-      // ── 7: Affirmation 1 ──
+      // ── 7: Skin concerns ──
       case 7: return (
-        <View style={st.affirmCenter}>
-          <Text style={st.affirmBig}>You're not alone.</Text>
-          <Text style={st.affirmBody}>
-            85% of people your age deal with the same skin struggles. You're already taking the first step.
-          </Text>
-        </View>
-      );
-
-      // ── 8: Skin concerns ──
-      case 8: return (
         <Q title="What are your main skin concerns?" subtitle="Select all that apply.">
           <View style={st.optionList}>
             {[
@@ -314,39 +306,132 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 9: Affirmation 2 ──
-      case 9: return (
-        <View style={st.affirmCenter}>
-          <Text style={st.affirmHuge}>67%</Text>
-          <Text style={st.affirmBody}>
-            People with {a.skinType?.toLowerCase() || 'your'} skin dealing with {a.concerns[0]?.toLowerCase() || 'breakouts'} see an average 67% improvement within 6 weeks.
-          </Text>
-        </View>
-      );
-
-      // ── 10: Goal ──
-      case 10: return (
-        <Q title="What's your goal?" subtitle="We'll build your plan around this">
+      // ── 8: Breakout zones ──
+      case 8: return (
+        <Q title="Where do you have breakouts mostly?" subtitle="Select all that apply.">
           <View style={st.optionList}>
-            {['Completely clear skin', 'Fewer breakouts', 'Manage what I have', 'Prevent future issues', 'Fade scars and marks'].map(o => (
-              <Option key={o} label={o} selected={a.goal === o} onPress={() => setA(p => ({ ...p, goal: o }))} />
+            {[
+              { id: 'forehead',     title: 'Forehead',      sub: 'Common with oily skin or hair products.' },
+              { id: 'cheeks',       title: 'Cheeks',        sub: 'Can be linked to pillowcases or phones.' },
+              { id: 'nose',         title: 'Nose',          sub: 'Blackheads and clogged pores common.' },
+              { id: 'chin_jawline', title: 'Chin and Jawline', sub: 'Often related to hormonal breakouts.' },
+              { id: 'back',         title: 'Back or Chest', sub: 'Body acne from sweat or friction.' },
+              { id: 'temples',      title: 'Temples',       sub: 'Linked to hair products or stress.' },
+            ].map(o => (
+              <CheckOption
+                key={o.id}
+                title={o.title}
+                subtitle={o.sub}
+                selected={a.breakoutZones.includes(o.id)}
+                onPress={() => toggleMulti('breakoutZones', o.id)}
+              />
             ))}
           </View>
         </Q>
       );
 
-      // ── 11: Affirmation 3 ──
-      case 11: return (
+      // ── 9: Duration ──
+      case 9: return (
+        <Q title="How long have you dealt with skin issues?">
+          <View style={st.optionList}>
+            {['Just recently', 'Less than a year', '1 - 3 years', '3 - 5 years', '5+ years'].map(o => (
+              <Option key={o} label={o} selected={a.duration === o} onPress={() => setA(p => ({ ...p, duration: o }))} />
+            ))}
+          </View>
+        </Q>
+      );
+
+      // ── 10: Goal ──
+      case 10: return (
+        <Q title="What are your main skincare goals?" subtitle="Select all that apply.">
+          <View style={st.optionList}>
+            {[
+              { id: 'clear_acne',    title: 'Clear Acne',        sub: 'Reduce breakouts and clogged pores.' },
+              { id: 'fade_spots',    title: 'Fade Dark Spots',   sub: 'Lighten hyperpigmentation and marks.' },
+              { id: 'even_tone',     title: 'Even Skin Tone',    sub: 'Improve tone and reduce discoloration.' },
+              { id: 'hydrate',       title: 'Hydrate Skin',      sub: 'Boost moisture and barrier health.' },
+              { id: 'irritation',    title: 'Reduce Irritation', sub: 'Soothe redness and calm skin.' },
+              { id: 'texture',       title: 'Smooth Texture',    sub: 'Minimize pores and tighten texture.' },
+              { id: 'control_oil',   title: 'Control Oil',       sub: 'Balance sebum and reduce shine.' },
+              { id: 'anti_aging',    title: 'Anti-Aging',        sub: 'Reduce fine lines and wrinkles.' },
+              { id: 'brighten',      title: 'Brighten Skin',     sub: 'Boost glow and skin radiance.' },
+            ].map(o => (
+              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.goal.includes(o.id)} onPress={() => toggleMulti('goal', o.id)} />
+            ))}
+          </View>
+        </Q>
+      );
+
+      // ── 11: Bar comparison ──
+      case 11: return <BarComparison />;
+
+      // ── 12: Barriers ──
+      case 12: return (
+        <Q title="What have been your biggest challenges?" subtitle="Select all that apply.">
+          <View style={st.optionList}>
+            {[
+              { id: 'dont_know_products',  title: "Don't know what to use",        sub: 'Finding the right products is overwhelming.' },
+              { id: 'conflicting_info',    title: 'Too much conflicting info',      sub: 'Advice online can be hard to navigate.' },
+              { id: 'cant_afford_derm',    title: "Can't afford a dermatologist",   sub: 'Professional help isn\'t always accessible.' },
+              { id: 'nothing_works',       title: 'Nothing seems to work',          sub: 'Products tried haven\'t made a difference.' },
+              { id: 'no_routine',          title: 'No consistent routine',          sub: 'Sticking to a daily routine is difficult.' },
+              { id: 'dont_know_cause',     title: "Don't know what's causing it",   sub: 'Hard to treat without knowing the trigger.' },
+            ].map(o => (
+              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.barriers.includes(o.id)} onPress={() => toggleMulti('barriers', o.id)} />
+            ))}
+          </View>
+        </Q>
+      );
+
+      // ── 13: Skincare routine ──
+      case 13: return (
+        <Q title="Do you follow a skincare routine?">
+          <View style={st.optionList}>
+            <TouchableOpacity
+              style={[st.yesNoOption, a.skincareRoutine === 'yes' && st.yesNoOptionSel]}
+              onPress={() => { Haptics.selectionAsync(); setA(p => ({ ...p, skincareRoutine: 'yes' })); }}
+              activeOpacity={0.9}>
+              <View style={[st.yesNoIconCircle, a.skincareRoutine === 'yes' && st.yesNoIconCircleSel]}>
+                <Ionicons name="checkmark" size={14} color={a.skincareRoutine === 'yes' ? '#fff' : '#fff'} />
+              </View>
+              <Text style={[st.yesNoText, a.skincareRoutine === 'yes' && st.yesNoTextSel]}>Yes</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[st.yesNoOption, a.skincareRoutine === 'no' && st.yesNoOptionSel]}
+              onPress={() => { Haptics.selectionAsync(); setA(p => ({ ...p, skincareRoutine: 'no' })); }}
+              activeOpacity={0.9}>
+              <View style={[st.yesNoIconCircle, a.skincareRoutine === 'no' && st.yesNoIconCircleSel]}>
+                <Ionicons name="close" size={14} color="#fff" />
+              </View>
+              <Text style={[st.yesNoText, a.skincareRoutine === 'no' && st.yesNoTextSel]}>No</Text>
+            </TouchableOpacity>
+          </View>
+        </Q>
+      );
+
+      // ── 14: Holistic ──
+      case 14: return (
+        <Q title="Are you open to natural approaches?" subtitle="Things like herbal remedies, diet changes, and natural products">
+          <View style={st.optionList}>
+            {['Yes, I prefer natural', 'Open to trying', 'No'].map(o => (
+              <Option key={o} label={o} selected={a.holistic === o} onPress={() => setA(p => ({ ...p, holistic: o }))} />
+            ))}
+          </View>
+        </Q>
+      );
+
+      // ── 15: Affirmation ──
+      case 15: return (
         <View style={st.affirmCenter}>
-          <Text style={st.affirmBig}>Totally achievable.</Text>
+          <Text style={st.affirmBig}>You're already ahead.</Text>
           <Text style={st.affirmBody}>
-            Most people with your profile start seeing real changes in 3 to 6 weeks. Consistency is everything.
+            Most people never take the first step. The fact that you're here means you're serious about real change and that's exactly what gets results.
           </Text>
         </View>
       );
 
-      // ── 12: Trust / Privacy ──
-      case 12: return (
+      // ── 16: Trust / Privacy ──
+      case 16: return (
         <View style={st.trustWrap}>
           <View style={st.trustIconWrap}>
             <View style={st.trustCircleOuter}>
@@ -365,39 +450,6 @@ export default function OnboardingScreen() {
             </Text>
           </View>
         </View>
-      );
-
-      // ── 13: Holistic ──
-      case 13: return (
-        <Q title="Are you open to natural approaches?" subtitle="Things like herbal remedies, diet changes, and clean skincare">
-          <View style={st.optionList}>
-            {['Yes, I prefer natural', 'Open to trying', 'Not really', 'Tell me more'].map(o => (
-              <Option key={o} label={o} selected={a.holistic === o} onPress={() => setA(p => ({ ...p, holistic: o }))} />
-            ))}
-          </View>
-        </Q>
-      );
-
-      // ── 14: Barriers ──
-      case 14: return (
-        <Q title="What's been your biggest challenge?">
-          <View style={st.optionList}>
-            {["Don't know what to use", 'Too much conflicting info', "Can't afford a dermatologist", 'Nothing seems to work', 'No consistent routine', "Don't know what's causing it"].map(o => (
-              <Option key={o} label={o} selected={a.barriers[0] === o} onPress={() => setA(p => ({ ...p, barriers: [o] }))} />
-            ))}
-          </View>
-        </Q>
-      );
-
-      // ── 15: Commitment ──
-      case 15: return (
-        <Q title="How committed are you?">
-          <View style={st.optionList}>
-            {['Just browsing', 'Willing to try', 'Ready to commit', 'All in'].map(o => (
-              <Option key={o} label={o} selected={a.commitment === o} onPress={() => setA(p => ({ ...p, commitment: o }))} />
-            ))}
-          </View>
-        </Q>
       );
 
       default: return null;
@@ -425,10 +477,10 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 12 ? (
+        {step === 1 || step === 11 || step === 16 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
         ) : (
-          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
+          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={step === 7 || step === 8 || step === 10 || step === 12}>
             {renderStep()}
           </ScrollView>
         )}
@@ -592,6 +644,27 @@ const st = StyleSheet.create({
   affirmBig: { fontFamily: Fonts.bold, fontSize: 32, color: '#FFF', textAlign: 'center', letterSpacing: -0.5, lineHeight: 40 },
   affirmHuge: { fontFamily: Fonts.bold, fontSize: 72, color: Colors.primary, letterSpacing: -3 },
   affirmBody: { fontFamily: Fonts.regular, fontSize: 16, color: 'rgba(255,255,255,0.38)', textAlign: 'center', lineHeight: 25, marginTop: 20 },
+
+  // Or divider (breakout zones screen)
+  orDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  orLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
+  orText: { fontFamily: Fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.3)' },
+
+  // Yes / No option (skincare routine screen)
+  yesNoOption: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 22, paddingHorizontal: 20, borderRadius: 14,
+    backgroundColor: '#1A1A1E', gap: 14,
+  },
+  yesNoOptionSel: { backgroundColor: '#FFFFFF' },
+  yesNoIconCircle: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  yesNoIconCircleSel: { backgroundColor: '#000000' },
+  yesNoText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#FFFFFF' },
+  yesNoTextSel: { color: '#000000' },
 
   // Bottom — clean black button
   bottomBar: { paddingHorizontal: 28, paddingTop: 10 },
