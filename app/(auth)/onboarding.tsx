@@ -213,15 +213,30 @@ export default function OnboardingScreen() {
 
   const isLastStep = step === 16;
 
-  const Q = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
-    <View style={st.qWrap}>
-      <View style={st.qTop}>
-        <Text style={st.title}>{title}</Text>
-        {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
+  const Q = ({ title, subtitle, children, sticky }: { title: string; subtitle?: string; children: React.ReactNode; sticky?: boolean }) => {
+    if (sticky) {
+      return (
+        <View style={{ flex: 1 }}>
+          <View style={[st.qTop, { paddingTop: 28, paddingBottom: 20 }]}>
+            <Text style={st.title}>{title}</Text>
+            {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
+          </View>
+          <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false} bounces>
+            {children}
+          </ScrollView>
+        </View>
+      );
+    }
+    return (
+      <View style={st.qWrap}>
+        <View style={st.qTop}>
+          <Text style={st.title}>{title}</Text>
+          {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
+        </View>
+        <View style={st.qMid}>{children}</View>
       </View>
-      <View style={st.qMid}>{children}</View>
-    </View>
-  );
+    );
+  };
 
   const renderStep = () => {
     switch (step) {
@@ -249,7 +264,7 @@ export default function OnboardingScreen() {
 
       // ── 2: Where did you hear about us ──
       case 2: return (
-        <Q title={t('onboarding.hearAbout')}>
+        <Q title={t('onboarding.hearAbout')} sticky>
           <View style={st.optionList}>
             {HEAR_SOURCES.map(src => (
               <RowOption key={src.id} label={src.label} icon={src.icon} selected={a.hearAbout === src.id} onPress={() => setA(p => ({ ...p, hearAbout: src.id }))} />
@@ -304,7 +319,7 @@ export default function OnboardingScreen() {
 
       // ── 7: Skin concerns ──
       case 7: return (
-        <Q title={t('onboarding.concerns')} subtitle={t('onboarding.selectAll')}>
+        <Q title={t('onboarding.concerns')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
               { id: 'acne',         title: t('onboarding.concernAcneTitle'),        sub: t('onboarding.concernAcneSub') },
@@ -325,7 +340,7 @@ export default function OnboardingScreen() {
 
       // ── 8: Breakout zones ──
       case 8: return (
-        <Q title={t('onboarding.breakoutZones')} subtitle={t('onboarding.selectAll')}>
+        <Q title={t('onboarding.breakoutZones')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
               { id: 'forehead',     title: t('onboarding.zoneForehead'), sub: t('onboarding.zoneForeheadSub') },
@@ -367,7 +382,7 @@ export default function OnboardingScreen() {
 
       // ── 10: Goal ──
       case 10: return (
-        <Q title={t('onboarding.goals')} subtitle={t('onboarding.selectAll')}>
+        <Q title={t('onboarding.goals')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
               { id: 'clear_acne',  title: t('onboarding.goalClearAcneTitle'),  sub: t('onboarding.goalClearAcneSub') },
@@ -392,7 +407,7 @@ export default function OnboardingScreen() {
 
       // ── 12: Barriers ──
       case 12: return (
-        <Q title={t('onboarding.barriers')} subtitle={t('onboarding.selectAll')}>
+        <Q title={t('onboarding.barriers')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
               { id: 'dont_know_products', title: t('onboarding.barrierProductsTitle'), sub: t('onboarding.barrierProductsSub') },
@@ -506,8 +521,10 @@ export default function OnboardingScreen() {
       }]}>
         {step === 1 || step === 11 || step === 16 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
+        ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 ? (
+          <View style={{ flex: 1, paddingHorizontal: 24 }}>{renderStep()}</View>
         ) : (
-          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={step === 7 || step === 8 || step === 10 || step === 12}>
+          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
             {renderStep()}
           </ScrollView>
         )}

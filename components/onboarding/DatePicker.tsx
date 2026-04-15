@@ -13,7 +13,7 @@ const MONTH_ITEMS = MONTHS.map((m, i) => ({ label: m, value: i + 1 }));
 const DAY_ITEMS = DAYS.map((d) => ({ label: String(d), value: d }));
 const YEAR_ITEMS = YEARS.map((y) => ({ label: String(y), value: y }));
 
-const itemStyle = { fontSize: 16, color: '#fff' };
+const itemStyle = { fontSize: 15, color: '#fff' };
 
 // Local state keeps selectedValue in sync (prevents snap-back)
 // valueRef is read by parent on unmount
@@ -79,12 +79,12 @@ const s = StyleSheet.create({
     marginTop: 16,
   },
   monthPicker: {
-    flex: 3,
+    flex: 2.5,
   },
   dayPicker: {
-    flex: 1.5,
+    flex: 1.2,
   },
   yearPicker: {
-    flex: 1.8,
+    flex: 2,
   },
 });
