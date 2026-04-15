@@ -79,7 +79,8 @@ const ChevronRightIcon = ({ size = 28, color = Colors.primary }: { size?: number
   </Svg>
 );
 
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, differenceInWeeks } from 'date-fns';
+import { useFocusEffect } from 'expo-router';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, differenceInMonths, differenceInWeeks } from 'date-fns';
 
 type ProgressPhoto = {
   id: string;
@@ -118,9 +119,22 @@ export default function ProgressScreen() {
 
   // Calendar state
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [accountCreatedAt, setAccountCreatedAt] = useState<Date>(startOfMonth(new Date()));
   const scrollRef = useRef<ScrollView>(null);
   const hasScrolledRef = useRef(false);
   const monthYPositions = useRef<Record<number, number>>({});
+  const currentMonthIdxRef = useRef(0);
+
+  // Re-scroll to current month every time this tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      hasScrolledRef.current = false;
+      const y = monthYPositions.current[currentMonthIdxRef.current];
+      if (y != null) {
+        setTimeout(() => scrollRef.current?.scrollTo({ y, animated: false }), 50);
+      }
+    }, [])
+  );
 
   // Detail modal state
   const [modalVisible, setModalVisible] = useState(false);
@@ -140,6 +154,11 @@ export default function ProgressScreen() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
+
+    // Store the account creation month so we know the earliest allowed month
+    if (user.created_at) {
+      setAccountCreatedAt(startOfMonth(new Date(user.created_at)));
+    }
 
     const { data } = await supabase
       .from('progress_photos')
@@ -273,14 +292,33 @@ export default function ProgressScreen() {
     });
   };
 
+  const deletePhoto = (photo: ProgressPhoto) => {
+    Alert.alert('Delete Photo', 'Remove this progress photo?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive',
+        onPress: async () => {
+          closeExpand();
+          await supabase.from('progress_photos').delete().eq('id', photo.id);
+          setPhotos(prev => prev.filter(p => p.id !== photo.id));
+        },
+      },
+    ]);
+  };
+
   // ─── Calendar helpers ─────────────────────────────────────────────────────
-  // Generate months: 12 past + current + 3 future = 16 months
-  const MONTHS_PAST = 12;
-  const MONTHS_FUTURE = 3;
-  const CURRENT_MONTH_INDEX = MONTHS_PAST; // index of the current month in the array
-  const allMonths = Array.from({ length: MONTHS_PAST + 1 + MONTHS_FUTURE }, (_, i) =>
-    addMonths(new Date(), i - MONTHS_PAST)
+  // 6 months before account creation → current month → 24 months into the future
+  const MONTHS_BEFORE_SIGNUP = 6;
+  const MONTHS_FUTURE = 24;
+  const calendarStart = addMonths(accountCreatedAt, -MONTHS_BEFORE_SIGNUP);
+  const currentMonthStart = startOfMonth(new Date());
+  const monthsToNow = differenceInMonths(currentMonthStart, calendarStart);
+  const totalMonths = monthsToNow + 1 + MONTHS_FUTURE;
+  const allMonths = Array.from({ length: Math.max(1, totalMonths) }, (_, i) =>
+    addMonths(calendarStart, i)
   );
+  const CURRENT_MONTH_INDEX = monthsToNow;
+  currentMonthIdxRef.current = CURRENT_MONTH_INDEX;
 
   // Group photos by date
   const photosByDate = photos.reduce<Record<string, ProgressPhoto[]>>((acc, p) => {
@@ -559,9 +597,9 @@ export default function ProgressScreen() {
           <Reanimated.View style={[styles.expandSheet, sheetAnimStyle]}>
 
             {/* Drag handle */}
-            <TouchableOpacity onPress={closeExpand} activeOpacity={0.7} style={styles.sheetHandleArea}>
+            <View style={styles.sheetHandleRow}>
               <View style={styles.sheetHandle} />
-            </TouchableOpacity>
+            </View>
 
             {/* Swipeable photos */}
             <FlatList
@@ -578,13 +616,8 @@ export default function ProgressScreen() {
                 if (reversed[idx]) setExpandPhoto(reversed[idx]);
               }}
               renderItem={({ item: photo }) => (
-                <ScrollView
-                  style={{ width: SCREEN_WIDTH }}
-                  contentContainerStyle={{ paddingBottom: 40 }}
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                >
-                  {/* Photo with padding and rounded corners */}
+                <View style={{ width: SCREEN_WIDTH }}>
+                  {/* Photo with margins + rounded corners */}
                   <View style={styles.expandImageWrap}>
                     <Image
                       source={{ uri: photo.photo_url }}
@@ -593,73 +626,55 @@ export default function ProgressScreen() {
                     />
                   </View>
 
-                  <View style={styles.expandInfo}>
-                    {/* Date + Week pill row */}
-                    <View style={styles.expandDateRow}>
+                  {/* Compact info row */}
+                  <View style={styles.expandInfoRow}>
+                    <View style={styles.expandInfoLeft}>
                       <Text style={styles.expandDate}>
-                        {format(new Date(photo.created_at), 'MMMM d, yyyy')}
+                        {format(new Date(photo.created_at), 'MMM d, yyyy')}
                       </Text>
-                      <View style={styles.expandWeekPill}>
-                        <Text style={styles.expandWeekPillText}>{t('progress.week', { number: photo.week_number })}</Text>
-                      </View>
-                    </View>
-
-                    {/* Score badges */}
-                    <View style={styles.expandBadgeRow}>
-                      <View style={styles.expandBadge}>
-                        <Text style={styles.expandBadgeLabel}>{t('progress.severity')}</Text>
-                        <Text style={styles.expandBadgeValue}>{photo.severity_score.toFixed(1)}</Text>
-                      </View>
-                      {photo.improvement_percentage != null && (
-                        <View style={[styles.expandBadge, {
-                          borderColor: photo.improvement_percentage >= 0 ? Colors.success + '40' : Colors.error + '40',
-                          backgroundColor: (photo.improvement_percentage >= 0 ? Colors.success : Colors.error) + '10',
-                        }]}>
-                          <Text style={[styles.expandBadgeLabel, {
-                            color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
-                          }]}>{t('progress.change')}</Text>
-                          <Text style={[styles.expandBadgeValue, {
-                            color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
+                      <View style={styles.expandChipRow}>
+                        <View style={styles.expandChip}>
+                          <Text style={styles.expandChipText}>Week {photo.week_number}</Text>
+                        </View>
+                        <View style={styles.expandChip}>
+                          <Text style={styles.expandChipText}>Severity {photo.severity_score.toFixed(1)}</Text>
+                        </View>
+                        {photo.improvement_percentage != null && (
+                          <View style={[styles.expandChip, {
+                            backgroundColor: (photo.improvement_percentage >= 0 ? Colors.success : Colors.error) + '20',
                           }]}>
-                            {photo.improvement_percentage > 0 ? '+' : ''}{photo.improvement_percentage.toFixed(0)}%
-                          </Text>
-                        </View>
-                      )}
+                            <Text style={[styles.expandChipText, {
+                              color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
+                            }]}>
+                              {photo.improvement_percentage > 0 ? '+' : ''}{photo.improvement_percentage.toFixed(0)}%
+                            </Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
-
-                    {/* AI Analysis card */}
-                    {photo.analysis_notes ? (
-                      <View style={styles.expandAnalysisCard}>
-                        <View style={styles.expandAnalysisAccent} />
-                        <View style={styles.expandAnalysisContent}>
-                          <Text style={styles.expandSectionTitle}>{t('progress.aiAnalysis')}</Text>
-                          <Text style={styles.expandAnalysisText}>{photo.analysis_notes}</Text>
-                        </View>
-                      </View>
-                    ) : null}
-
-                    {/* Zone Breakdown */}
-                    {photo.annotations && Object.values(photo.annotations).some(Boolean) && (
-                      <View style={styles.expandSection}>
-                        <Text style={styles.expandSectionTitle}>{t('progress.zoneBreakdown')}</Text>
-                        <View style={styles.zoneCard}>
-                          {Object.entries(ZONE_KEYS).map(([zoneKey, tKey]) => {
-                            const val = photo.annotations?.[zoneKey];
-                            if (!val) return null;
-                            return (
-                              <View key={zoneKey} style={styles.zoneRow}>
-                                <Text style={styles.zoneLabel}>{t(`progress.${tKey}`)}</Text>
-                                <Text style={styles.zoneValue}>{val}</Text>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    )}
                   </View>
-                </ScrollView>
+
+                  {/* Delete button */}
+                  <TouchableOpacity
+                    style={styles.expandDeleteBtn}
+                    activeOpacity={0.7}
+                    onPress={() => deletePhoto(photo)}
+                  >
+                    <Text style={styles.expandDeleteText}>Delete Photo</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             />
+
+            {/* X button — absolutely on top of everything */}
+            <TouchableOpacity
+              onPress={closeExpand}
+              activeOpacity={0.7}
+              style={styles.sheetCloseBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <CloseIcon size={14} color={Colors.textSecondary} />
+            </TouchableOpacity>
           </Reanimated.View>
         </View>
       )}
@@ -883,61 +898,67 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: SCREEN_HEIGHT * 0.9,
+    height: SCREEN_HEIGHT * 0.75,
     backgroundColor: Colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     overflow: 'hidden',
   },
-  sheetHandleArea: { alignItems: 'center', paddingTop: Spacing.md, paddingBottom: Spacing.sm },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border },
-  expandImageWrap: {
-    marginHorizontal: Spacing.lg,
-    marginTop: Spacing.sm,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  expandImage: { width: SCREEN_WIDTH - Spacing.lg * 2, height: (SCREEN_WIDTH - Spacing.lg * 2) * 1.1 },
-  expandInfo: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, gap: Spacing.lg },
-  expandDateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  expandDate: { ...Typography.headlineSmall, color: Colors.text },
-  expandWeekPill: {
-    backgroundColor: Colors.primary + '20',
-    borderRadius: BorderRadius.pill,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xxs,
-  },
-  expandWeekPillText: { ...Typography.caption, color: Colors.primary, fontWeight: '700' },
-  expandBadgeRow: { flexDirection: 'row', gap: Spacing.sm },
-  expandBadge: {
-    flex: 1,
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    padding: Spacing.md,
+  sheetHandleRow: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
-  expandBadgeLabel: { ...Typography.caption, color: Colors.textMuted, marginBottom: 2 },
-  expandBadgeValue: { ...Typography.headlineSmall, color: Colors.text },
-  expandAnalysisCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border },
+  // X button pinned to top-right corner of the photo
+  sheetCloseBtn: {
+    position: 'absolute',
+    top: 52,
+    right: 42,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(10,6,28,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  expandImageWrap: {
+    marginHorizontal: 32,
+    marginTop: 22,
+    borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
-  expandAnalysisAccent: { width: 4, backgroundColor: Colors.primary },
-  expandAnalysisContent: { flex: 1, padding: Spacing.lg, gap: Spacing.sm },
-  expandSectionTitle: { ...Typography.labelLarge, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
-  expandAnalysisText: { ...Typography.bodyMedium, color: Colors.text, lineHeight: 22 },
-  expandSection: { gap: Spacing.sm },
-  zoneCard: {
+  expandImage: {
+    width: SCREEN_WIDTH - 64,
+    height: (SCREEN_WIDTH - 64) * 1.38,
+  },
+  expandInfoRow: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 4,
+  },
+  expandInfoLeft: { gap: 6 },
+  expandDate: { ...Typography.headlineSmall, color: Colors.text },
+  expandChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
+  expandChip: {
     backgroundColor: Colors.card,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.lg,
+    borderRadius: BorderRadius.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+  expandChipText: { ...Typography.caption, color: Colors.textSecondary },
+  expandDeleteBtn: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.error + '15',
+    borderWidth: 1,
+    borderColor: Colors.error + '40',
+    alignItems: 'center',
+  },
+  expandDeleteText: { ...Typography.labelLarge, color: Colors.error },
 });

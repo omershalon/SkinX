@@ -9,6 +9,61 @@ import type {
   ScanResponse,
   ScanSession,
 } from './scan-types';
+import type { SkinType, AcneType } from './database.types';
+
+// ── Helpers to normalise AI-returned strings to valid DB enum values ──────────
+
+function toSkinType(raw: string | null | undefined): SkinType {
+  const v = (raw ?? '').toLowerCase().trim();
+  const valid: SkinType[] = ['oily', 'dry', 'combination', 'sensitive', 'normal'];
+  return valid.includes(v as SkinType) ? (v as SkinType) : 'normal';
+}
+
+function toAcneType(raw: string | null | undefined): AcneType {
+  const v = (raw ?? '').toLowerCase().trim();
+  const valid: AcneType[] = ['hormonal', 'cystic', 'comedonal', 'fungal', 'inflammatory'];
+  return valid.includes(v as AcneType) ? (v as AcneType) : 'inflammatory';
+}
+
+/**
+ * Upsert (replace) the user's skin_profile with the latest scan results.
+ * This is what powers the home-page card.
+ */
+async function upsertSkinProfile(
+  userId: string,
+  frontImageUrl: string,
+  response: ScanResponse
+): Promise<string | null> {
+  const zones = (response.zone_breakdown ?? []).reduce<Record<string, { severity: string; note: string }>>(
+    (acc, z) => ({ ...acc, [z.zone]: { severity: z.severity, note: z.note } }),
+    {}
+  );
+
+  const payload = {
+    user_id:        userId,
+    skin_type:      toSkinType(response.skin_insights?.skin_type),
+    acne_type:      toAcneType(response.summary.primary_acne_type),
+    severity:       response.summary.severity,
+    analysis_notes: response.summary.description,
+    photo_url:      frontImageUrl,
+    zones,
+  };
+
+  // Delete any existing profile for this user, then insert fresh
+  await supabase.from('skin_profiles').delete().eq('user_id', userId);
+
+  const { data, error } = await (supabase.from('skin_profiles') as any)
+    .insert(payload)
+    .select('id')
+    .single();
+
+  if (error) {
+    console.error('[scan-api] upsertSkinProfile failed:', error.message);
+    return null;
+  }
+  console.log('[scan-api] skin_profiles updated, id:', data.id);
+  return data.id as string;
+}
 
 // ── Gemini image config (mirrors edge function CONFIG) ──
 
@@ -271,7 +326,7 @@ export async function runScanPipeline(
   images: Record<ViewAngle, CapturedImage>,
   detections: Record<ViewAngle, DetectionResult>,
   onProgress?: (step: string) => void
-): Promise<{ sessionId: string; response: ScanResponse }> {
+): Promise<{ sessionId: string; response: ScanResponse; skinProfileId: string | null }> {
   onProgress?.('Uploading images...');
   const imageUrls = await uploadAllImages(userId, images);
 
@@ -286,7 +341,10 @@ export async function runScanPipeline(
     onProgress?.('Saving results...');
     await updateScanSession(sessionId, response);
 
-    return { sessionId, response };
+    // Keep the home-page card in sync and get the skin profile id for plan generation
+    const skinProfileId = await upsertSkinProfile(userId, imageUrls.front, response);
+
+    return { sessionId, response, skinProfileId };
   } catch (error) {
     await failScanSession(sessionId);
     throw error;

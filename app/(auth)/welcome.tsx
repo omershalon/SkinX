@@ -87,7 +87,7 @@ function CheckmarkIcon({ size = 18 }: { size?: number }) {
 
 const SCREEN_H = Dimensions.get('window').height;
 
-function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.ReactNode; onDismiss: () => void; dismissRef?: React.RefObject<(() => void) | null> }) {
+function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.ReactNode; onDismiss: () => void; dismissRef?: React.RefObject<((onComplete?: () => void) => void) | null> }) {
   const translateY = useRef(new Animated.Value(SCREEN_H)).current;
   const overlayOpacity = useRef(new Animated.Value(0)).current;
   const dismissed = useRef(false);
@@ -96,11 +96,11 @@ function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.R
   onDismissRef.current = onDismiss;
 
   if (dismissRef) {
-    dismissRef.current = () => {
+    dismissRef.current = (onComplete?: () => void) => {
       Animated.parallel([
         Animated.timing(translateY, { toValue: SCREEN_H, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.timing(overlayOpacity, { toValue: 0, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-      ]).start(() => onDismissRef.current());
+      ]).start(() => { onDismissRef.current(); onComplete?.(); });
     };
   }
 
@@ -184,15 +184,13 @@ export default function WelcomeScreen() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [showLang, setShowLang] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
-  const signInDismissRef = useRef<(() => void) | null>(null);
-  const langDismissRef   = useRef<(() => void) | null>(null);
+  const signInDismissRef = useRef<((onComplete?: () => void) => void) | null>(null);
+  const langDismissRef   = useRef<((onComplete?: () => void) => void) | null>(null);
   const emailScreenSlide = useRef(new Animated.Value(SCREEN_H)).current;
 
   useEffect(() => {
-    if (showEmailScreen) {
-      emailScreenSlide.setValue(SCREEN_H);
-      Animated.spring(emailScreenSlide, { toValue: 0, useNativeDriver: true, friction: 10, tension: 65 }).start();
-    }
+    // Reset position when email screen closes so it's ready for next open
+    if (!showEmailScreen) emailScreenSlide.setValue(SCREEN_H);
   }, [showEmailScreen]);
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
 
@@ -223,11 +221,14 @@ export default function WelcomeScreen() {
   };
 
   const openEmailScreen = () => {
-    signInDismissRef.current?.();
-    setTimeout(() => {
-      setShowSignIn(false);
+    emailScreenSlide.setValue(SCREEN_H);
+    signInDismissRef.current?.(() => {
+      // Fire the slide-up animation immediately in the dismiss callback —
+      // before setState/re-render — so the email screen is already moving
+      // the moment the sign-in sheet disappears, with no visible gap.
+      Animated.timing(emailScreenSlide, { toValue: 0, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
       setShowEmailScreen(true);
-    }, 400);
+    });
   };
 
   // ── Apple Sign In ──

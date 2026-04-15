@@ -20,10 +20,55 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors, Typography, BorderRadius, Spacing } from '@/lib/theme';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
-import type { ViewAngle, CapturedImage } from '@/lib/scan-types';
+import type { ViewAngle, CapturedImage, ScanSession, Recommendation } from '@/lib/scan-types';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { runDetectionOnAll, countDetections } from '@/lib/yolo';
-import { runScanPipeline } from '@/lib/scan-api';
+import { runScanPipeline, loadScanSession } from '@/lib/scan-api';
+import {
+  deriveSnapshotItems,
+  getSkinHeadline,
+  getRecommendationIcon,
+  type SnapshotItem,
+} from '@/lib/snapshot-utils';
+import GlowAnalysisDashboard, { type RecommendationData } from '@/components/GlowAnalysisDashboard';
 import { useTranslation } from 'react-i18next';
+
+// ─── Scan results helpers (inline so results stay inside the tab) ────────────
+
+const ICON_MAP: Record<string, RecommendationData['icon']> = {
+  '☀️': 'sun', '✨': 'sparkles', '💧': 'droplet',
+  '🫧': 'droplet', '💦': 'droplet', '🧴': 'sparkles', '🎭': 'droplet',
+};
+const REC_ACCENT: Record<string, string> = {
+  '☀️': '#F6BE63', '✨': '#FF9AD8', '💧': '#8F7CFF',
+  '🫧': '#53E6B0', '💦': '#6FA8FF', '🧴': '#A78BFA', '🎭': '#F472B6',
+};
+const REC_GLOW: Record<string, string> = {
+  '☀️': 'rgba(255,190,99,0.14)', '✨': 'rgba(255,144,209,0.12)', '💧': 'rgba(110,123,255,0.12)',
+  '🫧': 'rgba(83,230,176,0.10)', '💦': 'rgba(111,168,255,0.10)',
+  '🧴': 'rgba(167,139,250,0.12)', '🎭': 'rgba(244,114,182,0.10)',
+};
+
+function mapRecommendation(rec: Recommendation): RecommendationData {
+  const emoji = getRecommendationIcon(rec.title);
+  return {
+    icon: ICON_MAP[emoji] ?? 'sparkles',
+    title: rec.title,
+    subtitle: rec.description,
+    accentColor: REC_ACCENT[emoji] ?? '#8B5CFF',
+    glowColor: REC_GLOW[emoji] ?? 'rgba(139,92,255,0.10)',
+  };
+}
+
+function findMatchingSnapshot(recTitle: string, items: SnapshotItem[]): string | null {
+  const t = recTitle.toLowerCase();
+  if (t.includes('spf') || t.includes('sun'))            return items.find(i => i.id === 'dark_marks')?.id ?? null;
+  if (t.includes('vitamin c') || t.includes('brighten')) return items.find(i => i.id === 'dark_marks')?.id ?? null;
+  if (t.includes('aha') || t.includes('exfoli'))         return items.find(i => i.id === 'skin_texture')?.id ?? items[0]?.id ?? null;
+  if (t.includes('niacinamide'))                         return items.find(i => i.id === 'oiliness')?.id ?? items[0]?.id ?? null;
+  if (t.includes('cleanser'))                            return items.find(i => i.id === 'active_acne')?.id ?? items[0]?.id ?? null;
+  return items[0]?.id ?? null;
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -79,18 +124,21 @@ export default function ScanScreen() {
 
   const STEPS: { angle: ViewAngle; label: string; instruction: string }[] = [
     { angle: 'front', label: t('scan.front'), instruction: t('scan.instructionFront') },
-    { angle: 'left', label: t('scan.leftSide'), instruction: t('scan.instructionLeft') },
-    { angle: 'right', label: t('scan.rightSide'), instruction: t('scan.instructionRight') },
   ];
 
   // Capture state
   const [currentStep, setCurrentStep] = useState(0);
-  const [captures, setCaptures] = useState<(CapturedImage | null)[]>([null, null, null]);
+  const [captures, setCaptures] = useState<(CapturedImage | null)[]>([null]);
   const [previewing, setPreviewing] = useState(false);
 
   // Processing state
   const [processing, setProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState('');
+
+  // Completed scan — when set, show results inline inside this tab
+  const [completedSession, setCompletedSession] = useState<ScanSession | null>(null);
+  const [skinProfileId, setSkinProfileId] = useState<string | null>(null);
+  const [planGenerating, setPlanGenerating] = useState(false);
 
   // Shutter animation
   const shutterScale = useRef(new Animated.Value(1)).current;
@@ -123,11 +171,17 @@ export default function ScanScreen() {
       });
 
       if (photo && photo.base64) {
+        // Front camera captures a mirrored image — flip it to match what the user sees
+        const flipped = await ImageManipulator.manipulateAsync(
+          photo.uri,
+          [{ flip: ImageManipulator.FlipType.Horizontal }],
+          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+        );
         const captured: CapturedImage = {
-          uri: photo.uri,
-          base64: photo.base64,
-          width: photo.width,
-          height: photo.height,
+          uri: flipped.uri,
+          base64: flipped.base64!,
+          width: flipped.width,
+          height: flipped.height,
         };
 
         const newCaptures = [...captures];
@@ -188,9 +242,6 @@ export default function ScanScreen() {
 
   const confirmPhoto = () => {
     setPreviewing(false);
-    if (currentStep < 2) {
-      setCurrentStep(currentStep + 1);
-    }
   };
 
   const allCaptured = captures.every((c) => c !== null);
@@ -207,18 +258,18 @@ export default function ScanScreen() {
 
       const images = {
         front: captures[0]!,
-        left: captures[1]!,
-        right: captures[2]!,
+        left: captures[0]!,
+        right: captures[0]!,
       };
 
       // Step 1: Run YOLO on-device
       setProcessingStep('Detecting acne spots...');
       const detections = await runDetectionOnAll(images);
       const totalDetected = countDetections(detections);
-      console.log(`[Scan] YOLO detected ${totalDetected} spots across 3 images`);
+      console.log(`[Scan] YOLO detected ${totalDetected} spots`);
 
       // Step 2: Run full pipeline (upload + Gemini review)
-      const { sessionId, response } = await runScanPipeline(
+      const { sessionId, skinProfileId: newSkinProfileId } = await runScanPipeline(
         user.id,
         images,
         detections,
@@ -227,11 +278,10 @@ export default function ScanScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
-      // Navigate to results
-      router.push({
-        pathname: '/scan-results',
-        params: { sessionId },
-      });
+      // Show results inline inside this tab (no overlay navigation)
+      const session = await loadScanSession(sessionId);
+      setCompletedSession(session);
+      setSkinProfileId(newSkinProfileId);
     } catch (err: any) {
       console.error('Analysis error:', err);
       const message = err?.message || String(err);
@@ -246,11 +296,150 @@ export default function ScanScreen() {
   };
 
   const resetScan = () => {
-    setCaptures([null, null, null]);
+    setCaptures([null]);
     setCurrentStep(0);
     setPreviewing(false);
     setProcessing(false);
+    setCompletedSession(null);
+    setSkinProfileId(null);
   };
+
+  // Helper: extract a human-readable message from a Supabase FunctionsHttpError
+  const extractEdgeFnError = async (err: any): Promise<string> => {
+    // The context is the raw Response object (body not yet consumed)
+    const ctx = err?.context;
+    if (ctx) {
+      try {
+        // ctx is a Response — read its JSON body
+        if (typeof ctx.json === 'function') {
+          const body = await ctx.json();
+          if (body?.raw !== undefined) console.warn('[scan] edge fn raw output:', body.raw);
+          return body?.error ?? body?.message ?? body?.details ?? JSON.stringify(body);
+        }
+        // ctx is already a parsed object
+        if (typeof ctx === 'object' && (ctx.error || ctx.message)) {
+          if (ctx.raw) console.warn('[scan] edge fn raw output:', ctx.raw);
+          return ctx.error ?? ctx.message;
+        }
+      } catch {}
+    }
+    return err?.message ?? 'Unknown error';
+  };
+
+  const handleStartPlan = async () => {
+    // Resolve the skin profile id — prefer the one captured during the scan
+    let profileId = skinProfileId;
+    if (!profileId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('skin_profiles')
+          .select('id')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+        profileId = data?.id ?? null;
+      }
+    }
+
+    if (!profileId) {
+      Alert.alert('Profile Missing', 'Could not find your skin profile. Please try scanning again.');
+      return;
+    }
+
+    console.log('[scan] invoking generate-plan with skin_profile_id:', profileId);
+    setPlanGenerating(true);
+
+    let invokeError: any = null;
+    try {
+      // Refresh session so the JWT isn't expired after the long scan process
+      await supabase.auth.refreshSession();
+
+      const { error } = await supabase.functions.invoke('generate-plan', {
+        body: { skin_profile_id: profileId },
+      });
+      invokeError = error ?? null;
+    } catch (e: any) {
+      // Some SDK versions throw instead of returning { error }
+      invokeError = e;
+    }
+
+    if (invokeError) {
+      const detail = await extractEdgeFnError(invokeError);
+      console.error('[scan] generate-plan failed:', detail);
+      Alert.alert('Plan Generation Failed', detail);
+      setPlanGenerating(false);
+      return;
+    }
+
+    setPlanGenerating(false);
+    router.push('/(tabs)/plan');
+  };
+
+  // ─── Inline results (stays inside the tab, tab bar remains visible) ─────────
+  if (completedSession) {
+    if (completedSession.status === 'failed') {
+      return (
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ fontSize: 40, marginBottom: 12 }}>😔</Text>
+          <Text style={{ color: '#FFF', fontSize: 18, marginBottom: 8 }}>Scan Failed</Text>
+          <TouchableOpacity style={styles.analyzeButton} onPress={resetScan}>
+            <Text style={styles.analyzeButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    const headline      = getSkinHeadline(completedSession);
+    const description   = completedSession.description ?? '';
+    const skinType      = (completedSession.skin_insights as any)?.skin_type ?? 'Normal';
+    const primaryConcern = completedSession.primary_acne_type
+      ? completedSession.primary_acne_type.charAt(0).toUpperCase() + completedSession.primary_acne_type.slice(1)
+      : 'None detected';
+    const severity      = completedSession.severity ?? 'mild';
+    const severityLabel = severity === 'mild' ? 'Low' : severity === 'moderate' ? 'Moderate' : 'High';
+    const severityColor = severity === 'mild' ? '#53E6B0' : severity === 'moderate' ? '#F6BE63' : '#F87171';
+    const snapshotItems = deriveSnapshotItems(completedSession);
+    const recommendations = (completedSession.recommendations as Recommendation[]) ?? [];
+    const topRecs       = recommendations.slice(0, 3).map(mapRecommendation);
+
+    const goToDetail = (id: string) =>
+      router.push({ pathname: '/snapshot-detail', params: { sessionId: completedSession.id, snapshotId: id } });
+
+    return (
+      <View style={{ flex: 1 }}>
+        <LoadingOverlay
+          visible={planGenerating}
+          title="Building Your Plan"
+          subtitle="Personalising your skincare routine…"
+          steps={['Reviewing your scan', 'Matching ingredients', 'Ranking priorities', 'Saving your plan']}
+        />
+        <GlowAnalysisDashboard
+          avatarUri={completedSession.front_image_url}
+          headline={headline}
+          description={description}
+          mainConcern={primaryConcern}
+          severity={severityLabel}
+          severityColor={severityColor}
+          skinType={skinType}
+          snapshotItems={snapshotItems}
+          recommendations={topRecs}
+          onStartPlan={handleStartPlan}
+          onScanAgain={resetScan}
+          onSnapshotPress={(id) => goToDetail(id)}
+          onRecommendationPress={(index) => {
+            const rec = recommendations[index];
+            if (rec) {
+              const matchId = findMatchingSnapshot(rec.title, snapshotItems);
+              if (matchId) goToDetail(matchId);
+            }
+          }}
+          onViewFullScan={resetScan}
+        />
+      </View>
+    );
+  }
 
   // ─── Permission screens ───
   if (!permission) {
@@ -297,7 +486,7 @@ export default function ScanScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={[styles.previewBtn, styles.previewBtnPrimary]} onPress={confirmPhoto} activeOpacity={0.8}>
               <Text style={[styles.previewBtnText, { color: '#FFFFFF' }]}>
-                {currentStep < 2 ? t('scan.next') : t('scan.done')}
+                {t('scan.done')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -320,25 +509,17 @@ export default function ScanScreen() {
         <Text style={styles.reviewTitle}>{t('scan.reviewTitle')}</Text>
         <Text style={styles.reviewSubtitle}>{t('scan.reviewSubtitle')}</Text>
 
-        <View style={styles.reviewGrid}>
-          {STEPS.map((step, i) => (
-            <TouchableOpacity
-              key={step.angle}
-              style={styles.reviewCard}
-              onPress={() => {
-                setCurrentStep(i);
-                retakePhoto();
-              }}
-              activeOpacity={0.8}
-            >
-              <Image source={{ uri: captures[i]!.uri }} style={styles.reviewImage} resizeMode="cover" />
-              <View style={styles.reviewCardLabel}>
-                <CheckIcon size={16} />
-                <Text style={styles.reviewCardText}>{step.label}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TouchableOpacity
+          style={styles.reviewSingleCard}
+          onPress={() => { setCurrentStep(0); retakePhoto(); }}
+          activeOpacity={0.8}
+        >
+          <Image source={{ uri: captures[0]!.uri }} style={styles.reviewImage} resizeMode="cover" />
+          <View style={styles.reviewCardLabel}>
+            <CheckIcon size={16} />
+            <Text style={styles.reviewCardText}>{STEPS[0].label}</Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.analyzeButton, processing && { opacity: 0.6 }]}
@@ -639,6 +820,15 @@ const styles = StyleSheet.create({
   reviewGrid: {
     flexDirection: 'row',
     gap: Spacing.md,
+    marginBottom: Spacing.xxl,
+  },
+  reviewSingleCard: {
+    width: '100%',
+    aspectRatio: 0.85,
+    borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
     marginBottom: Spacing.xxl,
   },
   reviewCard: {

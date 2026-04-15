@@ -170,7 +170,11 @@ Exactly 8 items. At least 1 per pillar. impact_rank 1 = highest priority.`;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, maxOutputTokens: 1500 },
+        generationConfig: {
+          temperature: 0.9,
+          maxOutputTokens: 1500,
+          responseMimeType: 'application/json',
+        },
       }),
     });
 
@@ -184,14 +188,36 @@ Exactly 8 items. At least 1 per pillar. impact_rank 1 = highest priority.`;
     const gemini = await res.json();
     const text = gemini.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
+    console.log('[generate-plan] Gemini raw text (first 600):', text.substring(0, 600));
+
+    if (!text) {
+      const reason = gemini.candidates?.[0]?.finishReason ?? 'unknown';
+      console.error('[generate-plan] Empty text from Gemini, finishReason:', reason, JSON.stringify(gemini).substring(0, 300));
+      return new Response(JSON.stringify({ error: `Gemini returned empty response (reason: ${reason})` }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     let ranked_items;
     try {
-      const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      ranked_items = JSON.parse(cleaned);
-      if (!Array.isArray(ranked_items)) throw new Error('Not an array');
+      // With responseMimeType: 'application/json', Gemini returns pure JSON — parse directly
+      ranked_items = JSON.parse(text);
+
+      // Handle both array response and object wrapper
+      if (!Array.isArray(ranked_items)) {
+        const candidate = ranked_items?.ranked_items ?? ranked_items?.items ?? ranked_items?.recommendations;
+        if (Array.isArray(candidate)) ranked_items = candidate;
+        else throw new Error('Response is not a JSON array');
+      }
+
+      ranked_items = ranked_items.filter(
+        (item: any) => item && typeof item === 'object' && item.pillar && item.title && item.rationale
+      );
+      if (ranked_items.length === 0) throw new Error('No valid items after filtering');
     } catch (e) {
-      console.error('Parse error:', e, text.substring(0, 300));
-      return new Response(JSON.stringify({ error: 'Failed to parse response', raw: text.substring(0, 300) }), {
+      console.error('Parse error:', e);
+      console.error('Full text:', text);
+      return new Response(JSON.stringify({ error: 'Failed to parse response', raw: text }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

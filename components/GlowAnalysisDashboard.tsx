@@ -45,6 +45,7 @@ export interface GlowAnalysisDashboardProps {
   snapshotItems?: SnapshotCardData[];
   recommendations?: RecommendationData[];
   onStartPlan?: () => void;
+  onScanAgain?: () => void;
   onSnapshotPress?: (id: string) => void;
   onRecommendationPress?: (index: number) => void;
   onViewFullScan?: () => void;
@@ -83,13 +84,6 @@ function CheckMark({ color }: { color: string }) {
   );
 }
 
-function ArrowDownIcon({ size = 20, color = '#000' }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 5v14M5 12l7 7 7-7" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
 function SnapshotIcon({ type, color, size = 16 }: { type: SnapshotCardData['iconType']; color: string; size?: number }) {
   switch (type) {
@@ -168,6 +162,7 @@ export default function GlowAnalysisDashboard({
   snapshotItems = DEFAULT_SNAPSHOTS,
   recommendations = DEFAULT_RECOMMENDATIONS,
   onStartPlan,
+  onScanAgain,
   onSnapshotPress,
   onRecommendationPress,
   onViewFullScan,
@@ -189,20 +184,16 @@ export default function GlowAnalysisDashboard({
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: 140 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Top row: avatar + summary ──────────────────────────────────── */}
-        <View style={styles.topRow}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]} />
-          )}
-          <View style={styles.topTextWrap}>
-            <Text style={styles.topTitle}>{headline}</Text>
-            <Text style={styles.topSubtitle} numberOfLines={4}>
-              {description}
-            </Text>
-          </View>
-        </View>
+        {/* ── Hero scan image ────────────────────────────────────────────── */}
+        {avatarUri ? (
+          <Image
+            source={{ uri: avatarUri }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.heroImage, styles.heroImagePlaceholder]} />
+        )}
 
         {/* ── Hero card (glassmorphism) ──────────────────────────────────── */}
         <View style={styles.heroCard}>
@@ -213,10 +204,6 @@ export default function GlowAnalysisDashboard({
             end={{ x: 1, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius: 24 }]}
           />
-          {/* Top-left lens flare line */}
-          <View style={styles.heroFlareTop} pointerEvents="none" />
-          {/* Bottom-right lens flare line */}
-          <View style={styles.heroFlareBottom} pointerEvents="none" />
 
           <Text style={styles.heroTitle}>{headline}</Text>
           <Text style={styles.heroBody}>{description}</Text>
@@ -294,16 +281,7 @@ export default function GlowAnalysisDashboard({
                 >
                   {/* Inner card */}
                   <View style={styles.recCardInner}>
-                    {/* Accent glow orb in top-left */}
-                    <View
-                      style={[
-                        styles.recGlowOrb,
-                        { backgroundColor: rec.accentColor, opacity: 0.22 },
-                      ]}
-                      pointerEvents="none"
-                    />
-
-                    <View style={styles.recRow}>
+                      <View style={styles.recRow}>
                       <View style={styles.recIconWrap}>
                         <RecommendationIcon icon={rec.icon} color={rec.accentColor} />
                       </View>
@@ -324,41 +302,32 @@ export default function GlowAnalysisDashboard({
       </ScrollView>
 
       {/* ── Fixed Bottom Button Area ─────────────────────────────────────── */}
-      <View style={[styles.bottomCtaWrap, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={styles.bottomCtaWrap}>
         <LinearGradient
           colors={['transparent', '#0A0413', '#0A0413']}
           locations={[0, 0.35, 1]}
-          style={styles.bottomCtaGradient}
+          style={[styles.bottomCtaGradient, { paddingBottom: 10 }]}
         >
-          <View style={styles.ctaButtonRow}>
-            <TouchableOpacity
-              style={styles.ctaButton}
-              activeOpacity={0.85}
-              onPress={onStartPlan}
+          <TouchableOpacity
+            style={styles.ctaButton}
+            activeOpacity={0.85}
+            onPress={onStartPlan}
+          >
+            <LinearGradient
+              colors={['#2B1A65', '#4828A2', '#2B1A65']}
+              start={{ x: 0, y: 0.5 }}
+              end={{ x: 1, y: 0.5 }}
+              style={styles.ctaGradient}
             >
-              <LinearGradient
-                colors={['#2B1A65', '#4828A2', '#2B1A65']}
-                start={{ x: 0, y: 0.5 }}
-                end={{ x: 1, y: 0.5 }}
-                style={styles.ctaGradient}
-              >
-                <Text style={styles.ctaText}>Start My Plan</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            {/* White circle arrow button */}
-            <TouchableOpacity
-              style={styles.ctaArrowBtn}
-              activeOpacity={0.85}
-              onPress={onStartPlan}
-            >
-              <ArrowDownIcon size={20} color="#000" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Secondary link */}
-          <TouchableOpacity style={styles.secondaryBtn} onPress={onViewFullScan}>
-            <Text style={styles.secondaryText}>View Full Scan</Text>
+              <Text style={styles.ctaText}>Start My Plan</Text>
+            </LinearGradient>
           </TouchableOpacity>
+
+          {onScanAgain && (
+            <TouchableOpacity style={styles.scanAgainBtn} onPress={onScanAgain} activeOpacity={0.7}>
+              <Text style={styles.scanAgainText}>Take Another Scan</Text>
+            </TouchableOpacity>
+          )}
         </LinearGradient>
       </View>
     </View>
@@ -379,36 +348,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
 
-  // ── Top row ──────────────────────────────────────────────────────────────
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+  // ── Hero scan image ───────────────────────────────────────────────────────
+  heroImage: {
+    height: 300,
     marginBottom: 24,
-    gap: 14,
+    borderRadius: 24,
   },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-  },
-  avatarPlaceholder: {
+  heroImagePlaceholder: {
     backgroundColor: 'rgba(120,70,255,0.30)',
-  },
-  topTextWrap: {
-    flex: 1,
-    paddingTop: 2,
-  },
-  topTitle: {
-    color: '#FFFFFF',
-    fontFamily: Fonts.semibold,
-    fontSize: 18,
-    marginBottom: 4,
-  },
-  topSubtitle: {
-    color: '#8B80A5',
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    lineHeight: 18,
   },
 
   // ── Hero card ────────────────────────────────────────────────────────────
@@ -417,39 +364,11 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     marginBottom: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(62,41,122,0.50)',
     shadowColor: '#7B4DFF',
     shadowOpacity: 0.35,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 10 },
     elevation: 12,
-  },
-  heroFlareTop: {
-    position: 'absolute',
-    top: -1,
-    left: 24,
-    width: 120,
-    height: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(195,149,255,0.80)',
-    shadowColor: '#A56BFF',
-    shadowOpacity: 0.9,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  heroFlareBottom: {
-    position: 'absolute',
-    bottom: -1,
-    right: 24,
-    width: 120,
-    height: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(195,149,255,0.80)',
-    shadowColor: '#A56BFF',
-    shadowOpacity: 0.9,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
   },
   heroTitle: {
     color: '#FFFFFF',
@@ -539,8 +458,6 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
     backgroundColor: '#180E2F',
-    borderWidth: 1,
-    borderColor: '#2B1754',
   },
   snapRow: {
     flexDirection: 'row',
@@ -579,14 +496,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#12082A',
   },
-  recGlowOrb: {
-    position: 'absolute',
-    top: -12,
-    left: -12,
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-  },
   recRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -620,12 +529,8 @@ const styles = StyleSheet.create({
   },
   bottomCtaGradient: {
     paddingHorizontal: 20,
-    paddingTop: 48,
+    paddingTop: 24,
     paddingBottom: 8,
-  },
-  ctaButtonRow: {
-    position: 'relative',
-    marginBottom: 8,
   },
   ctaButton: {
     borderRadius: 999,
@@ -642,28 +547,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.medium,
     fontSize: 16,
   },
-  ctaArrowBtn: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-  },
-
-  // ── Secondary ────────────────────────────────────────────────────────────
-  secondaryBtn: {
+  scanAgainBtn: {
     alignItems: 'center',
     paddingVertical: 12,
   },
-  secondaryText: {
-    color: '#8B80A5',
+  scanAgainText: {
+    color: 'rgba(228,220,255,0.55)',
     fontFamily: Fonts.medium,
-    fontSize: 13,
+    fontSize: 14,
   },
 });
