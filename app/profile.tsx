@@ -18,8 +18,10 @@ import { supabase } from '@/lib/supabase';
 import * as Haptics from 'expo-haptics';
 import Svg, { Path, Polyline } from 'react-native-svg';
 import { Colors, Typography, BorderRadius, Spacing, Shadows } from '@/lib/theme';
+import { useTranslation } from 'react-i18next';
 
 export default function ProfileScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -54,7 +56,7 @@ export default function ProfileScreen() {
   const handleSaveName = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!fullName.trim()) {
-      Alert.alert('Required', 'Please enter a name.');
+      Alert.alert(t('profile.nameRequired'), t('profile.nameRequiredMsg'));
       return;
     }
     setSavingName(true);
@@ -67,15 +69,15 @@ export default function ProfileScreen() {
 
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Missing fields', 'Please fill in all password fields.');
+      Alert.alert(t('profile.missingFields'), t('profile.missingFieldsMsg'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Mismatch', 'New passwords do not match.');
+      Alert.alert(t('profile.mismatch'), t('profile.mismatchMsg'));
       return;
     }
     if (newPassword.length < 8) {
-      Alert.alert('Too short', 'Password must be at least 8 characters.');
+      Alert.alert(t('profile.tooShort'), t('profile.tooShortMsg'));
       return;
     }
 
@@ -84,9 +86,9 @@ export default function ProfileScreen() {
     setSavingPassword(false);
 
     if (error) {
-      Alert.alert('Failed', error.message);
+      Alert.alert(t('profile.updateFailed'), error.message);
     } else {
-      Alert.alert('Done', 'Your password has been updated.');
+      Alert.alert(t('profile.updateSuccess'), t('profile.updateSuccessMsg'));
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -96,12 +98,12 @@ export default function ProfileScreen() {
 
   const handleLogOut = () => {
     Alert.alert(
-      'Log Out',
-      'Are you sure you want to log out?',
+      t('profile.logOutConfirm'),
+      t('profile.logOutMsg'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('profile.cancel'), style: 'cancel' },
         {
-          text: 'Log Out',
+          text: t('profile.logOut'),
           style: 'destructive',
           onPress: async () => {
             setLoggingOut(true);
@@ -134,9 +136,9 @@ export default function ProfileScreen() {
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Polyline points="15,18 9,12 15,6" stroke={Colors.primary} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
-            <Text style={styles.backText}>Back</Text>
+            <Text style={styles.backText}>{t('profile.back')}</Text>
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Text style={styles.headerTitle}>{t('profile.title')}</Text>
           <View style={{ width: 60 }} />
         </View>
 
@@ -160,22 +162,22 @@ export default function ProfileScreen() {
 
             {/* Account info card */}
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Account</Text>
+              <Text style={styles.cardTitle}>{t('profile.account')}</Text>
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoLabel}>{t('profile.email')}</Text>
                 <Text style={styles.infoValue} numberOfLines={1}>{email}</Text>
               </View>
 
               <View style={styles.divider} />
 
               <View style={styles.nameRow}>
-                <Text style={styles.infoLabel}>Name</Text>
+                <Text style={styles.infoLabel}>{t('profile.name')}</Text>
                 <TextInput
                   style={[styles.nameInput, focusedField === 'name' && styles.inputFocused]}
                   value={fullName}
                   onChangeText={setFullName}
-                  placeholder="Your name"
+                  placeholder={t('profile.namePlaceholder')}
                   placeholderTextColor={Colors.textMuted}
                   autoCapitalize="words"
                   returnKeyType="done"
@@ -191,7 +193,7 @@ export default function ProfileScreen() {
                 >
                   {savingName
                     ? <ActivityIndicator size="small" color={Colors.white} />
-                    : <Text style={styles.saveNameText}>Save</Text>}
+                    : <Text style={styles.saveNameText}>{t('profile.save')}</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -203,7 +205,7 @@ export default function ProfileScreen() {
                 onPress={() => setShowPasswordSection((v) => !v)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.cardTitle}>Change Password</Text>
+                <Text style={styles.cardTitle}>{t('profile.changePassword')}</Text>
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Polyline
                     points={showPasswordSection ? '18,15 12,9 6,15' : '6,9 12,15 18,9'}
@@ -218,10 +220,10 @@ export default function ProfileScreen() {
               {showPasswordSection && (
                 <View style={styles.passwordFields}>
                   <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>New Password</Text>
+                    <Text style={styles.fieldLabel}>{t('profile.newPassword')}</Text>
                     <TextInput
                       style={[styles.input, focusedField === 'new' && styles.inputFocused]}
-                      placeholder="Min. 8 characters"
+                      placeholder={t('profile.newPasswordPlaceholder')}
                       placeholderTextColor={Colors.textMuted}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -232,14 +234,14 @@ export default function ProfileScreen() {
                   </View>
 
                   <View style={styles.fieldGroup}>
-                    <Text style={styles.fieldLabel}>Confirm New Password</Text>
+                    <Text style={styles.fieldLabel}>{t('profile.confirmPassword')}</Text>
                     <TextInput
                       style={[
                         styles.input,
                         focusedField === 'confirm' && styles.inputFocused,
                         confirmPassword && confirmPassword !== newPassword && styles.inputError,
                       ]}
-                      placeholder="Re-enter new password"
+                      placeholder={t('profile.confirmPasswordPlaceholder')}
                       placeholderTextColor={Colors.textMuted}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -248,7 +250,7 @@ export default function ProfileScreen() {
                       onBlur={() => setFocusedField(null)}
                     />
                     {confirmPassword && confirmPassword !== newPassword && (
-                      <Text style={styles.errorText}>Passwords do not match</Text>
+                      <Text style={styles.errorText}>{t('profile.passwordMismatch')}</Text>
                     )}
                   </View>
 
@@ -265,7 +267,7 @@ export default function ProfileScreen() {
                       end={{ x: 1, y: 0 }}
                     >
                       <Text style={styles.savePasswordText}>
-                        {savingPassword ? 'Saving...' : 'Update Password'}
+                        {savingPassword ? t('profile.saving') : t('profile.updatePassword')}
                       </Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -282,7 +284,7 @@ export default function ProfileScreen() {
             >
               {loggingOut
                 ? <ActivityIndicator size="small" color={Colors.error} />
-                : <Text style={styles.logOutText}>Log Out</Text>}
+                : <Text style={styles.logOutText}>{t('profile.logOut')}</Text>}
             </TouchableOpacity>
           </>
         )}

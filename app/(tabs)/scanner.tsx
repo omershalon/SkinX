@@ -28,6 +28,7 @@ import { searchProducts, fetchByCategory } from '@/lib/product-search';
 import ProductCard from '@/components/ProductCard';
 import { useFavorites } from '@/hooks/useFavorites';
 import { cleanProductName } from '@/lib/clean-product-name';
+import { useTranslation } from 'react-i18next';
 
 type ProductScan = Database['public']['Tables']['product_scans']['Row'];
 
@@ -35,6 +36,7 @@ const CARD_GAP = 14;
 const SEARCH_DEBOUNCE = 600;
 
 export default function ScannerScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { animatedStyle } = useTabTransition();
@@ -132,7 +134,7 @@ export default function ScannerScreen() {
       setScansUsed(prev => prev + 1);
     } catch (err) {
       console.error('Scan error:', err);
-      Alert.alert('Scan failed', 'Could not analyze this product. Please try again.');
+      Alert.alert(t('scanner.scanError'), t('scanner.scanErrorMsg'));
     } finally {
       setAnalyzing(false);
     }
@@ -240,8 +242,8 @@ export default function ScannerScreen() {
       <ScreenBackground preset="shop" />
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Skin Shop</Text>
-          <Text style={styles.subtitle}>Curated for skin health</Text>
+          <Text style={styles.title}>{t('scanner.title')}</Text>
+          <Text style={styles.subtitle}>{t('scanner.subtitle')}</Text>
         </View>
         <TouchableOpacity style={styles.favBtn} onPress={() => setShowFavorites(true)} activeOpacity={0.8}>
           <Text style={styles.favBtnIcon}>{'\u2665'}</Text>
@@ -259,7 +261,7 @@ export default function ScannerScreen() {
           <View style={[styles.searchBar, { flex: 1 }]}>
             <TextInput
               style={styles.searchInput}
-              placeholder="Search skincare, supplements, foods..."
+              placeholder={t('scanner.searchPlaceholder')}
               placeholderTextColor="#B5AFA5"
               value={searchQuery}
               onChangeText={handleSearchChange}
@@ -279,11 +281,11 @@ export default function ScannerScreen() {
         {/* Section heading */}
         <View style={styles.sectionRow}>
           <Text style={styles.sectionTitle}>
-            {isLiveSearch ? `Results for "${searchQuery}"` : activeFilter === 'All' ? 'Recommended' : CATEGORY_META[activeFilter as ProductCategory].label}
+            {isLiveSearch ? `Results for "${searchQuery}"` : activeFilter === 'All' ? t('scanner.recommended') : CATEGORY_META[activeFilter as ProductCategory].label}
           </Text>
           <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterMenu(true)} activeOpacity={0.8}>
             <Text style={styles.filterBtnText}>
-              {sortBy === 'price_asc' ? 'Price: Low' : sortBy === 'price_desc' ? 'Price: High' : 'Filter'}
+              {sortBy === 'price_asc' ? t('scanner.filterLow') : sortBy === 'price_desc' ? t('scanner.filterHigh') : t('scanner.filterBestMatch')}
             </Text>
             <Text style={styles.filterBtnIcon}>{'\u25BC'}</Text>
           </TouchableOpacity>
@@ -293,23 +295,23 @@ export default function ScannerScreen() {
         <Modal visible={showFilterMenu} animationType="fade" transparent onRequestClose={() => setShowFilterMenu(false)}>
           <TouchableOpacity style={styles.filterOverlay} activeOpacity={1} onPress={() => setShowFilterMenu(false)}>
             <View style={styles.filterDropdown}>
-              <Text style={styles.filterDropdownTitle}>Category</Text>
+              <Text style={styles.filterDropdownTitle}>{t('scanner.category')}</Text>
               {(['All', 'Skincare', 'Supplements', 'Foods', 'Herbal', 'Accessories'] as const).map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   style={[styles.filterOption, activeFilter === cat && styles.filterOptionActive]}
                   onPress={() => { setActiveFilter(cat); setShowFilterMenu(false); }}
                 >
-                  <Text style={[styles.filterOptionText, activeFilter === cat && styles.filterOptionTextActive]}>{cat === 'All' ? 'Recommended' : cat}</Text>
+                  <Text style={[styles.filterOptionText, activeFilter === cat && styles.filterOptionTextActive]}>{cat === 'All' ? t('scanner.recommended') : cat}</Text>
                   {activeFilter === cat && <Text style={styles.filterCheck}>{'\u2713'}</Text>}
                 </TouchableOpacity>
               ))}
               <View style={styles.filterDivider} />
-              <Text style={styles.filterDropdownTitle}>Sort by Price</Text>
+              <Text style={styles.filterDropdownTitle}>{t('scanner.sortByPrice')}</Text>
               {([
-                { key: 'match', label: 'Best Match' },
-                { key: 'price_asc', label: 'Price: Low to High' },
-                { key: 'price_desc', label: 'Price: High to Low' },
+                { key: 'match', label: t('scanner.bestMatch') },
+                { key: 'price_asc', label: t('scanner.priceLow') },
+                { key: 'price_desc', label: t('scanner.priceHigh') },
               ] as const).map((s) => (
                 <TouchableOpacity
                   key={s.key}
@@ -326,13 +328,13 @@ export default function ScannerScreen() {
 
         {/* Search hint */}
         {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && !isSearching && (
-          <Text style={styles.searchHint}>Type 3+ characters to search</Text>
+          <Text style={styles.searchHint}>{t('scanner.searchHint')}</Text>
         )}
 
         {(analyzing || categoryLoading) && (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color="#7C5CFC" />
-            <Text style={styles.loadingText}>{categoryLoading ? `Loading ${activeFilter}...` : 'Analyzing product...'}</Text>
+            <Text style={styles.loadingText}>{categoryLoading ? t('scanner.loading', { category: activeFilter }) : t('scanner.loadingProduct')}</Text>
           </View>
         )}
 
@@ -353,8 +355,8 @@ export default function ScannerScreen() {
         {displayProducts.length === 0 && !analyzing && !isSearching && (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>{'\u{1F50D}'}</Text>
-            <Text style={styles.emptyTitle}>{hasSearched ? 'No results found' : 'No matching picks'}</Text>
-            <Text style={styles.emptyBody}>{hasSearched ? 'Try different keywords.' : 'Try a different search or category.'}</Text>
+            <Text style={styles.emptyTitle}>{hasSearched ? t('scanner.noResults') : t('scanner.noMatches')}</Text>
+            <Text style={styles.emptyBody}>{hasSearched ? t('scanner.tryDifferent') : t('scanner.trySearch')}</Text>
           </View>
         )}
 
@@ -366,7 +368,7 @@ export default function ScannerScreen() {
           <TouchableOpacity style={styles.favBackdrop} activeOpacity={1} onPress={() => setShowFavorites(false)} />
           <View style={[styles.favDrawer, { paddingBottom: insets.bottom + 20 }]}>
             <View style={styles.favHeader}>
-              <Text style={styles.favTitle}>Saved Favorites</Text>
+              <Text style={styles.favTitle}>{t('scanner.savedFavorites')}</Text>
               <TouchableOpacity onPress={() => setShowFavorites(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={styles.favClose}>{'\u2715'}</Text>
               </TouchableOpacity>
@@ -374,8 +376,8 @@ export default function ScannerScreen() {
             {favorites.length === 0 ? (
               <View style={styles.favEmpty}>
                 <Text style={styles.favEmptyIcon}>{'\u2661'}</Text>
-                <Text style={styles.favEmptyText}>No favorites yet</Text>
-                <Text style={styles.favEmptySubtext}>Tap the heart on any product to save it here.</Text>
+                <Text style={styles.favEmptyText}>{t('scanner.noFavorites')}</Text>
+                <Text style={styles.favEmptySubtext}>{t('scanner.noFavoritesHint')}</Text>
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>

@@ -7,14 +7,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { Colors, Fonts } from '@/lib/theme';
-
-const STEPS = [
-  { label: 'Scanning for acne patterns', key: 'acne' },
-  { label: 'Analyzing skin texture', key: 'texture' },
-  { label: 'Detecting inflammation zones', key: 'inflammation' },
-  { label: 'Mapping problem areas', key: 'mapping' },
-  { label: 'Building your personalized plan', key: 'plan' },
-];
+import { useTranslation } from 'react-i18next';
 
 // Checkmark icon (SVG, not emoji)
 function CheckIcon({ size = 16, color = Colors.success }: { size?: number; color?: string }) {
@@ -34,6 +27,23 @@ export default function AnalyzingScreen() {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [percent, setPercent] = useState(0);
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const { t } = useTranslation();
+
+  const STEPS = [
+    { label: t('analyzing.step1'), key: 'acne' },
+    { label: t('analyzing.step2'), key: 'texture' },
+    { label: t('analyzing.step3'), key: 'inflammation' },
+    { label: t('analyzing.step4'), key: 'mapping' },
+    { label: t('analyzing.step5'), key: 'plan' },
+  ];
+
+  const CHECKLIST_ITEMS = [
+    t('analyzing.item1'),
+    t('analyzing.item2'),
+    t('analyzing.item3'),
+    t('analyzing.item4'),
+    t('analyzing.item5'),
+  ];
 
   // Step through visual messages + percentage
   useEffect(() => {
@@ -98,7 +108,7 @@ export default function AnalyzingScreen() {
         <Text style={s.percent}>{percent}%</Text>
 
         {/* Title */}
-        <Text style={s.title}>We're setting{'\n'}everything up for you</Text>
+        <Text style={s.title}>{t('analyzing.title')}</Text>
 
         {/* Progress bar */}
         <View style={s.progressBar}>
@@ -114,8 +124,8 @@ export default function AnalyzingScreen() {
 
         {/* Checklist */}
         <View style={s.checklist}>
-          <Text style={s.checklistTitle}>Daily recommendation for</Text>
-          {['Skincare routine', 'Diet adjustments', 'Herbal remedies', 'Lifestyle changes', 'Product matches'].map((item, i) => (
+          <Text style={s.checklistTitle}>{t('analyzing.checklistTitle')}</Text>
+          {CHECKLIST_ITEMS.map((item, i) => (
             <View key={item} style={s.checkRow}>
               <Text style={s.checkBullet}>{'  \u2022  '}</Text>
               <Text style={[s.checkText, i <= currentStep && s.checkTextDone]}>{item}</Text>

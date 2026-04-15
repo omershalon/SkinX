@@ -221,6 +221,18 @@ export default function OnboardingScreen() {
     </View>
   );
 
+  const QScroll = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
+    <View style={st.qScrollWrap}>
+      <View style={st.qScrollTop}>
+        <Text style={st.title}>{title}</Text>
+        {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
+      </View>
+      <ScrollView style={st.qScrollList} contentContainerStyle={st.qScrollContent} showsVerticalScrollIndicator={false} bounces keyboardShouldPersistTaps="handled">
+        {children}
+      </ScrollView>
+    </View>
+  );
+
   const renderStep = () => {
     switch (step) {
       // ── 0: Gender ──
@@ -289,7 +301,7 @@ export default function OnboardingScreen() {
 
       // ── 7: Skin concerns ──
       case 7: return (
-        <Q title="What are your main skin concerns?" subtitle="Select all that apply.">
+        <QScroll title="What are your main skin concerns?" subtitle="Select all that apply.">
           <View style={st.optionList}>
             {[
               { id: 'acne', title: 'Acne and Breakouts', sub: 'Pimples, blackheads, and clogged pores.' },
@@ -300,17 +312,17 @@ export default function OnboardingScreen() {
               { id: 'aging', title: 'Aging Concerns', sub: 'Wrinkles, fine lines, crow\'s feet.' },
               { id: 'pores', title: 'Enlarged Pores and Texture', sub: 'Large pores or rough skin surface.' },
               { id: 'dark_circles', title: 'Dark Circles and Puffiness', sub: 'Darkness or swelling around eyes.' },
-              { id: 'maintaining', title: 'Maintaining Skin Health', sub: 'Keeping skin balanced and healthy.' },
+              { id: 'no_concerns', title: 'No Main Concerns', sub: 'My skin is generally in good shape.' },
             ].map(o => (
               <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.tried.includes(o.id)} onPress={() => toggleMulti('tried', o.id)} />
             ))}
           </View>
-        </Q>
+        </QScroll>
       );
 
       // ── 8: Breakout zones ──
       case 8: return (
-        <Q title="Where do you have breakouts mostly?" subtitle="Select all that apply.">
+        <QScroll title="Where do you have breakouts mostly?" subtitle="Select all that apply.">
           <View style={st.optionList}>
             {[
               { id: 'forehead',     title: 'Forehead',      sub: 'Common with oily skin or hair products.' },
@@ -318,7 +330,8 @@ export default function OnboardingScreen() {
               { id: 'nose',         title: 'Nose',          sub: 'Blackheads and clogged pores common.' },
               { id: 'chin_jawline', title: 'Chin and Jawline', sub: 'Often related to hormonal breakouts.' },
               { id: 'back',         title: 'Back or Chest', sub: 'Body acne from sweat or friction.' },
-              { id: 'temples',      title: 'Temples',       sub: 'Linked to hair products or stress.' },
+              { id: 'temples',      title: 'Temples',          sub: 'Linked to hair products or stress.' },
+              { id: 'no_area',      title: 'No Specific Area', sub: 'Breakouts appear in no particular pattern.' },
             ].map(o => (
               <CheckOption
                 key={o.id}
@@ -329,7 +342,7 @@ export default function OnboardingScreen() {
               />
             ))}
           </View>
-        </Q>
+        </QScroll>
       );
 
       // ── 9: Duration ──
@@ -345,7 +358,7 @@ export default function OnboardingScreen() {
 
       // ── 10: Goal ──
       case 10: return (
-        <Q title="What are your main skincare goals?" subtitle="Select all that apply.">
+        <QScroll title="What are your main skincare goals?" subtitle="Select all that apply.">
           <View style={st.optionList}>
             {[
               { id: 'clear_acne',    title: 'Clear Acne',        sub: 'Reduce breakouts and clogged pores.' },
@@ -356,12 +369,13 @@ export default function OnboardingScreen() {
               { id: 'texture',       title: 'Smooth Texture',    sub: 'Minimize pores and tighten texture.' },
               { id: 'control_oil',   title: 'Control Oil',       sub: 'Balance sebum and reduce shine.' },
               { id: 'anti_aging',    title: 'Anti-Aging',        sub: 'Reduce fine lines and wrinkles.' },
-              { id: 'brighten',      title: 'Brighten Skin',     sub: 'Boost glow and skin radiance.' },
+              { id: 'brighten',      title: 'Brighten Skin',       sub: 'Boost glow and skin radiance.' },
+              { id: 'maintain',      title: 'Maintain Skin Health', sub: 'Keep skin balanced and looking its best.' },
             ].map(o => (
               <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.goal.includes(o.id)} onPress={() => toggleMulti('goal', o.id)} />
             ))}
           </View>
-        </Q>
+        </QScroll>
       );
 
       // ── 11: Bar comparison ──
@@ -369,7 +383,7 @@ export default function OnboardingScreen() {
 
       // ── 12: Barriers ──
       case 12: return (
-        <Q title="What have been your biggest challenges?" subtitle="Select all that apply.">
+        <QScroll title="What have been your biggest challenges?" subtitle="Select all that apply.">
           <View style={st.optionList}>
             {[
               { id: 'dont_know_products',  title: "Don't know what to use",        sub: 'Finding the right products is overwhelming.' },
@@ -382,7 +396,7 @@ export default function OnboardingScreen() {
               <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.barriers.includes(o.id)} onPress={() => toggleMulti('barriers', o.id)} />
             ))}
           </View>
-        </Q>
+        </QScroll>
       );
 
       // ── 13: Skincare routine ──
@@ -481,10 +495,10 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 11 || step === 16 ? (
+        {step === 1 || step === 7 || step === 8 || step === 10 || step === 11 || step === 12 || step === 16 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
         ) : (
-          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={step === 7 || step === 8 || step === 10 || step === 12}>
+          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
             {renderStep()}
           </ScrollView>
         )}
@@ -555,6 +569,10 @@ const st = StyleSheet.create({
 
   // Q layout — title at top, options centered
   qWrap: { flex: 1, paddingTop: 28 },
+  qScrollWrap: { flex: 1, paddingTop: 28 },
+  qScrollTop: { gap: 10, paddingBottom: 16 },
+  qScrollList: { flex: 1 },
+  qScrollContent: { paddingBottom: 24, gap: 12 },
   qTop: { gap: 10, marginBottom: 0 },
   qMid: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
 

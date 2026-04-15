@@ -5,11 +5,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as StoreReview from 'expo-store-review';
 import { Colors, Fonts } from '@/lib/theme';
+import { useTranslation } from 'react-i18next';
 
 export default function RatingScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const go = async () => {
@@ -37,8 +39,8 @@ export default function RatingScreen() {
       <LinearGradient colors={['#08080F', '#100830', '#1A0845']} style={StyleSheet.absoluteFill} />
       <View style={styles.center}>
         <Text style={styles.stars}>★ ★ ★ ★ ★</Text>
-        <Text style={styles.title}>Enjoying the experience?</Text>
-        <Text style={styles.sub}>Your feedback helps us improve</Text>
+        <Text style={styles.title}>{t('rating.title')}</Text>
+        <Text style={styles.sub}>{t('rating.subtitle')}</Text>
       </View>
     </View>
   );

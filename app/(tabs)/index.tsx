@@ -23,6 +23,7 @@ import { useTabTransition } from '@/hooks/useTabTransition';
 import StreakCounter from '@/components/StreakCounter';
 import type { Database, SkinType, Severity } from '@/lib/database.types';
 import { differenceInDays } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 
 type Profile          = Database['public']['Tables']['profiles']['Row'];
 type SkinProfile      = Database['public']['Tables']['skin_profiles']['Row'];
@@ -125,6 +126,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router  = useRouter();
   const { animatedStyle } = useTabTransition();
+  const { t } = useTranslation();
   const [profile,      setProfile]      = useState<Profile | null>(null);
   const [skinProfile,  setSkinProfile]  = useState<SkinProfile | null>(null);
   const [plan,         setPlan]         = useState<PersonalizedPlan | null>(null);
@@ -228,7 +230,7 @@ export default function HomeScreen() {
   const Header = (
     <View style={[s.header, { paddingTop: insets.top + 12 }]}>
       <View style={s.headerBrand}>
-        <Text style={s.headerBrandText}>SkinX</Text>
+        <Text style={s.headerBrandText}>{t('home.title')}</Text>
       </View>
       <View style={s.headerRight}>
         <TouchableOpacity
@@ -288,7 +290,7 @@ export default function HomeScreen() {
 
                 {/* Label + Streak row */}
                 <View style={s.scanCardTopRow}>
-                  <Text style={s.scanCardLabel}>Today's scan result</Text>
+                  <Text style={s.scanCardLabel}>{t('home.scanCard.label')}</Text>
                   <StreakCounter compact />
                 </View>
 
@@ -313,19 +315,19 @@ export default function HomeScreen() {
                   )}
                   <View style={s.metricsStack}>
                     <View style={s.metricRow}>
-                      <Text style={s.metricRowLabel}>Breakouts</Text>
+                      <Text style={s.metricRowLabel}>{t('home.scanCard.breakouts')}</Text>
                       <Text style={[s.metricRowValue, { color: getSeverityColor(skinProfile.severity) }]}>{capitalize(skinProfile.severity ?? 'mild')}</Text>
                     </View>
                     <View style={s.metricRow}>
-                      <Text style={s.metricRowLabel}>Oil</Text>
+                      <Text style={s.metricRowLabel}>{t('home.scanCard.oil')}</Text>
                       <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'oily' ? '#FCD34D' : skinProfile.skin_type === 'combination' ? '#FCD34D' : Colors.textSecondary }]}>
-                        {skinProfile.skin_type === 'oily' ? 'High' : skinProfile.skin_type === 'combination' ? 'Medium' : skinProfile.skin_type === 'dry' ? 'Low' : 'Normal'}
+                        {skinProfile.skin_type === 'oily' ? t('home.scanCard.high') : skinProfile.skin_type === 'combination' ? t('home.scanCard.medium') : skinProfile.skin_type === 'dry' ? t('home.scanCard.low') : t('home.scanCard.normal')}
                       </Text>
                     </View>
                     <View style={s.metricRow}>
-                      <Text style={s.metricRowLabel}>Redness</Text>
+                      <Text style={s.metricRowLabel}>{t('home.scanCard.redness')}</Text>
                       <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'sensitive' ? '#F87171' : Colors.textSecondary }]}>
-                        {skinProfile.skin_type === 'sensitive' ? 'High' : skinProfile.severity === 'severe' ? 'High' : skinProfile.severity === 'moderate' ? 'Medium' : 'Low'}
+                        {skinProfile.skin_type === 'sensitive' ? t('home.scanCard.high') : skinProfile.severity === 'severe' ? t('home.scanCard.high') : skinProfile.severity === 'moderate' ? t('home.scanCard.medium') : t('home.scanCard.low')}
                       </Text>
                     </View>
                   </View>
@@ -339,7 +341,7 @@ export default function HomeScreen() {
                   const ZONE_LABELS: Record<string, string> = { forehead: 'Forehead', left_cheek: 'Left Cheek', right_cheek: 'Right Cheek', nose: 'Nose', chin: 'Chin', jawline: 'Jawline' };
                   return (
                     <View style={s.zonesSection}>
-                      <Text style={s.zonesSectionLabel}>ZONES</Text>
+                      <Text style={s.zonesSectionLabel}>{t('home.scanCard.zones')}</Text>
                       <View style={s.zoneChips}>
                         {Object.entries(zones).filter(([k]) => ZONE_LABELS[k]).map(([key, val]) => (
                           <View key={key} style={s.zoneChip}>
@@ -369,8 +371,8 @@ export default function HomeScreen() {
                   <View style={s.quickIconCircle}>
                     <PlanGridIcon size={18} color={Colors.primaryLight} />
                   </View>
-                  <Text style={s.quickCardTitle}>Skin Plan</Text>
-                  <Text style={s.quickCardSub}>Your game plan</Text>
+                  <Text style={s.quickCardTitle}>{t('home.quickAction.plan')}</Text>
+                  <Text style={s.quickCardSub}>{t('home.quickAction.planSub')}</Text>
                 </TouchableOpacity>
               </Animated.View>
 
@@ -385,8 +387,8 @@ export default function HomeScreen() {
                   <View style={s.quickIconCircle}>
                     <ScanLineIcon size={18} color={Colors.primaryLight} />
                   </View>
-                  <Text style={s.quickCardTitle}>Re-scan</Text>
-                  <Text style={s.quickCardSub}>Update results</Text>
+                  <Text style={s.quickCardTitle}>{t('home.quickAction.rescan')}</Text>
+                  <Text style={s.quickCardSub}>{t('home.quickAction.rescanSub')}</Text>
                 </TouchableOpacity>
               </Animated.View>
 
@@ -401,8 +403,8 @@ export default function HomeScreen() {
                   <View style={s.quickIconCircle}>
                     <ChatBubbleIcon size={18} color={Colors.primaryLight} />
                   </View>
-                  <Text style={s.quickCardTitle}>Coach</Text>
-                  <Text style={s.quickCardSub}>Ask anything</Text>
+                  <Text style={s.quickCardTitle}>{t('home.quickAction.coach')}</Text>
+                  <Text style={s.quickCardSub}>{t('home.quickAction.coachSub')}</Text>
                 </TouchableOpacity>
               </Animated.View>
             </View>
@@ -413,11 +415,11 @@ export default function HomeScreen() {
           <Animated.View style={{ opacity: cardAnims[3].opacity, transform: [{ translateY: cardAnims[3].translateY }] }}>
             <TouchableOpacity style={s.progressCard} activeOpacity={0.88} onPress={() => router.push('/(tabs)/progress')}>
               <View style={s.progressCardHeader}>
-                <Text style={s.progressCardTitle}>Track your progress</Text>
+                <Text style={s.progressCardTitle}>{t('home.progress.title')}</Text>
                 <ChevronRight size={16} color="rgba(255,255,255,0.4)" />
               </View>
               <Text style={s.progressCardSub}>
-                Log photos to see how your skin changes over time
+                {t('home.progress.subtitle')}
               </Text>
             </TouchableOpacity>
           </Animated.View>
@@ -453,10 +455,10 @@ export default function HomeScreen() {
             Personalized scan results, routine, and progress in one place
           </Text>
           <Text style={s.heroTitle}>
-            {'The Skin Coach\nFor Clearer Skin'}
+            {t('home.hero.title')}
           </Text>
           <Text style={s.heroBody}>
-            Scan your face, see what is going on, and get a plan that feels calm, premium, and actually made for your skin.
+            {t('home.hero.body')}
           </Text>
         </View>
 
@@ -465,7 +467,7 @@ export default function HomeScreen() {
           activeOpacity={0.88}
           onPress={() => router.push('/(tabs)/scan')}
         >
-          <Text style={s.heroCtaText}>Scan My Skin</Text>
+          <Text style={s.heroCtaText}>{t('home.hero.cta')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 80 }} />

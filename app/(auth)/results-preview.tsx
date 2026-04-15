@@ -5,6 +5,7 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Rect, Circle, Line } from 'react-native-svg';
 import { Colors, Fonts } from '@/lib/theme';
+import { useTranslation } from 'react-i18next';
 
 // SVG lock icon
 function LockIcon({ size = 32, color = '#FFF' }: { size?: number; color?: string }) {
@@ -17,21 +18,15 @@ function LockIcon({ size = 32, color = '#FFF' }: { size?: number; color?: string
   );
 }
 
-// Severity label mapping — "mild" doesn't fit, use better words
-const SEVERITY_LABELS: Record<string, string> = {
-  mild: 'Minor',
-  moderate: 'Moderate',
-  severe: 'Severe',
-};
-
 export default function ResultsPreviewScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ onboardingData?: string; analysisResult?: string; photoFront?: string }>();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
 
   const analysis = params.analysisResult ? JSON.parse(params.analysisResult) : {};
   const severity = analysis.severity || 'moderate';
-  const sevLabel = SEVERITY_LABELS[severity] || 'Moderate';
+  const sevLabel = t(`resultsPreview.${severity}` as any, { defaultValue: t('resultsPreview.moderate') });
   const findingsCount = analysis.findings?.length || analysis.findings_count || 3;
 
   return (
@@ -52,11 +47,11 @@ export default function ResultsPreviewScreen() {
           {/* Fake severity badge */}
           <View style={s.fakeBadgeRow}>
             <View style={s.fakeSevBadge}><Text style={s.fakeSevText}>{sevLabel}</Text></View>
-            <View style={s.fakeIssueBadge}><Text style={s.fakeIssueText}>{findingsCount} issues found</Text></View>
+            <View style={s.fakeIssueBadge}><Text style={s.fakeIssueText}>{t('resultsPreview.findings', { count: findingsCount })}</Text></View>
           </View>
 
           {/* Fake "Your Skin Analysis" header */}
-          <Text style={s.fakeHeader}>Your Skin Analysis</Text>
+          <Text style={s.fakeHeader}>{t('resultsPreview.skinAnalysis')}</Text>
 
           {/* Fake finding rows — actual blurred text */}
           <View style={s.fakeFinding}>
@@ -75,7 +70,7 @@ export default function ResultsPreviewScreen() {
           </View>
 
           {/* Fake plan section */}
-          <Text style={s.fakePlanHeader}>Your Personalized Plan</Text>
+          <Text style={s.fakePlanHeader}>{t('resultsPreview.personalizedPlan')}</Text>
           <View style={s.fakePlanRow}><Text style={s.fakePlanItem}>Morning routine: Gentle cleanser with willow bark...</Text></View>
           <View style={s.fakePlanRow}><Text style={s.fakePlanItem}>Evening routine: Rosehip oil + niacinamide serum...</Text></View>
           <View style={s.fakePlanRow}><Text style={s.fakePlanItem}>Diet: Reduce dairy, increase omega-3 intake...</Text></View>
@@ -92,10 +87,10 @@ export default function ResultsPreviewScreen() {
           </View>
 
           <View style={s.issueBadge}>
-            <Text style={s.issueText}>{findingsCount} issues found</Text>
+            <Text style={s.issueText}>{t('resultsPreview.findings', { count: findingsCount })}</Text>
           </View>
 
-          <Text style={s.planReady}>Your personalized plan is ready</Text>
+          <Text style={s.planReady}>{t('resultsPreview.locked')}</Text>
         </View>
       </View>
 
@@ -109,7 +104,7 @@ export default function ResultsPreviewScreen() {
           })}
           activeOpacity={0.85}
         >
-          <Text style={s.ctaText}>See Your Results</Text>
+          <Text style={s.ctaText}>{t('resultsPreview.cta')}</Text>
         </TouchableOpacity>
       </View>
     </View>

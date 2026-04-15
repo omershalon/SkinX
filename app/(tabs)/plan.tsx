@@ -24,6 +24,7 @@ import type { Database, RankedItem, AcneType } from '@/lib/database.types';
 import PickDetailModal from '@/components/PickDetailModal';
 import ParticleBurst, { ParticleBurstHandle } from '@/components/ParticleBurst';
 import GlowRingPulse, { GlowRingPulseHandle } from '@/components/GlowRingPulse';
+import { useTranslation } from 'react-i18next';
 
 type PersonalizedPlan = Database['public']['Tables']['personalized_plans']['Row'];
 type Tab = 'picks' | 'routine';
@@ -186,6 +187,7 @@ export default function PlanScreen() {
   const router  = useRouter();
   const { animatedStyle } = useTabTransition();
   const params = useLocalSearchParams<{ tab?: string }>();
+  const { t } = useTranslation();
 
   const [plan,         setPlan]         = useState<PersonalizedPlan | null>(null);
   const [acneType,     setAcneType]     = useState<AcneType | null>(null);
@@ -441,8 +443,8 @@ export default function PlanScreen() {
 
     if (!skinProfile) {
       Alert.alert(
-        'Scan required',
-        'Complete a skin scan first.',
+        t('plan.scanRequired'),
+        t('plan.completeScanFirst'),
         [
           { text: 'Cancel', style: 'cancel' },
           { text: 'Scan Now', onPress: () => router.push('/(tabs)/scan') },
@@ -515,11 +517,11 @@ export default function PlanScreen() {
           <ClipboardIcon size={52} color={Colors.textMuted} />
         </View>
         <Text style={styles.emptyTitle}>
-          {plan ? 'Plan needs refresh' : 'No plan yet'}
+          {plan ? 'Plan needs refresh' : t('plan.emptyTitle')}
         </Text>
         <Text style={styles.emptySubtitle}>
           {plan
-            ? 'Tap below to generate your recommendations'
+            ? t('plan.emptySubtitle')
             : 'Complete a skin scan, then generate your plan'}
         </Text>
         <TouchableOpacity
@@ -534,7 +536,7 @@ export default function PlanScreen() {
             end={{ x: 1, y: 0 }}
           >
             <Text style={styles.generateBtnText}>
-              {generating ? 'Generating...' : plan ? 'Refresh Plan' : 'Generate My Plan'}
+              {generating ? t('plan.generating') : plan ? t('plan.refreshPlan') : t('plan.generatePlan')}
             </Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -553,7 +555,7 @@ export default function PlanScreen() {
             {ACNE_LABELS[acneType]} {'\u00B7'} COMBINATION
           </Text>
         )}
-        <Text style={styles.headerTitle}>Your plan</Text>
+        <Text style={styles.headerTitle}>{t('plan.title')}</Text>
 
         {/* pill toggle */}
         <View style={styles.pillToggle}>
@@ -641,7 +643,7 @@ export default function PlanScreen() {
 
           <TouchableOpacity style={styles.regenRow} onPress={generatePlan} disabled={generating}>
             <Text style={styles.regenText}>
-              {generating ? 'Generating...' : '↻  Regenerate plan'}
+              {generating ? t('plan.generating') : t('plan.regenerate')}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -658,7 +660,7 @@ export default function PlanScreen() {
               <Line x1={7} y1={16} x2={17} y2={16} stroke={Colors.white} strokeWidth={1.8} strokeLinecap="round" />
             </Svg>
           </View>
-          <Text style={styles.emptyTitle}>Nothing added yet</Text>
+          <Text style={styles.emptyTitle}>{t('plan.emptyTitle')}</Text>
           <Text style={styles.emptySubtitle}>
             Go to Tips and tap + on anything you want to start doing
           </Text>
@@ -672,7 +674,7 @@ export default function PlanScreen() {
           {/* progress header */}
           <View style={styles.routineHeader}>
             <View style={styles.routineHeaderLeft}>
-              <Text style={styles.routineTitle}>Today's Routine</Text>
+              <Text style={styles.routineTitle}>{t('plan.routineHeader')}</Text>
               <Text style={styles.routineSubtitle}>{doneCount} of {totalCount} completed</Text>
             </View>
             <ProgressRing progress={progress} size={56} strokeWidth={4} />
@@ -685,8 +687,8 @@ export default function PlanScreen() {
                 <StarIcon size={32} color={Colors.primary} />
               </View>
               <View>
-                <Text style={styles.allDoneTitle}>All done for today!</Text>
-                <Text style={styles.allDoneSubtext}>Consistency is everything — keep it up</Text>
+                <Text style={styles.allDoneTitle}>{t('plan.allDone')}</Text>
+                <Text style={styles.allDoneSubtext}>{t('plan.consistency')}</Text>
               </View>
             </View>
           )}
@@ -755,7 +757,7 @@ export default function PlanScreen() {
           },
         ]}
       >
-        <Text style={styles.toastText}>Added to My Routine</Text>
+        <Text style={styles.toastText}>{t('plan.toastAdded')}</Text>
       </Animated.View>
 
       {/* Confetti */}

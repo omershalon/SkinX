@@ -23,14 +23,9 @@ import { LoadingOverlay } from '@/components/LoadingOverlay';
 import type { ViewAngle, CapturedImage } from '@/lib/scan-types';
 import { runDetectionOnAll, countDetections } from '@/lib/yolo';
 import { runScanPipeline } from '@/lib/scan-api';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-const STEPS: { angle: ViewAngle; label: string; instruction: string }[] = [
-  { angle: 'front', label: 'Front', instruction: 'Look straight at the camera' },
-  { angle: 'left', label: 'Left Side', instruction: 'Turn your head to the right' },
-  { angle: 'right', label: 'Right Side', instruction: 'Turn your head to the left' },
-];
 
 // ─── SVG Icons ───
 
@@ -80,6 +75,13 @@ export default function ScanScreen() {
   const router = useRouter();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const { t } = useTranslation();
+
+  const STEPS: { angle: ViewAngle; label: string; instruction: string }[] = [
+    { angle: 'front', label: t('scan.front'), instruction: t('scan.instructionFront') },
+    { angle: 'left', label: t('scan.leftSide'), instruction: t('scan.instructionLeft') },
+    { angle: 'right', label: t('scan.rightSide'), instruction: t('scan.instructionRight') },
+  ];
 
   // Capture state
   const [currentStep, setCurrentStep] = useState(0);
@@ -135,7 +137,7 @@ export default function ScanScreen() {
       }
     } catch (err) {
       console.error('Capture error:', err);
-      Alert.alert('Capture failed', 'Could not take photo. Please try again.');
+      Alert.alert(t('scan.errorCaptureFailed'), t('scan.errorCaptureFailedMsg'));
     }
   };
 
@@ -144,7 +146,7 @@ export default function ScanScreen() {
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Please allow access to your photo library in Settings.');
+      Alert.alert(t('scan.errorLibraryPermission'), t('scan.errorLibraryPermissionMsg'));
       return;
     }
 
@@ -159,7 +161,7 @@ export default function ScanScreen() {
 
     const asset = result.assets[0];
     if (!asset.base64) {
-      Alert.alert('Upload failed', 'Could not read image data. Please try again.');
+      Alert.alert(t('scan.errorUploadFailed'), t('scan.errorUploadFailedMsg'));
       return;
     }
 
@@ -264,17 +266,17 @@ export default function ScanScreen() {
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center', gap: Spacing.lg, paddingHorizontal: Spacing.xxl }]}>
         <CameraIcon size={48} color={Colors.white} />
         <Text style={{ ...Typography.headlineMedium, color: Colors.white, textAlign: 'center' }}>
-          Camera Access Needed
+          {t('scan.permissionTitle')}
         </Text>
         <Text style={{ ...Typography.bodyMedium, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>
-          We need camera access to scan and analyze your skin
+          {t('scan.permissionSubtitle')}
         </Text>
         <TouchableOpacity style={styles.permissionButton} onPress={requestPermission} activeOpacity={0.85}>
-          <Text style={styles.permissionButtonText}>Enable Camera</Text>
+          <Text style={styles.permissionButtonText}>{t('scan.enableCamera')}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={pickPhoto} activeOpacity={0.75}>
           <Text style={{ ...Typography.bodyMedium, color: Colors.primary }}>
-            Or upload photos from library
+            {t('scan.orUpload')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -291,11 +293,11 @@ export default function ScanScreen() {
 
           <View style={styles.previewActions}>
             <TouchableOpacity style={styles.previewBtn} onPress={retakePhoto} activeOpacity={0.8}>
-              <Text style={styles.previewBtnText}>Retake</Text>
+              <Text style={styles.previewBtnText}>{t('scan.retake')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.previewBtn, styles.previewBtnPrimary]} onPress={confirmPhoto} activeOpacity={0.8}>
               <Text style={[styles.previewBtnText, { color: '#FFFFFF' }]}>
-                {currentStep < 2 ? 'Next' : 'Done'}
+                {currentStep < 2 ? t('scan.next') : t('scan.done')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -310,13 +312,13 @@ export default function ScanScreen() {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <LoadingOverlay
           visible={processing}
-          title="Analyzing your skin..."
-          subtitle={processingStep || 'This may take a moment'}
-          steps={['Detecting acne spots', 'Uploading images', 'AI reviewing scan', 'Generating results']}
+          title={t('scan.loadingTitle')}
+          subtitle={processingStep || t('scan.loadingSubtitle')}
+          steps={[t('scan.step1'), t('scan.step2'), t('scan.step3'), t('scan.step4')]}
         />
 
-        <Text style={styles.reviewTitle}>Review Your Photos</Text>
-        <Text style={styles.reviewSubtitle}>Tap any photo to retake it</Text>
+        <Text style={styles.reviewTitle}>{t('scan.reviewTitle')}</Text>
+        <Text style={styles.reviewSubtitle}>{t('scan.reviewSubtitle')}</Text>
 
         <View style={styles.reviewGrid}>
           {STEPS.map((step, i) => (
@@ -345,12 +347,12 @@ export default function ScanScreen() {
           activeOpacity={0.85}
         >
           <Text style={styles.analyzeButtonText}>
-            {processing ? 'Analyzing...' : 'Analyze My Skin'}
+            {processing ? t('scan.analyzing') : t('scan.analyze')}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.resetButton} onPress={resetScan} disabled={processing}>
-          <Text style={styles.resetButtonText}>Start Over</Text>
+          <Text style={styles.resetButtonText}>{t('scan.startOver')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -418,7 +420,7 @@ export default function ScanScreen() {
 
           <TouchableOpacity style={styles.uploadButton} onPress={pickPhoto} activeOpacity={0.75}>
             <UploadIcon size={24} color="#FFFFFF" />
-            <Text style={styles.uploadButtonText}>Upload</Text>
+            <Text style={styles.uploadButtonText}>{t('scan.upload')}</Text>
           </TouchableOpacity>
         </View>
       </View>

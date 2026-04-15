@@ -6,12 +6,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors, Fonts } from '@/lib/theme';
-
-const PHASES = [
-  { instruction: 'Look straight ahead', arrow: null },
-  { instruction: 'Turn your head to the left', arrow: '←' },
-  { instruction: 'Turn your head to the right', arrow: '→' },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function PhotoCaptureScreen() {
   const router = useRouter();
@@ -24,6 +19,13 @@ export default function PhotoCaptureScreen() {
   const [showCheck, setShowCheck] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const flashAnim = useRef(new Animated.Value(0)).current;
+  const { t } = useTranslation();
+
+  const PHASES = [
+    { instruction: t('photoCapture.instructionFront'), arrow: null },
+    { instruction: t('photoCapture.instructionLeft'), arrow: '←' },
+    { instruction: t('photoCapture.instructionRight'), arrow: '→' },
+  ];
 
   const capture = async () => {
     if (!cameraRef.current || transitioning) return;
@@ -73,10 +75,10 @@ export default function PhotoCaptureScreen() {
   if (!permission?.granted) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center', gap: 16, paddingHorizontal: 32 }]}>
-        <Text style={styles.permTitle}>Camera Access Needed</Text>
-        <Text style={styles.permSub}>We need your camera to analyze your skin</Text>
+        <Text style={styles.permTitle}>{t('photoCapture.permissionTitle')}</Text>
+        <Text style={styles.permSub}>{t('photoCapture.permissionSubtitle')}</Text>
         <TouchableOpacity style={styles.permBtn} onPress={requestPermission} activeOpacity={0.85}>
-          <Text style={styles.permBtnText}>Enable Camera</Text>
+          <Text style={styles.permBtnText}>{t('photoCapture.enableCamera')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -117,7 +119,7 @@ export default function PhotoCaptureScreen() {
         <View style={styles.instructionArea}>
           {arrow && <Text style={styles.arrow}>{arrow}</Text>}
           <Text style={styles.instruction}>{instruction}</Text>
-          <Text style={styles.photoCount}>Photo {phase + 1} of 3</Text>
+          <Text style={styles.photoCount}>{t('photoCapture.photoCount', { number: phase + 1 })}</Text>
         </View>
       )}
 

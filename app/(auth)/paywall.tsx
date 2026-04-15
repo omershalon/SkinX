@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { Colors, Fonts, BorderRadius } from '@/lib/theme';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,6 +31,7 @@ export default function PaywallScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(0);
   const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
+  const { t } = useTranslation();
 
   const trialEndDate = new Date();
   trialEndDate.setDate(trialEndDate.getDate() + 3);
@@ -61,7 +63,7 @@ export default function PaywallScreen() {
           <Text style={styles.topBack}>{page > 0 ? '‹' : ''}</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={skip}>
-          <Text style={styles.restore}>Restore</Text>
+          <Text style={styles.restore}>{t('paywall.restore')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -76,7 +78,7 @@ export default function PaywallScreen() {
       >
         {/* ═══ SCREEN 1: "We want you to try it for free" ═══ */}
         <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
-          <Text style={[styles.heading, { marginTop: 16 }]}>We want you to{'\n'}try Glow for free.</Text>
+          <Text style={[styles.heading, { marginTop: 16 }]}>{t('paywall.heading1')}</Text>
 
           <View style={styles.pageCenter}>
             {/* Phone mockup placeholder */}
@@ -91,38 +93,38 @@ export default function PaywallScreen() {
           <View style={styles.pageBottom}>
             <View style={styles.noPayRow}>
               <Text style={styles.noPayCheck}>✓</Text>
-              <Text style={styles.noPayText}>No Payment Due Now</Text>
+              <Text style={styles.noPayText}>{t('paywall.noPayment')}</Text>
             </View>
             <TouchableOpacity style={styles.blackBtn} onPress={goNext} activeOpacity={0.85}>
-              <Text style={styles.blackBtnText}>Try for $0.00</Text>
+              <Text style={styles.blackBtnText}>{t('paywall.tryFree')}</Text>
             </TouchableOpacity>
-            <Text style={styles.priceHint}>Just $29.99 per year ($2.49/mo)</Text>
+            <Text style={styles.priceHint}>{t('paywall.hint1')}</Text>
           </View>
         </View>
 
         {/* ═══ SCREEN 2: "We'll send you a reminder" ═══ */}
         <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.pageCenter}>
-            <Text style={styles.heading}>We'll send you{'\n'}a reminder before your{'\n'}free trial ends</Text>
+            <Text style={styles.heading}>{t('paywall.heading2')}</Text>
             <BellIcon size={100} />
           </View>
 
           <View style={styles.pageBottom}>
             <View style={styles.noPayRow}>
               <Text style={styles.noPayCheck}>✓</Text>
-              <Text style={styles.noPayText}>No Payment Due Now</Text>
+              <Text style={styles.noPayText}>{t('paywall.noPayment')}</Text>
             </View>
             <TouchableOpacity style={styles.blackBtn} onPress={goNext} activeOpacity={0.85}>
-              <Text style={styles.blackBtnText}>Continue for FREE</Text>
+              <Text style={styles.blackBtnText}>{t('paywall.continueFree')}</Text>
             </TouchableOpacity>
-            <Text style={styles.priceHint}>Just $29.99 per year ($2.49/mo)</Text>
+            <Text style={styles.priceHint}>{t('paywall.hint1')}</Text>
           </View>
         </View>
 
         {/* ═══ SCREEN 3: Plan selection + payment ═══ */}
         <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
           <ScrollView contentContainerStyle={styles.screen3Content} showsVerticalScrollIndicator={false}>
-            <Text style={styles.heading}>Start your 3-day FREE{'\n'}trial to continue.</Text>
+            <Text style={styles.heading}>{t('paywall.heading3')}</Text>
 
             {/* Timeline */}
             <View style={styles.timeline}>
@@ -131,8 +133,8 @@ export default function PaywallScreen() {
                   <Text style={styles.timelineDotIcon}>🔓</Text>
                 </View>
                 <View style={styles.timelineTextArea}>
-                  <Text style={styles.timelineTitle}>Today</Text>
-                  <Text style={styles.timelineDesc}>Unlock all the app's features like AI skin scanning and more.</Text>
+                  <Text style={styles.timelineTitle}>{t('paywall.today')}</Text>
+                  <Text style={styles.timelineDesc}>{t('paywall.todayDesc')}</Text>
                 </View>
               </View>
               <View style={styles.timelineLine} />
@@ -141,8 +143,8 @@ export default function PaywallScreen() {
                   <Text style={styles.timelineDotIcon}>🔔</Text>
                 </View>
                 <View style={styles.timelineTextArea}>
-                  <Text style={styles.timelineTitle}>In 2 Days - Reminder</Text>
-                  <Text style={styles.timelineDesc}>We'll send you a reminder that your trial is ending soon.</Text>
+                  <Text style={styles.timelineTitle}>{t('paywall.reminder')}</Text>
+                  <Text style={styles.timelineDesc}>{t('paywall.reminderDesc')}</Text>
                 </View>
               </View>
               <View style={styles.timelineLine} />
@@ -151,8 +153,8 @@ export default function PaywallScreen() {
                   <Text style={styles.timelineDotIcon}>👑</Text>
                 </View>
                 <View style={styles.timelineTextArea}>
-                  <Text style={styles.timelineTitle}>In 3 Days - Billing Starts</Text>
-                  <Text style={styles.timelineDesc}>You'll be charged on {dateStr} unless you cancel anytime before.</Text>
+                  <Text style={styles.timelineTitle}>{t('paywall.billing')}</Text>
+                  <Text style={styles.timelineDesc}>{t('paywall.billingDesc', { dateStr })}</Text>
                 </View>
               </View>
             </View>
@@ -163,8 +165,8 @@ export default function PaywallScreen() {
                 style={[styles.planCard, selectedPlan === 'monthly' && styles.planCardSelected]}
                 onPress={() => setSelectedPlan('monthly')} activeOpacity={0.85}
               >
-                <Text style={styles.planTitle}>Monthly</Text>
-                <Text style={styles.planPrice}>$9.99 /mo</Text>
+                <Text style={styles.planTitle}>{t('paywall.monthly')}</Text>
+                <Text style={styles.planPrice}>{t('paywall.monthlyPrice')}</Text>
                 <View style={[styles.radio, selectedPlan === 'monthly' && styles.radioSelected]} />
               </TouchableOpacity>
 
@@ -173,10 +175,10 @@ export default function PaywallScreen() {
                 onPress={() => setSelectedPlan('yearly')} activeOpacity={0.85}
               >
                 <View style={styles.freeBadge}>
-                  <Text style={styles.freeBadgeText}>3 DAYS FREE</Text>
+                  <Text style={styles.freeBadgeText}>{t('paywall.freeBadge')}</Text>
                 </View>
-                <Text style={styles.planTitle}>Yearly</Text>
-                <Text style={styles.planPrice}>$2.49 /mo</Text>
+                <Text style={styles.planTitle}>{t('paywall.yearly')}</Text>
+                <Text style={styles.planPrice}>{t('paywall.yearlyPrice')}</Text>
                 <View style={[styles.radio, selectedPlan === 'yearly' && styles.radioSelected]}>
                   {selectedPlan === 'yearly' && <View style={styles.radioInner} />}
                 </View>
@@ -185,17 +187,17 @@ export default function PaywallScreen() {
 
             <View style={styles.noPayRow}>
               <Text style={styles.noPayCheck}>✓</Text>
-              <Text style={styles.noPayText}>No Payment Due Now</Text>
+              <Text style={styles.noPayText}>{t('paywall.noPayment')}</Text>
             </View>
 
             <TouchableOpacity style={styles.blackBtn} onPress={subscribe} activeOpacity={0.85}>
-              <Text style={styles.blackBtnText}>Start My 3-Day Free Trial</Text>
+              <Text style={styles.blackBtnText}>{t('paywall.cta')}</Text>
             </TouchableOpacity>
 
-            <Text style={styles.priceHint}>3 days free, then $29.99 per year ($2.49/mo)</Text>
+            <Text style={styles.priceHint}>{t('paywall.ctaHint')}</Text>
 
             <TouchableOpacity onPress={skip} style={{ marginTop: 12 }}>
-              <Text style={styles.skipText}>Maybe later</Text>
+              <Text style={styles.skipText}>{t('paywall.later')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

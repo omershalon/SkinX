@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/lib/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 
 const FILL   = Colors.primary;
 const STROKE = '#FFFFFF';
@@ -127,6 +128,7 @@ export default function TabsLayout() {
   const insets   = useSafeAreaInsets();
   const router   = useRouter();
   const segments = useSegments();
+  const { t } = useTranslation();
 
   const activeTab = (segments as string[])[1] as string | undefined;
   const showFab   = activeTab !== 'scan';
@@ -160,35 +162,35 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Home',
+            title: t('tabs.home'),
             tabBarIcon: ({ focused }) => <HomeIcon focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="plan"
           options={{
-            title: 'Plan',
+            title: t('tabs.plan'),
             tabBarIcon: ({ focused }) => <PlanIcon focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="scan"
           options={{
-            title: 'Scan',
+            title: t('tabs.scan'),
             tabBarIcon: ({ focused }) => <ScanIcon focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="progress"
           options={{
-            title: 'Log',
+            title: t('tabs.log'),
             tabBarIcon: ({ focused }) => <LogIcon focused={focused} />,
           }}
         />
         <Tabs.Screen
           name="scanner"
           options={{
-            title: 'Shop ',
+            title: t('tabs.shop'),
             tabBarIcon: ({ focused }) => <ProductsIcon focused={focused} />,
           }}
         />

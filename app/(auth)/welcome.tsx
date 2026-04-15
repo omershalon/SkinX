@@ -2,7 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, TextInput, Alert,
-  ActivityIndicator, Linking, Animated, PanResponder, Dimensions,
+  ActivityIndicator, Linking, Animated, Easing, PanResponder, Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -98,15 +98,15 @@ function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.R
   if (dismissRef) {
     dismissRef.current = () => {
       Animated.parallel([
-        Animated.timing(translateY, { toValue: SCREEN_H, duration: 200, useNativeDriver: true }),
-        Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(translateY, { toValue: SCREEN_H, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
       ]).start(() => onDismissRef.current());
     };
   }
 
   useEffect(() => {
     Animated.parallel([
-      Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 10, tension: 65 }),
+      Animated.timing(translateY, { toValue: 0, duration: 480, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
       Animated.timing(overlayOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
     ]).start();
   }, []);
@@ -140,8 +140,8 @@ function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.R
         if (g.dy > 100 || g.vy > 0.4) {
           dismissed.current = true;
           Animated.parallel([
-            Animated.timing(translateY, { toValue: SCREEN_H, duration: 200, useNativeDriver: true }),
-            Animated.timing(overlayOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
+            Animated.timing(translateY, { toValue: SCREEN_H, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+            Animated.timing(overlayOpacity, { toValue: 0, duration: 320, easing: Easing.out(Easing.quad), useNativeDriver: true }),
           ]).start(() => {
             onDismiss();
             translateY.setValue(SCREEN_H);
@@ -185,6 +185,7 @@ export default function WelcomeScreen() {
   const [showLang, setShowLang] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
   const signInDismissRef = useRef<(() => void) | null>(null);
+  const langDismissRef   = useRef<(() => void) | null>(null);
   const emailScreenSlide = useRef(new Animated.Value(SCREEN_H)).current;
 
   useEffect(() => {
@@ -226,7 +227,7 @@ export default function WelcomeScreen() {
     setTimeout(() => {
       setShowSignIn(false);
       setShowEmailScreen(true);
-    }, 210);
+    }, 400);
   };
 
   // ── Apple Sign In ──
@@ -325,20 +326,20 @@ export default function WelcomeScreen() {
 
         <View style={s.signInRow}>
           <Text style={s.signInPrompt}>{t('welcome.alreadyAccount')} </Text>
-          <TouchableOpacity onPress={() => setShowSignIn(true)} activeOpacity={0.7}>
+          <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setShowSignIn(true); }} activeOpacity={0.7}>
             <Text style={s.signInLink}>{t('welcome.signIn')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* Language Modal */}
-      <Modal visible={showLang} animationType="none" transparent onRequestClose={() => setShowLang(false)}>
-          <DraggableSheet onDismiss={() => setShowLang(false)}>
+      <Modal visible={showLang} animationType="none" transparent onRequestClose={() => langDismissRef.current?.()}>
+          <DraggableSheet onDismiss={() => setShowLang(false)} dismissRef={langDismissRef}>
           <View style={[s.langSheet, { paddingBottom: insets.bottom + 16 }]} onStartShouldSetResponder={() => true}>
             <View style={s.langSheetHandle} />
             <View style={s.langSheetHeader}>
               <Text style={s.langSheetTitle}>{t('lang.selectLanguage')}</Text>
-              <TouchableOpacity style={s.closeBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setShowLang(false); }}>
+              <TouchableOpacity style={s.closeBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); langDismissRef.current?.(); }}>
                 <XIcon size={14} />
               </TouchableOpacity>
             </View>
@@ -347,7 +348,7 @@ export default function WelcomeScreen() {
                 <TouchableOpacity
                   key={lang.code}
                   style={[s.langRow, i < LANGUAGES.length - 1 && s.langRowBorder]}
-                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); setSelectedLang(lang); setShowLang(false); changeLanguage(lang.code); }}
+                  onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setSelectedLang(lang); setShowLang(false); changeLanguage(lang.code); }}
                   activeOpacity={0.7}
                 >
                   <Text style={s.langRowFlag}>{lang.flag}</Text>
@@ -371,7 +372,7 @@ export default function WelcomeScreen() {
             <View style={s.sheetHeader}>
               <View style={s.headerSpacer} />
               <Text style={s.sheetTitle}>{t('signIn.title')}</Text>
-              <TouchableOpacity style={s.closeBtn} onPress={closeModal}>
+              <TouchableOpacity style={s.closeBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); signInDismissRef.current?.(); }}>
                 <XIcon size={14} />
               </TouchableOpacity>
             </View>

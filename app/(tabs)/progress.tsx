@@ -34,6 +34,7 @@ import { useTabTransition } from '@/hooks/useTabTransition';
 import { Colors, Typography, BorderRadius, Spacing, Shadows } from '@/lib/theme';
 import ScreenBackground from '@/components/ScreenBackground';
 import ParticleBurst, { ParticleBurstHandle } from '@/components/ParticleBurst';
+import { useTranslation } from 'react-i18next';
 
 // ─── SVG Icon Components ────────────────────────────────────────────────────
 
@@ -97,17 +98,18 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DAY_CELL_W = Math.floor(SCREEN_WIDTH / 7);
 const DAY_CELL_H = Math.floor(DAY_CELL_W * 1.4); // taller rectangles like BeReal
 
-const ZONE_LABELS: Record<string, string> = {
-  forehead: 'Forehead',
-  nose: 'T-Zone',
-  left_cheek: 'Left Cheek',
-  right_cheek: 'Right Cheek',
-  chin: 'Chin & Jaw',
+const ZONE_KEYS: Record<string, string> = {
+  forehead: 'forehead',
+  nose: 'nose',
+  left_cheek: 'leftCheek',
+  right_cheek: 'rightCheek',
+  chin: 'chin',
 };
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 export default function ProgressScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { animatedStyle } = useTabTransition();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
@@ -218,7 +220,7 @@ export default function ProgressScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Progress tracking error:', err);
-      Alert.alert('Error', 'Could not save your progress photo. Please try again.');
+      Alert.alert('Error', t('progress.errorSavePhoto'));
     } finally {
       setUploading(false);
     }
@@ -298,7 +300,7 @@ export default function ProgressScreen() {
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Progress log</Text>
+            <Text style={styles.headerTitle}>{t('progress.title')}</Text>
           </View>
           <TouchableOpacity
             style={[styles.logButton, uploading && styles.buttonDisabled]}
@@ -478,11 +480,11 @@ export default function ProgressScreen() {
 
                 <View style={styles.modalBadgeRow}>
                   <View style={styles.modalBadge}>
-                    <Text style={styles.modalBadgeLabel}>Week</Text>
+                    <Text style={styles.modalBadgeLabel}>{t('progress.week', { number: photo.week_number })}</Text>
                     <Text style={styles.modalBadgeValue}>{photo.week_number}</Text>
                   </View>
                   <View style={[styles.modalBadge, { backgroundColor: Colors.primary + '15', borderColor: Colors.primary }]}>
-                    <Text style={[styles.modalBadgeLabel, { color: Colors.primary }]}>Score</Text>
+                    <Text style={[styles.modalBadgeLabel, { color: Colors.primary }]}>{t('progress.severity')}</Text>
                     <Text style={[styles.modalBadgeValue, { color: Colors.primary }]}>{photo.severity_score.toFixed(1)}</Text>
                   </View>
                   {photo.improvement_percentage != null && (
@@ -490,7 +492,7 @@ export default function ProgressScreen() {
                       backgroundColor: photo.improvement_percentage >= 0 ? Colors.successLight : Colors.errorLight,
                       borderColor: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
                     }]}>
-                      <Text style={[styles.modalBadgeLabel, { color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error }]}>Change</Text>
+                      <Text style={[styles.modalBadgeLabel, { color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error }]}>{t('progress.change')}</Text>
                       <Text style={[styles.modalBadgeValue, { color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error }]}>
                         {photo.improvement_percentage > 0 ? '+' : ''}{photo.improvement_percentage.toFixed(0)}%
                       </Text>
@@ -500,7 +502,7 @@ export default function ProgressScreen() {
 
                 {/* AI notes */}
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>AI Analysis</Text>
+                  <Text style={styles.modalSectionTitle}>{t('progress.aiAnalysis')}</Text>
                   <View style={styles.modalInsightBox}>
                     <Text style={styles.modalInsightText}>{photo.analysis_notes}</Text>
                   </View>
@@ -509,13 +511,13 @@ export default function ProgressScreen() {
                 {/* Zone breakdown */}
                 {photo.annotations && Object.values(photo.annotations).some(Boolean) && (
                   <View style={styles.modalSection}>
-                    <Text style={styles.modalSectionTitle}>Zone Breakdown</Text>
-                    {Object.entries(ZONE_LABELS).map(([key, label]) => {
+                    <Text style={styles.modalSectionTitle}>{t('progress.zoneBreakdown')}</Text>
+                    {Object.entries(ZONE_KEYS).map(([key, tKey]) => {
                       const val = photo.annotations[key];
                       if (!val) return null;
                       return (
                         <View key={key} style={styles.zoneRow}>
-                          <Text style={styles.zoneLabel}>{label}</Text>
+                          <Text style={styles.zoneLabel}>{t(`progress.${tKey}`)}</Text>
                           <Text style={styles.zoneValue}>{val}</Text>
                         </View>
                       );
@@ -525,11 +527,11 @@ export default function ProgressScreen() {
 
                 {/* User notes */}
                 <View style={styles.modalSection}>
-                  <Text style={styles.modalSectionTitle}>My Notes</Text>
+                  <Text style={styles.modalSectionTitle}>{t('progress.myNotes')}</Text>
                   <TextInput
                     style={styles.notesInput}
                     multiline
-                    placeholder="Add a personal note for this check-in..."
+                    placeholder={t('progress.notesPlaceholder')}
                     placeholderTextColor={Colors.textMuted}
                     value={editingNote}
                     onChangeText={setEditingNote}
@@ -539,7 +541,7 @@ export default function ProgressScreen() {
                     onPress={saveNote}
                     disabled={savingNote}
                   >
-                    <Text style={styles.saveNoteBtnText}>{savingNote ? 'Saving...' : 'Save Note'}</Text>
+                    <Text style={styles.saveNoteBtnText}>{savingNote ? t('progress.saving') : t('progress.saveNote')}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>
@@ -598,14 +600,14 @@ export default function ProgressScreen() {
                         {format(new Date(photo.created_at), 'MMMM d, yyyy')}
                       </Text>
                       <View style={styles.expandWeekPill}>
-                        <Text style={styles.expandWeekPillText}>Week {photo.week_number}</Text>
+                        <Text style={styles.expandWeekPillText}>{t('progress.week', { number: photo.week_number })}</Text>
                       </View>
                     </View>
 
                     {/* Score badges */}
                     <View style={styles.expandBadgeRow}>
                       <View style={styles.expandBadge}>
-                        <Text style={styles.expandBadgeLabel}>Severity</Text>
+                        <Text style={styles.expandBadgeLabel}>{t('progress.severity')}</Text>
                         <Text style={styles.expandBadgeValue}>{photo.severity_score.toFixed(1)}</Text>
                       </View>
                       {photo.improvement_percentage != null && (
@@ -615,7 +617,7 @@ export default function ProgressScreen() {
                         }]}>
                           <Text style={[styles.expandBadgeLabel, {
                             color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
-                          }]}>Change</Text>
+                          }]}>{t('progress.change')}</Text>
                           <Text style={[styles.expandBadgeValue, {
                             color: photo.improvement_percentage >= 0 ? Colors.success : Colors.error,
                           }]}>
@@ -630,7 +632,7 @@ export default function ProgressScreen() {
                       <View style={styles.expandAnalysisCard}>
                         <View style={styles.expandAnalysisAccent} />
                         <View style={styles.expandAnalysisContent}>
-                          <Text style={styles.expandSectionTitle}>AI Analysis</Text>
+                          <Text style={styles.expandSectionTitle}>{t('progress.aiAnalysis')}</Text>
                           <Text style={styles.expandAnalysisText}>{photo.analysis_notes}</Text>
                         </View>
                       </View>
@@ -639,14 +641,14 @@ export default function ProgressScreen() {
                     {/* Zone Breakdown */}
                     {photo.annotations && Object.values(photo.annotations).some(Boolean) && (
                       <View style={styles.expandSection}>
-                        <Text style={styles.expandSectionTitle}>Zone Breakdown</Text>
+                        <Text style={styles.expandSectionTitle}>{t('progress.zoneBreakdown')}</Text>
                         <View style={styles.zoneCard}>
-                          {Object.entries(ZONE_LABELS).map(([zoneKey, label]) => {
+                          {Object.entries(ZONE_KEYS).map(([zoneKey, tKey]) => {
                             const val = photo.annotations?.[zoneKey];
                             if (!val) return null;
                             return (
                               <View key={zoneKey} style={styles.zoneRow}>
-                                <Text style={styles.zoneLabel}>{label}</Text>
+                                <Text style={styles.zoneLabel}>{t(`progress.${tKey}`)}</Text>
                                 <Text style={styles.zoneValue}>{val}</Text>
                               </View>
                             );
@@ -747,46 +749,38 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     paddingBottom: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: Colors.card,
+    overflow: 'hidden',
   },
   dayCellLogged: {
-    overflow: 'hidden',
+    borderWidth: 0,
   },
   dayCellTodayLogged: {
     borderWidth: 2,
     borderColor: Colors.primary,
   },
   dayCellInner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     borderRadius: 8,
     overflow: 'hidden',
-  },
-  dayCellNumber: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    fontWeight: '500',
   },
   dayCellThumb: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    opacity: 0.85,
+  },
+  dayCellNumber: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: Colors.textMuted,
+    zIndex: 1,
   },
   dayCellNumberLogged: {
     color: Colors.white,
-    fontWeight: '700',
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 2,
   },
-
-  // Zone rows
-  zoneRow: { flexDirection: 'row', gap: Spacing.md, paddingVertical: Spacing.sm, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  zoneLabel: { fontSize: 12, fontWeight: '600', color: Colors.primary, width: 90, letterSpacing: 0.3 },
-  zoneValue: { fontSize: 12, color: Colors.textSecondary, flex: 1, lineHeight: 18 },
 
   // Modal
   modalRoot: { flex: 1, backgroundColor: Colors.background },
@@ -794,11 +788,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-    backgroundColor: Colors.card,
+    borderBottomColor: Colors.border,
   },
   modalClose: {
     width: 32,
@@ -808,46 +802,69 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalHeaderTitle: { ...Typography.labelLarge, color: Colors.text, flex: 1, textAlign: 'center' },
-  modalNav: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
-  modalNavBtn: { padding: 4 },
-  modalNavBtnDisabled: { opacity: 0.3 },
-  modalNavCount: { ...Typography.caption, color: Colors.textMuted, minWidth: 36, textAlign: 'center' },
-
-  modalItemContent: { padding: Spacing.xl, gap: Spacing.lg, paddingBottom: 100 },
-  modalImage: { width: '100%', aspectRatio: 1, borderRadius: BorderRadius.xl },
-  modalBadgeRow: { flexDirection: 'row', gap: Spacing.sm },
-  modalBadge: {
-    flex: 1,
+  modalHeaderTitle: {
+    ...Typography.headlineSmall,
+    color: Colors.text,
+  },
+  modalNav: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: Spacing.md,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-    gap: 2,
+    gap: Spacing.xs,
   },
-  modalBadgeLabel: { ...Typography.caption, color: Colors.textMuted },
+  modalNavBtn: { padding: Spacing.xs },
+  modalNavBtnDisabled: { opacity: 0.3 },
+  modalNavCount: { ...Typography.caption, color: Colors.textMuted, minWidth: 32, textAlign: 'center' },
+  modalItemContent: { paddingBottom: 60 },
+  modalImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH * 1.1 },
+  modalBadgeRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    flexWrap: 'wrap',
+  },
+  modalBadge: {
+    alignItems: 'center',
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minWidth: 70,
+  },
+  modalBadgeLabel: { ...Typography.caption, color: Colors.textMuted, marginBottom: 2 },
   modalBadgeValue: { ...Typography.headlineSmall, color: Colors.text },
-  modalSection: { gap: Spacing.sm },
-  modalSectionTitle: { ...Typography.headlineSmall, color: Colors.text },
+  modalSection: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl, gap: Spacing.sm },
+  modalSectionTitle: { ...Typography.labelLarge, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
   modalInsightBox: {
-    borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
     backgroundColor: Colors.card,
-  },
-  modalInsightText: { ...Typography.bodySmall, color: Colors.textSecondary, lineHeight: 20 },
-
-  notesInput: {
-    borderWidth: 1.5,
-    borderColor: Colors.border,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
-    minHeight: 100,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  modalInsightText: { ...Typography.bodyMedium, color: Colors.text, lineHeight: 22 },
+  zoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  zoneLabel: { ...Typography.bodySmall, color: Colors.textMuted },
+  zoneValue: { ...Typography.bodySmall, color: Colors.text, fontWeight: '600' },
+  notesInput: {
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
     ...Typography.bodyMedium,
     color: Colors.text,
+    minHeight: 80,
+    borderWidth: 1,
+    borderColor: Colors.border,
     textAlignVertical: 'top',
-    backgroundColor: Colors.card,
   },
   saveNoteBtn: {
     backgroundColor: Colors.primary,
@@ -855,152 +872,72 @@ const styles = StyleSheet.create({
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Shadows.sm,
   },
   saveNoteBtnText: { ...Typography.labelLarge, color: Colors.white },
 
-
-  // Bottom sheet overlay
-  expandOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 1000,
-    justifyContent: 'flex-end',
-  },
-  expandBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-  },
+  // Bottom sheet expand
+  expandOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 100 },
+  expandBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   expandSheet: {
-    width: SCREEN_WIDTH,
-    maxHeight: '90%',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: SCREEN_HEIGHT * 0.9,
     backgroundColor: Colors.background,
-    borderTopLeftRadius: BorderRadius.xxl,
-    borderTopRightRadius: BorderRadius.xxl,
-    borderTopWidth: 1,
-    borderColor: Colors.border,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: 'hidden',
   },
-  sheetHandleArea: {
-    alignItems: 'center',
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-  },
-
-  // Image
+  sheetHandleArea: { alignItems: 'center', paddingTop: Spacing.md, paddingBottom: Spacing.sm },
+  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: Colors.border },
   expandImageWrap: {
-    paddingHorizontal: Spacing.md,
-    paddingBottom: Spacing.sm,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  expandImage: {
-    width: '100%',
-    aspectRatio: 1,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-
-  // Info section
-  expandInfo: {
-    paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
-  },
-  expandDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  expandDate: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.text,
-  },
+  expandImage: { width: SCREEN_WIDTH - Spacing.lg * 2, height: (SCREEN_WIDTH - Spacing.lg * 2) * 1.1 },
+  expandInfo: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.lg, gap: Spacing.lg },
+  expandDateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  expandDate: { ...Typography.headlineSmall, color: Colors.text },
   expandWeekPill: {
     backgroundColor: Colors.primary + '20',
     borderRadius: BorderRadius.pill,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderWidth: 1,
-    borderColor: Colors.primary + '30',
+    paddingVertical: Spacing.xxs,
   },
-  expandWeekPillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primary,
-    letterSpacing: 0.3,
-  },
-
-  // Score badges
-  expandBadgeRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
+  expandWeekPillText: { ...Typography.caption, color: Colors.primary, fontWeight: '700' },
+  expandBadgeRow: { flexDirection: 'row', gap: Spacing.sm },
   expandBadge: {
     flex: 1,
+    backgroundColor: Colors.card,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
     alignItems: 'center',
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: BorderRadius.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.cardGlass,
-    gap: 2,
   },
-  expandBadgeLabel: {
-    ...Typography.caption,
-    color: Colors.textMuted,
-  },
-  expandBadgeValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-
-  // AI Analysis card with accent bar
+  expandBadgeLabel: { ...Typography.caption, color: Colors.textMuted, marginBottom: 2 },
+  expandBadgeValue: { ...Typography.headlineSmall, color: Colors.text },
   expandAnalysisCard: {
     flexDirection: 'row',
     backgroundColor: Colors.card,
     borderRadius: BorderRadius.lg,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.border,
-    overflow: 'hidden',
   },
-  expandAnalysisAccent: {
-    width: 4,
-    backgroundColor: Colors.primary,
-  },
-  expandAnalysisContent: {
-    flex: 1,
-    padding: Spacing.lg,
-    gap: Spacing.sm,
-  },
-  expandSection: {
-    gap: Spacing.sm,
-  },
-  expandSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.text,
-    letterSpacing: 0.3,
-  },
-  expandAnalysisText: {
-    ...Typography.bodySmall,
-    color: Colors.textSecondary,
-    lineHeight: 20,
-  },
-
-  // Zone breakdown
+  expandAnalysisAccent: { width: 4, backgroundColor: Colors.primary },
+  expandAnalysisContent: { flex: 1, padding: Spacing.lg, gap: Spacing.sm },
+  expandSectionTitle: { ...Typography.labelLarge, color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.8 },
+  expandAnalysisText: { ...Typography.bodyMedium, color: Colors.text, lineHeight: 22 },
+  expandSection: { gap: Spacing.sm },
   zoneCard: {
     backgroundColor: Colors.card,
-    borderRadius: BorderRadius.lg,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.lg,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: Spacing.lg,
-    gap: Spacing.xs,
   },
 });

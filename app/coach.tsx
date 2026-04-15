@@ -32,6 +32,7 @@ try {
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '@/lib/supabase';
 import { Colors, Typography, BorderRadius, Spacing, Shadows } from '@/lib/theme';
+import { useTranslation } from 'react-i18next';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -112,6 +113,7 @@ function PulsingRing({ active }: { active: boolean }) {
 }
 
 export default function CoachScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
@@ -129,7 +131,7 @@ export default function CoachScreen() {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'Take Photo', 'Upload Photos & Files'],
+          options: [t('profile.cancel'), t('coach.takePhoto'), t('coach.uploadFiles')],
           cancelButtonIndex: 0,
         },
         async (buttonIndex) => {
@@ -138,10 +140,10 @@ export default function CoachScreen() {
         }
       );
     } else {
-      Alert.alert('Add Attachment', '', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Take Photo', onPress: pickFromCamera },
-        { text: 'Upload Photos & Files', onPress: pickFromLibrary },
+      Alert.alert(t('coach.addAttachment'), '', [
+        { text: t('profile.cancel'), style: 'cancel' },
+        { text: t('coach.takePhoto'), onPress: pickFromCamera },
+        { text: t('coach.uploadFiles'), onPress: pickFromLibrary },
       ]);
     }
   };
@@ -197,7 +199,7 @@ export default function CoachScreen() {
 
   const startListening = async () => {
     if (!ExpoSpeechRecognitionModule) {
-      Alert.alert('Not available', 'Voice input requires a development build and is not supported in Expo Go.');
+      Alert.alert(t('coach.voiceError'), t('coach.voiceErrorMsg'));
       return;
     }
     const { granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
@@ -303,7 +305,7 @@ export default function CoachScreen() {
           <TouchableOpacity onPress={() => { stopSpeaking(); setVoiceMode(false); }} style={styles.closeBtn}>
             <CloseIcon size={22} color={Colors.white} />
           </TouchableOpacity>
-          <Text style={styles.voiceHeaderTitle}>Skin Coach</Text>
+          <Text style={styles.voiceHeaderTitle}>{t('coach.title')}</Text>
           <View style={styles.closeBtn} />
         </View>
 
@@ -320,7 +322,7 @@ export default function CoachScreen() {
             </TouchableOpacity>
           </View>
           <Text style={styles.voiceStatus}>
-            {sending ? 'Thinking...' : speaking ? 'Speaking...' : listening ? 'Listening...' : 'Tap to speak'}
+            {sending ? t('coach.thinking') : speaking ? t('coach.speaking') : listening ? t('coach.listening') : t('coach.tapToSpeak')}
           </Text>
           {/* Last message preview */}
           {messages.length > 0 && (
@@ -358,8 +360,8 @@ export default function CoachScreen() {
         <View style={styles.headerCenter}>
           <CoachAvatar size={32} />
           <View>
-            <Text style={styles.headerTitle}>Skin Coach</Text>
-            <Text style={styles.headerSubtitle}>AI skincare assistant</Text>
+            <Text style={styles.headerTitle}>{t('coach.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('coach.subtitle')}</Text>
           </View>
         </View>
         <View style={styles.closeBtn} />
@@ -376,16 +378,16 @@ export default function CoachScreen() {
         {messages.length === 0 && (
           <View style={styles.welcomeContainer}>
             <CoachAvatar size={56} />
-            <Text style={styles.welcomeTitle}>Hey! I'm your Skin Coach</Text>
+            <Text style={styles.welcomeTitle}>{t('coach.welcomeTitle')}</Text>
             <Text style={styles.welcomeSubtext}>
-              Ask me anything about skincare, acne, your routine, or product recommendations. I know your skin profile and can give personalized advice.
+              {t('coach.welcomeSubtitle')}
             </Text>
             <View style={styles.suggestionsContainer}>
               {[
-                'What should my morning routine be?',
-                'Why am I breaking out on my chin?',
-                'What natural ingredients help acne?',
-                'What foods should I avoid?',
+                t('coach.suggestion1'),
+                t('coach.suggestion2'),
+                t('coach.suggestion3'),
+                t('coach.suggestion4'),
               ].map((suggestion) => (
                 <TouchableOpacity
                   key={suggestion}
@@ -470,7 +472,7 @@ export default function CoachScreen() {
         <View style={styles.textInputWrapper}>
           <TextInput
             style={styles.textInput}
-            placeholder="Ask about your skin"
+            placeholder={t('coach.inputPlaceholder')}
             placeholderTextColor={Colors.textMuted}
             value={input}
             onChangeText={setInput}

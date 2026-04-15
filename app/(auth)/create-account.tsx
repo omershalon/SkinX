@@ -10,6 +10,7 @@ import * as Linking from 'expo-linking';
 import Svg, { Path, Rect, Circle, G } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { Colors, Fonts } from '@/lib/theme';
+import { useTranslation } from 'react-i18next';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -82,6 +83,7 @@ export default function CreateAccountScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useTranslation();
 
   // ── Apple Sign In ──
   const signInWithApple = async () => {
@@ -94,7 +96,7 @@ export default function CreateAccountScreen() {
       });
 
       if (!credential.identityToken) {
-        Alert.alert('Error', 'Could not sign in with Apple.');
+        Alert.alert('Error', t('createAccount.errorAppleMsg'));
         return;
       }
 
@@ -116,7 +118,7 @@ export default function CreateAccountScreen() {
       }
     } catch (err: any) {
       if (err.code !== 'ERR_REQUEST_CANCELED') {
-        Alert.alert('Apple Sign In failed', err?.message || 'Please try again.');
+        Alert.alert(t('createAccount.errorApple'), err?.message || 'Please try again.');
       }
     } finally {
       setLoading(false);
@@ -161,7 +163,7 @@ export default function CreateAccountScreen() {
         }
       }
     } catch (err: any) {
-      Alert.alert('Google Sign In failed', err?.message || 'Please try again.');
+      Alert.alert(t('createAccount.errorGoogle'), err?.message || 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -170,7 +172,7 @@ export default function CreateAccountScreen() {
   // ── Email Sign Up ──
   const signUpWithEmail = async () => {
     if (!email.trim() || !password.trim() || password.length < 8) {
-      Alert.alert('Error', 'Enter a valid email and password (8+ characters).');
+      Alert.alert('Error', t('createAccount.errorInvalid'));
       return;
     }
     setLoading(true);
@@ -188,7 +190,7 @@ export default function CreateAccountScreen() {
         if (params.onboardingData) await saveOnboardingData(data.user.id, params.onboardingData);
       }
     } catch (err: any) {
-      Alert.alert('Sign up failed', err?.message || 'Please try again.');
+      Alert.alert(t('createAccount.errorSignup'), err?.message || 'Please try again.');
     } finally {
       setLoading(false);
     }
@@ -205,17 +207,17 @@ export default function CreateAccountScreen() {
         </TouchableOpacity>
 
         <View style={s.formArea}>
-          <Text style={s.heading}>Create your account</Text>
+          <Text style={s.heading}>{t('createAccount.heading')}</Text>
 
-          <TextInput style={s.input} placeholder="Full name" placeholderTextColor="rgba(255,255,255,0.25)"
+          <TextInput style={s.input} placeholder={t('createAccount.namePlaceholder')} placeholderTextColor="rgba(255,255,255,0.25)"
             value={name} onChangeText={setName} autoCapitalize="words" />
-          <TextInput style={s.input} placeholder="Email" placeholderTextColor="rgba(255,255,255,0.25)"
+          <TextInput style={s.input} placeholder={t('createAccount.emailPlaceholder')} placeholderTextColor="rgba(255,255,255,0.25)"
             value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-          <TextInput style={s.input} placeholder="Password (8+ characters)" placeholderTextColor="rgba(255,255,255,0.25)"
+          <TextInput style={s.input} placeholder={t('createAccount.passwordPlaceholder')} placeholderTextColor="rgba(255,255,255,0.25)"
             value={password} onChangeText={setPassword} secureTextEntry />
 
           <TouchableOpacity style={s.submitBtn} onPress={signUpWithEmail} disabled={loading} activeOpacity={0.85}>
-            {loading ? <ActivityIndicator color="#000" /> : <Text style={s.submitText}>Create Account</Text>}
+            {loading ? <ActivityIndicator color="#000" /> : <Text style={s.submitText}>{t('createAccount.cta')}</Text>}
           </TouchableOpacity>
         </View>
       </View>
@@ -228,31 +230,31 @@ export default function CreateAccountScreen() {
       <LinearGradient colors={['#08080F', '#100830', '#1A0845']} style={StyleSheet.absoluteFill} />
 
       <View style={s.center}>
-        <Text style={s.heading}>Save your progress</Text>
-        <Text style={s.sub}>Create a free account to access your skin analysis</Text>
+        <Text style={s.heading}>{t('createAccount.headingChoice')}</Text>
+        <Text style={s.sub}>{t('createAccount.subheading')}</Text>
 
         <View style={s.authBtns}>
           {/* Apple */}
           <TouchableOpacity style={s.appleBtn} activeOpacity={0.85}
             onPress={Platform.OS === 'ios' ? signInWithApple : signInWithGoogle}>
             <AppleIcon size={18} />
-            <Text style={s.appleTxt}>Sign in with Apple</Text>
+            <Text style={s.appleTxt}>{t('createAccount.apple')}</Text>
           </TouchableOpacity>
 
           {/* Google */}
           <TouchableOpacity style={s.googleBtn} activeOpacity={0.85} onPress={signInWithGoogle}>
             <GoogleIcon size={18} />
-            <Text style={s.googleTxt}>Sign in with Google</Text>
+            <Text style={s.googleTxt}>{t('createAccount.google')}</Text>
           </TouchableOpacity>
 
           {/* Email */}
           <TouchableOpacity style={s.emailBtn} activeOpacity={0.85} onPress={() => setMode('email')}>
             <MailIcon size={18} />
-            <Text style={s.emailTxt}>Continue with email</Text>
+            <Text style={s.emailTxt}>{t('createAccount.email')}</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={s.saved}>Your analysis is saved to your account</Text>
+        <Text style={s.saved}>{t('createAccount.hint')}</Text>
       </View>
 
       {loading && (

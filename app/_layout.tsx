@@ -102,9 +102,11 @@ export default function RootLayout() {
       {showSplash && (
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: splashOpacity, zIndex: 10 }]}>
           <View style={[splash.container, { backgroundColor: '#000' }]}>
-            <View style={splash.titleWrap}>
-              <Text style={splash.title}>Skin<Text style={splash.titleX}>X</Text></Text>
-            </View>
+            {fontsLoaded && (
+              <View style={splash.titleWrap}>
+                <Text style={splash.title}>Skin<Text style={splash.titleX}>X</Text></Text>
+              </View>
+            )}
           </View>
         </Animated.View>
       )}
