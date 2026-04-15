@@ -14,7 +14,6 @@ export default function RootLayout() {
   const router   = useRouter();
   const segments = useSegments();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [i18nReady, setI18nReady] = useState(false);
   const [minTimeElapsed, setMinTimeElapsed] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const splashOpacity = useRef(new Animated.Value(1)).current;
@@ -28,11 +27,12 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    initI18n().then(() => setI18nReady(true));
+    // Apply saved language preference (init is already done synchronously)
+    initI18n();
     setTimeout(() => setMinTimeElapsed(true), 800);
   }, []);
 
-  const ready = fontsLoaded && i18nReady && minTimeElapsed;
+  const ready = fontsLoaded && minTimeElapsed;
 
   useEffect(() => {
     if (ready && showSplash && session !== undefined) {

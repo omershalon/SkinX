@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Animated, Dimensions, Modal,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -149,6 +150,7 @@ function RowOption({ label, icon, selected, onPress }: { label: string; icon: (s
 export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Ans>(EMPTY);
   const [ageGateVisible, setAgeGateVisible] = useState(false);
@@ -221,26 +223,18 @@ export default function OnboardingScreen() {
     </View>
   );
 
-  const QScroll = ({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) => (
-    <View style={st.qScrollWrap}>
-      <View style={st.qScrollTop}>
-        <Text style={st.title}>{title}</Text>
-        {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
-      </View>
-      <ScrollView style={st.qScrollList} contentContainerStyle={st.qScrollContent} showsVerticalScrollIndicator={false} bounces keyboardShouldPersistTaps="handled">
-        {children}
-      </ScrollView>
-    </View>
-  );
-
   const renderStep = () => {
     switch (step) {
       // ── 0: Gender ──
       case 0: return (
-        <Q title="Choose your gender" subtitle="This helps us personalize your plan">
+        <Q title={t('onboarding.gender')} subtitle={t('onboarding.helpPersonalize')}>
           <View style={st.optionList}>
-            {['Male', 'Female', 'Other'].map(o => (
-              <Option key={o} label={o} selected={a.gender === o} onPress={() => setA(p => ({ ...p, gender: o }))} />
+            {([
+              { value: 'Male', label: t('onboarding.genderMale') },
+              { value: 'Female', label: t('onboarding.genderFemale') },
+              { value: 'Other', label: t('onboarding.genderOther') },
+            ] as const).map(o => (
+              <Option key={o.value} label={o.label} selected={a.gender === o.value} onPress={() => setA(p => ({ ...p, gender: o.value }))} />
             ))}
           </View>
         </Q>
@@ -248,14 +242,14 @@ export default function OnboardingScreen() {
 
       // ── 1: Birth date ──
       case 1: return (
-        <Q title="When were you born?" subtitle="This helps us personalize your plan">
+        <Q title={t('onboarding.birthDate')} subtitle={t('onboarding.helpPersonalize')}>
           <DatePicker value={a.birthDate} onChange={v => setA(p => ({ ...p, birthDate: v }))} />
         </Q>
       );
 
       // ── 2: Where did you hear about us ──
       case 2: return (
-        <Q title="Where did you hear about us?">
+        <Q title={t('onboarding.hearAbout')}>
           <View style={st.optionList}>
             {HEAR_SOURCES.map(src => (
               <RowOption key={src.id} label={src.label} icon={src.icon} selected={a.hearAbout === src.id} onPress={() => setA(p => ({ ...p, hearAbout: src.id }))} />
@@ -266,10 +260,10 @@ export default function OnboardingScreen() {
 
       // ── 3: Tried other skincare apps ──
       case 3: return (
-        <Q title="Have you tried other skincare apps?">
+        <Q title={t('onboarding.triedApps')}>
           <View style={st.optionList}>
-            <RowOption label="Yes" icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsUpIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'yes'} onPress={() => setA(p => ({ ...p, triedApps: 'yes' }))} />
-            <RowOption label="No"  icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsDownIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'no'}  onPress={() => setA(p => ({ ...p, triedApps: 'no' }))} />
+            <RowOption label={t('onboarding.yes')} icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsUpIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'yes'} onPress={() => setA(p => ({ ...p, triedApps: 'yes' }))} />
+            <RowOption label={t('onboarding.no')}  icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsDownIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'no'}  onPress={() => setA(p => ({ ...p, triedApps: 'no' }))} />
           </View>
         </Q>
       );
@@ -279,10 +273,14 @@ export default function OnboardingScreen() {
 
       // ── 5: Skin type ──
       case 5: return (
-        <Q title="What's your skin type?">
+        <Q title={t('onboarding.skinType')}>
           <View style={st.optionList}>
-            {['Normal', 'Oily', 'Dry'].map(o => (
-              <Option key={o} label={o} selected={a.skinType === o} onPress={() => setA(p => ({ ...p, skinType: o }))} />
+            {([
+              { value: 'Normal', label: t('onboarding.skinTypeNormal') },
+              { value: 'Oily', label: t('onboarding.skinTypeOily') },
+              { value: 'Dry', label: t('onboarding.skinTypeDry') },
+            ] as const).map(o => (
+              <Option key={o.value} label={o.label} selected={a.skinType === o.value} onPress={() => setA(p => ({ ...p, skinType: o.value }))} />
             ))}
           </View>
         </Q>
@@ -290,10 +288,15 @@ export default function OnboardingScreen() {
 
       // ── 6: Skin sensitivity ──
       case 6: return (
-        <Q title="How sensitive is your skin?">
+        <Q title={t('onboarding.sensitivity')}>
           <View style={st.optionList}>
-            {['Not sensitive', 'Slightly sensitive', 'Moderately sensitive', 'Very sensitive'].map(o => (
-              <Option key={o} label={o} selected={a.sensitivity === o} onPress={() => setA(p => ({ ...p, sensitivity: o }))} />
+            {([
+              { value: 'Not sensitive', label: t('onboarding.sensitivityNone') },
+              { value: 'Slightly sensitive', label: t('onboarding.sensitivitySlightly') },
+              { value: 'Moderately sensitive', label: t('onboarding.sensitivityModerately') },
+              { value: 'Very sensitive', label: t('onboarding.sensitivityVery') },
+            ] as const).map(o => (
+              <Option key={o.value} label={o.label} selected={a.sensitivity === o.value} onPress={() => setA(p => ({ ...p, sensitivity: o.value }))} />
             ))}
           </View>
         </Q>
@@ -301,37 +304,37 @@ export default function OnboardingScreen() {
 
       // ── 7: Skin concerns ──
       case 7: return (
-        <QScroll title="What are your main skin concerns?" subtitle="Select all that apply.">
+        <Q title={t('onboarding.concerns')} subtitle={t('onboarding.selectAll')}>
           <View style={st.optionList}>
             {[
-              { id: 'acne', title: 'Acne and Breakouts', sub: 'Pimples, blackheads, and clogged pores.' },
-              { id: 'redness', title: 'Redness or Irritation', sub: 'Rosacea, inflamed, or irritated skin.' },
-              { id: 'oiliness', title: 'Oiliness and Shine', sub: 'Excess oil with shiny or greasy skin.' },
-              { id: 'dryness', title: 'Dryness or Flakiness', sub: 'Tight, rough, or peeling skin.' },
-              { id: 'tone', title: 'Uneven Tone or Pigmentation', sub: 'Dark spots or discoloration on skin.' },
-              { id: 'aging', title: 'Aging Concerns', sub: 'Wrinkles, fine lines, crow\'s feet.' },
-              { id: 'pores', title: 'Enlarged Pores and Texture', sub: 'Large pores or rough skin surface.' },
-              { id: 'dark_circles', title: 'Dark Circles and Puffiness', sub: 'Darkness or swelling around eyes.' },
-              { id: 'no_concerns', title: 'No Main Concerns', sub: 'My skin is generally in good shape.' },
+              { id: 'acne',         title: t('onboarding.concernAcneTitle'),        sub: t('onboarding.concernAcneSub') },
+              { id: 'redness',      title: t('onboarding.concernRednessTitle'),     sub: t('onboarding.concernRednessSub') },
+              { id: 'oiliness',     title: t('onboarding.concernOilinessTitle'),    sub: t('onboarding.concernOilinessSub') },
+              { id: 'dryness',      title: t('onboarding.concernDrynessTitle'),     sub: t('onboarding.concernDrynessSub') },
+              { id: 'tone',         title: t('onboarding.concernToneTitle'),        sub: t('onboarding.concernToneSub') },
+              { id: 'aging',        title: t('onboarding.concernAgingTitle'),       sub: t('onboarding.concernAgingSub') },
+              { id: 'pores',        title: t('onboarding.concernPoresTitle'),       sub: t('onboarding.concernPoresSub') },
+              { id: 'dark_circles', title: t('onboarding.concernDarkCirclesTitle'), sub: t('onboarding.concernDarkCirclesSub') },
+              { id: 'no_concerns',  title: t('onboarding.concernNoneTitle'),        sub: t('onboarding.concernNoneSub') },
             ].map(o => (
               <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.tried.includes(o.id)} onPress={() => toggleMulti('tried', o.id)} />
             ))}
           </View>
-        </QScroll>
+        </Q>
       );
 
       // ── 8: Breakout zones ──
       case 8: return (
-        <QScroll title="Where do you have breakouts mostly?" subtitle="Select all that apply.">
+        <Q title={t('onboarding.breakoutZones')} subtitle={t('onboarding.selectAll')}>
           <View style={st.optionList}>
             {[
-              { id: 'forehead',     title: 'Forehead',      sub: 'Common with oily skin or hair products.' },
-              { id: 'cheeks',       title: 'Cheeks',        sub: 'Can be linked to pillowcases or phones.' },
-              { id: 'nose',         title: 'Nose',          sub: 'Blackheads and clogged pores common.' },
-              { id: 'chin_jawline', title: 'Chin and Jawline', sub: 'Often related to hormonal breakouts.' },
-              { id: 'back',         title: 'Back or Chest', sub: 'Body acne from sweat or friction.' },
-              { id: 'temples',      title: 'Temples',          sub: 'Linked to hair products or stress.' },
-              { id: 'no_area',      title: 'No Specific Area', sub: 'Breakouts appear in no particular pattern.' },
+              { id: 'forehead',     title: t('onboarding.zoneForehead'), sub: t('onboarding.zoneForeheadSub') },
+              { id: 'cheeks',       title: t('onboarding.zoneCheeks'),   sub: t('onboarding.zoneCheeksSub') },
+              { id: 'nose',         title: t('onboarding.zoneNose'),     sub: t('onboarding.zoneNoseSub') },
+              { id: 'chin_jawline', title: t('onboarding.zoneChin'),     sub: t('onboarding.zoneChinSub') },
+              { id: 'back',         title: t('onboarding.zoneBack'),     sub: t('onboarding.zoneBackSub') },
+              { id: 'temples',      title: t('onboarding.zoneTemples'),  sub: t('onboarding.zoneTemplesSub') },
+              { id: 'no_area',      title: t('onboarding.zoneNone'),     sub: t('onboarding.zoneNoneSub') },
             ].map(o => (
               <CheckOption
                 key={o.id}
@@ -342,15 +345,21 @@ export default function OnboardingScreen() {
               />
             ))}
           </View>
-        </QScroll>
+        </Q>
       );
 
       // ── 9: Duration ──
       case 9: return (
-        <Q title="How long have you dealt with skin issues?">
+        <Q title={t('onboarding.duration')}>
           <View style={st.optionList}>
-            {['Just recently', 'Less than a year', '1 - 3 years', '3 - 5 years', '5+ years'].map(o => (
-              <Option key={o} label={o} selected={a.duration === o} onPress={() => setA(p => ({ ...p, duration: o }))} />
+            {([
+              { value: 'Just recently',    label: t('onboarding.durationRecent') },
+              { value: 'Less than a year', label: t('onboarding.durationUnderYear') },
+              { value: '1 - 3 years',      label: t('onboarding.duration1to3') },
+              { value: '3 - 5 years',      label: t('onboarding.duration3to5') },
+              { value: '5+ years',          label: t('onboarding.duration5plus') },
+            ] as const).map(o => (
+              <Option key={o.value} label={o.label} selected={a.duration === o.value} onPress={() => setA(p => ({ ...p, duration: o.value }))} />
             ))}
           </View>
         </Q>
@@ -358,24 +367,24 @@ export default function OnboardingScreen() {
 
       // ── 10: Goal ──
       case 10: return (
-        <QScroll title="What are your main skincare goals?" subtitle="Select all that apply.">
+        <Q title={t('onboarding.goals')} subtitle={t('onboarding.selectAll')}>
           <View style={st.optionList}>
             {[
-              { id: 'clear_acne',    title: 'Clear Acne',        sub: 'Reduce breakouts and clogged pores.' },
-              { id: 'fade_spots',    title: 'Fade Dark Spots',   sub: 'Lighten hyperpigmentation and marks.' },
-              { id: 'even_tone',     title: 'Even Skin Tone',    sub: 'Improve tone and reduce discoloration.' },
-              { id: 'hydrate',       title: 'Hydrate Skin',      sub: 'Boost moisture and barrier health.' },
-              { id: 'irritation',    title: 'Reduce Irritation', sub: 'Soothe redness and calm skin.' },
-              { id: 'texture',       title: 'Smooth Texture',    sub: 'Minimize pores and tighten texture.' },
-              { id: 'control_oil',   title: 'Control Oil',       sub: 'Balance sebum and reduce shine.' },
-              { id: 'anti_aging',    title: 'Anti-Aging',        sub: 'Reduce fine lines and wrinkles.' },
-              { id: 'brighten',      title: 'Brighten Skin',       sub: 'Boost glow and skin radiance.' },
-              { id: 'maintain',      title: 'Maintain Skin Health', sub: 'Keep skin balanced and looking its best.' },
+              { id: 'clear_acne',  title: t('onboarding.goalClearAcneTitle'),  sub: t('onboarding.goalClearAcneSub') },
+              { id: 'fade_spots',  title: t('onboarding.goalFadeSpotsTitle'),  sub: t('onboarding.goalFadeSpotsSub') },
+              { id: 'even_tone',   title: t('onboarding.goalEvenToneTitle'),   sub: t('onboarding.goalEvenToneSub') },
+              { id: 'hydrate',     title: t('onboarding.goalHydrateTitle'),    sub: t('onboarding.goalHydrateSub') },
+              { id: 'irritation',  title: t('onboarding.goalIrritationTitle'), sub: t('onboarding.goalIrritationSub') },
+              { id: 'texture',     title: t('onboarding.goalTextureTitle'),    sub: t('onboarding.goalTextureSub') },
+              { id: 'control_oil', title: t('onboarding.goalControlOilTitle'), sub: t('onboarding.goalControlOilSub') },
+              { id: 'anti_aging',  title: t('onboarding.goalAntiAgingTitle'),  sub: t('onboarding.goalAntiAgingSub') },
+              { id: 'brighten',    title: t('onboarding.goalBrightenTitle'),   sub: t('onboarding.goalBrightenSub') },
+              { id: 'maintain',    title: t('onboarding.goalMaintainTitle'),   sub: t('onboarding.goalMaintainSub') },
             ].map(o => (
               <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.goal.includes(o.id)} onPress={() => toggleMulti('goal', o.id)} />
             ))}
           </View>
-        </QScroll>
+        </Q>
       );
 
       // ── 11: Bar comparison ──
@@ -383,25 +392,25 @@ export default function OnboardingScreen() {
 
       // ── 12: Barriers ──
       case 12: return (
-        <QScroll title="What have been your biggest challenges?" subtitle="Select all that apply.">
+        <Q title={t('onboarding.barriers')} subtitle={t('onboarding.selectAll')}>
           <View style={st.optionList}>
             {[
-              { id: 'dont_know_products',  title: "Don't know what to use",        sub: 'Finding the right products is overwhelming.' },
-              { id: 'conflicting_info',    title: 'Too much conflicting info',      sub: 'Advice online can be hard to navigate.' },
-              { id: 'cant_afford_derm',    title: "Can't afford a dermatologist",   sub: 'Professional help isn\'t always accessible.' },
-              { id: 'nothing_works',       title: 'Nothing seems to work',          sub: 'Products tried haven\'t made a difference.' },
-              { id: 'no_routine',          title: 'No consistent routine',          sub: 'Sticking to a daily routine is difficult.' },
-              { id: 'dont_know_cause',     title: "Don't know what's causing it",   sub: 'Hard to treat without knowing the trigger.' },
+              { id: 'dont_know_products', title: t('onboarding.barrierProductsTitle'), sub: t('onboarding.barrierProductsSub') },
+              { id: 'conflicting_info',   title: t('onboarding.barrierInfoTitle'),      sub: t('onboarding.barrierInfoSub') },
+              { id: 'cant_afford_derm',   title: t('onboarding.barrierDermTitle'),      sub: t('onboarding.barrierDermSub') },
+              { id: 'nothing_works',      title: t('onboarding.barrierNothingTitle'),   sub: t('onboarding.barrierNothingSub') },
+              { id: 'no_routine',         title: t('onboarding.barrierRoutineTitle'),   sub: t('onboarding.barrierRoutineSub') },
+              { id: 'dont_know_cause',    title: t('onboarding.barrierCauseTitle'),     sub: t('onboarding.barrierCauseSub') },
             ].map(o => (
               <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.barriers.includes(o.id)} onPress={() => toggleMulti('barriers', o.id)} />
             ))}
           </View>
-        </QScroll>
+        </Q>
       );
 
       // ── 13: Skincare routine ──
       case 13: return (
-        <Q title="Do you follow a skincare routine?">
+        <Q title={t('onboarding.routine')}>
           <View style={st.optionList}>
             <TouchableOpacity
               style={[st.yesNoOption, a.skincareRoutine === 'yes' && st.yesNoOptionSel]}
@@ -410,7 +419,7 @@ export default function OnboardingScreen() {
               <View style={[st.yesNoIconCircle, a.skincareRoutine === 'yes' && st.yesNoIconCircleSel]}>
                 <Ionicons name="checkmark" size={14} color={a.skincareRoutine === 'yes' ? '#fff' : '#fff'} />
               </View>
-              <Text style={[st.yesNoText, a.skincareRoutine === 'yes' && st.yesNoTextSel]}>Yes</Text>
+              <Text style={[st.yesNoText, a.skincareRoutine === 'yes' && st.yesNoTextSel]}>{t('onboarding.yes')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[st.yesNoOption, a.skincareRoutine === 'no' && st.yesNoOptionSel]}
@@ -419,7 +428,7 @@ export default function OnboardingScreen() {
               <View style={[st.yesNoIconCircle, a.skincareRoutine === 'no' && st.yesNoIconCircleSel]}>
                 <Ionicons name="close" size={14} color="#fff" />
               </View>
-              <Text style={[st.yesNoText, a.skincareRoutine === 'no' && st.yesNoTextSel]}>No</Text>
+              <Text style={[st.yesNoText, a.skincareRoutine === 'no' && st.yesNoTextSel]}>{t('onboarding.no')}</Text>
             </TouchableOpacity>
           </View>
         </Q>
@@ -427,10 +436,14 @@ export default function OnboardingScreen() {
 
       // ── 14: Holistic ──
       case 14: return (
-        <Q title="Are you open to natural approaches?" subtitle="Things like herbal remedies, diet changes, and natural products">
+        <Q title={t('onboarding.holistic')} subtitle={t('onboarding.holisticSub')}>
           <View style={st.optionList}>
-            {['Yes, I prefer natural', 'Open to trying', 'No'].map(o => (
-              <Option key={o} label={o} selected={a.holistic === o} onPress={() => setA(p => ({ ...p, holistic: o }))} />
+            {([
+              { value: 'Yes, I prefer natural', label: t('onboarding.holisticYes') },
+              { value: 'Open to trying',         label: t('onboarding.holisticOpen') },
+              { value: 'No',                     label: t('onboarding.holisticNo') },
+            ] as const).map(o => (
+              <Option key={o.value} label={o.label} selected={a.holistic === o.value} onPress={() => setA(p => ({ ...p, holistic: o.value }))} />
             ))}
           </View>
         </Q>
@@ -439,10 +452,8 @@ export default function OnboardingScreen() {
       // ── 15: Affirmation ──
       case 15: return (
         <View style={st.affirmCenter}>
-          <Text style={st.affirmBig}>You're already ahead.</Text>
-          <Text style={st.affirmBody}>
-            Most people never take the first step. The fact that you're here means you're serious about real change and that's exactly what gets results.
-          </Text>
+          <Text style={st.affirmBig}>{t('onboarding.affirmTitle')}</Text>
+          <Text style={st.affirmBody}>{t('onboarding.affirmBody')}</Text>
         </View>
       );
 
@@ -458,14 +469,12 @@ export default function OnboardingScreen() {
             style={{ width: 180, height: 180 }}
             onAnimationFinish={() => trustLottieRef.current?.pause()}
           />
-          <Text style={st.trustTitle}>Thank you for{'\n'}trusting us</Text>
-          <Text style={st.trustSubtitle}>Now let's personalize SkinX for you...</Text>
+          <Text style={st.trustTitle}>{t('onboarding.trustTitle')}</Text>
+          <Text style={st.trustSubtitle}>{t('onboarding.trustSubtitle')}</Text>
           <View style={st.trustCard}>
             <LockIcon size={32} color="#A855F7" />
-            <Text style={st.trustCardTitle}>Your privacy and security matter to us.</Text>
-            <Text style={st.trustCardBody}>
-              We promise to always keep your personal information private and secure.
-            </Text>
+            <Text style={st.trustCardTitle}>{t('onboarding.trustCardTitle')}</Text>
+            <Text style={st.trustCardBody}>{t('onboarding.trustCardBody')}</Text>
           </View>
         </View>
       );
@@ -495,10 +504,10 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 7 || step === 8 || step === 10 || step === 11 || step === 12 || step === 16 ? (
+        {step === 1 || step === 11 || step === 16 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
         ) : (
-          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
+          <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={step === 7 || step === 8 || step === 10 || step === 12}>
             {renderStep()}
           </ScrollView>
         )}
@@ -523,7 +532,7 @@ export default function OnboardingScreen() {
             isLastStep ? finish() : next();
           }}
           activeOpacity={canNext() ? 0.85 : 1}>
-          <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? "Let's go" : 'Continue'}</Text>
+          <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? t('onboarding.letsGo') : t('onboarding.next')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -569,10 +578,6 @@ const st = StyleSheet.create({
 
   // Q layout — title at top, options centered
   qWrap: { flex: 1, paddingTop: 28 },
-  qScrollWrap: { flex: 1, paddingTop: 28 },
-  qScrollTop: { gap: 10, paddingBottom: 16 },
-  qScrollList: { flex: 1 },
-  qScrollContent: { paddingBottom: 24, gap: 12 },
   qTop: { gap: 10, marginBottom: 0 },
   qMid: { flex: 1, justifyContent: 'center', paddingVertical: 24 },
 
