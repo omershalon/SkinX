@@ -1,12 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, Dimensions, Modal,
+  Animated, Modal,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
@@ -15,18 +14,12 @@ import BarComparison from '@/components/onboarding/BarComparison';
 import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  MaleIcon, FemaleIcon, OtherGenderIcon,
-  OilyIcon, DryIcon, ComboIcon, SensitiveIcon, NormalIcon, QuestionIcon,
-  ClockIcon, TargetIcon, TrendDownIcon, ShieldIcon, SparkleIcon, LockIcon,
-  LeafIcon, BlockIcon, FlameIcon,
-  PillIcon, BottleIcon, SaladIcon, DoctorIcon, FacialIcon, EmptyIcon,
-  BreakoutIcon, ScarIcon, SunIcon,
+  LockIcon,
   XBrandIcon, AppStoreBrandIcon, YouTubeBrandIcon, FriendsBrandIcon,
   TVBrandIcon, InstagramBrandIcon, TikTokBrandIcon, GoogleBrandIcon,
   FacebookBrandIcon, OtherBrandIcon, ThumbsUpIcon, ThumbsDownIcon,
 } from '@/components/onboarding/Icons';
 
-const { width: SW } = Dimensions.get('window');
 
 type Ans = {
   gender: string; birthDate: BirthDate; skinType: string; sensitivity: string; duration: string;
@@ -36,8 +29,8 @@ type Ans = {
 const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
 const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', tried: [], concerns: [], breakoutZones: [], goal: [], holistic: '', barriers: [], skincareRoutine: '', hearAbout: '', triedApps: '' };
 
-// 13 questions + 1 graph + 1 bar comparison + 1 affirmation + 1 trust = 17 screens
-const TOTAL = 17;
+// 13 questions + 1 graph + 1 bar comparison + 1 affirmation + 1 trust + 1 notifications = 18 screens
+const TOTAL = 18;
 
 const HEAR_SOURCES = [
   { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
@@ -81,14 +74,6 @@ function Option({ label, selected, onPress, icon }: { label: string; selected: b
   );
 }
 
-function Chip({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return (
-    <TouchableOpacity style={[st.chip, selected && st.chipSel]}
-      onPress={() => { Haptics.selectionAsync(); onPress(); }} activeOpacity={0.8}>
-      <Text style={[st.chipText, selected && st.chipTextSel]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
 
 function CheckOption({ title, subtitle, selected, onPress }: { title: string; subtitle: string; selected: boolean; onPress: () => void }) {
   const fade = useRef(new Animated.Value(selected ? 1 : 0)).current;
@@ -101,7 +86,6 @@ function CheckOption({ title, subtitle, selected, onPress }: { title: string; su
   const titleColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#000000'] });
   const subColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.4)', '#888'] });
   const borderColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['rgba(255,255,255,0.25)', '#000'] });
-  const fillColor = fade.interpolate({ inputRange: [0, 1], outputRange: ['transparent', '#000'] });
 
   return (
     <TouchableOpacity onPress={() => { Haptics.selectionAsync(); onPress(); }} activeOpacity={0.9}>
@@ -207,11 +191,12 @@ export default function OnboardingScreen() {
       case 14: return !!a.holistic;
       case 15: return true; // affirmation
       case 16: return true; // trust screen
+      case 17: return true; // notifications
       default: return false;
     }
   };
 
-  const isLastStep = step === 16;
+  const isLastStep = step === 17;
 
   const Q = ({ title, subtitle, children, sticky }: { title: string; subtitle?: string; children: React.ReactNode; sticky?: boolean }) => {
     if (sticky) {
@@ -494,6 +479,29 @@ export default function OnboardingScreen() {
         </View>
       );
 
+      // ── 17: Push notifications ──
+      case 17: return (
+        <View style={st.notifWrap}>
+          <Text style={st.notifTitle}>Get reminded to{'\n'}log scans.</Text>
+          <View style={st.notifCard}>
+            <Text style={st.notifCardHeading}>
+              <Text style={st.notifSkin}>Skin</Text><Text style={st.notifX}>X</Text>
+              {' '}would like to send{'\n'}you Notifications
+            </Text>
+            <View style={st.notifDividerH} />
+            <View style={st.notifBtns}>
+              <TouchableOpacity style={st.notifBtnLeft} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); finish(); }}>
+                <Text style={st.notifBtnLeftText}>Don't Allow</Text>
+              </TouchableOpacity>
+              <View style={st.notifDividerV} />
+              <TouchableOpacity style={st.notifBtnRight} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); finish(); }}>
+                <Text style={st.notifBtnRightText}>Allow</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+
       default: return null;
     }
   };
@@ -519,7 +527,7 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 11 || step === 16 ? (
+        {step === 1 || step === 11 || step === 16 || step === 17 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
         ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 ? (
           <View style={{ flex: 1, paddingHorizontal: 24 }}>{renderStep()}</View>
@@ -531,7 +539,7 @@ export default function OnboardingScreen() {
       </Animated.View>
 
       {/* Next button */}
-      <View style={[st.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+      {step !== 17 && <View style={[st.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
         <TouchableOpacity
           style={[st.nextBtn, !canNext() && st.nextBtnDisabled]}
           onPress={() => {
@@ -551,7 +559,7 @@ export default function OnboardingScreen() {
           activeOpacity={canNext() ? 0.85 : 1}>
           <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? t('onboarding.letsGo') : t('onboarding.next')}</Text>
         </TouchableOpacity>
-      </View>
+      </View>}
 
       {/* Age gate modal */}
       <Modal visible={ageGateVisible} transparent animationType="none" statusBarTranslucent>
@@ -728,4 +736,26 @@ const st = StyleSheet.create({
   modalBody: { fontFamily: Fonts.regular, fontSize: 16, color: '#555', lineHeight: 23, marginBottom: 20 },
   modalBtn: { backgroundColor: '#111', borderRadius: 14, height: 54, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#FFF' },
+
+  // Push notifications screen
+  notifWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, gap: 24, paddingBottom: 100 },
+  notifTitle: { fontFamily: Fonts.bold, fontSize: 30, color: '#FFF', textAlign: 'center', lineHeight: 38, letterSpacing: -0.6 },
+  notifCard: {
+    width: '100%', backgroundColor: '#D1D1D6', borderRadius: 16,
+    overflow: 'hidden',
+  },
+  notifCardHeading: { fontFamily: Fonts.semibold, fontSize: 17, color: '#000', textAlign: 'center', paddingHorizontal: 24, paddingVertical: 20, lineHeight: 24 },
+  notifSkin: { color: '#000' },
+  notifX: { color: '#7C5CFC' },
+  notifDividerH: { height: 1, backgroundColor: 'rgba(0,0,0,0.15)' },
+  notifBtns: { flexDirection: 'row' },
+  notifBtnLeft: { flex: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  notifBtnLeftText: { fontFamily: Fonts.regular, fontSize: 17, color: '#000' },
+  notifDividerV: { width: 1, backgroundColor: 'rgba(0,0,0,0.15)' },
+  notifBtnRight: { flex: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  notifBtnRightText: { fontFamily: Fonts.semibold, fontSize: 17, color: '#000' },
+  notifFinger: { fontSize: 40 },
+  notifFingerEmoji: { fontSize: 40 },
+  notifFingerRow: { flexDirection: 'row', width: '100%' },
+  notifFingerRight: { flex: 1, alignItems: 'center', paddingTop: 4 },
 });
