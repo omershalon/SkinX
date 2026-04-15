@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors, Typography, BorderRadius, Spacing } from '@/lib/theme';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
@@ -118,6 +118,7 @@ function ArrowIcon({ direction, size = 24, color = '#FFFFFF' }: { direction: 'le
 export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { loadSessionId, loadTs } = useLocalSearchParams<{ loadSessionId?: string; loadTs?: string }>();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const { t } = useTranslation();
@@ -139,6 +140,16 @@ export default function ScanScreen() {
   const [completedSession, setCompletedSession] = useState<ScanSession | null>(null);
   const [skinProfileId, setSkinProfileId] = useState<string | null>(null);
   const [planGenerating, setPlanGenerating] = useState(false);
+
+  // Only restore results when explicitly navigated from home (loadTs changes each tap)
+  useEffect(() => {
+    if (loadSessionId && loadTs) {
+      setCompletedSession(null);
+      loadScanSession(loadSessionId).then(session => {
+        if (session) setCompletedSession(session);
+      });
+    }
+  }, [loadTs]);
 
   // Shutter animation
   const shutterScale = useRef(new Animated.Value(1)).current;
@@ -187,7 +198,7 @@ export default function ScanScreen() {
         const newCaptures = [...captures];
         newCaptures[currentStep] = captured;
         setCaptures(newCaptures);
-        setPreviewing(true);
+        setPreviewing(false);
       }
     } catch (err) {
       console.error('Capture error:', err);
@@ -230,7 +241,7 @@ export default function ScanScreen() {
     const newCaptures = [...captures];
     newCaptures[currentStep] = captured;
     setCaptures(newCaptures);
-    setPreviewing(true);
+    setPreviewing(false);
   };
 
   const retakePhoto = () => {
@@ -477,9 +488,7 @@ export default function ScanScreen() {
     return (
       <View style={[styles.container]}>
         <Image source={{ uri: captures[currentStep]!.uri }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-        <View style={[styles.previewOverlay, { paddingTop: insets.top + 10 }]}>
-          <Text style={styles.previewLabel}>{STEPS[currentStep].label}</Text>
-
+        <View style={[styles.previewOverlay, { paddingBottom: insets.bottom + 30 }]}>
           <View style={styles.previewActions}>
             <TouchableOpacity style={styles.previewBtn} onPress={retakePhoto} activeOpacity={0.8}>
               <Text style={styles.previewBtnText}>{t('scan.retake')}</Text>
@@ -515,10 +524,6 @@ export default function ScanScreen() {
           activeOpacity={0.8}
         >
           <Image source={{ uri: captures[0]!.uri }} style={styles.reviewImage} resizeMode="cover" />
-          <View style={styles.reviewCardLabel}>
-            <CheckIcon size={16} />
-            <Text style={styles.reviewCardText}>{STEPS[0].label}</Text>
-          </View>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -544,26 +549,11 @@ export default function ScanScreen() {
     <View style={{ flex: 1, backgroundColor: '#000' }}>
       <CameraView ref={cameraRef} style={StyleSheet.absoluteFillObject} facing="front" />
 
-      {/* Step indicators */}
-      <View style={[styles.stepBar, { top: insets.top + 10 }]}>
-        {STEPS.map((step, i) => (
-          <View key={step.angle} style={[styles.stepPill, i === currentStep && styles.stepPillActive, captures[i] && styles.stepPillDone]}>
-            {captures[i] ? (
-              <CheckIcon size={14} color="#FFFFFF" />
-            ) : (
-              <Text style={[styles.stepPillText, i === currentStep && styles.stepPillTextActive]}>{step.label}</Text>
-            )}
-          </View>
-        ))}
-      </View>
-
-      {/* Center instruction */}
-      <View style={styles.instructionOverlay}>
-        {currentStep === 1 && <ArrowIcon direction="right" size={40} color="rgba(255,255,255,0.5)" />}
+      {/* Top instruction — where the step bar used to be */}
+      <View style={[styles.topInstructionRow, { top: insets.top + 12 }]}>
         <View style={styles.instructionBadge}>
           <Text style={styles.instructionText}>{STEPS[currentStep].instruction}</Text>
         </View>
-        {currentStep === 2 && <ArrowIcon direction="left" size={40} color="rgba(255,255,255,0.5)" />}
       </View>
 
       {/* Corner brackets */}
@@ -576,19 +566,6 @@ export default function ScanScreen() {
 
       {/* Shutter button */}
       <View style={[styles.shutterArea, { paddingBottom: insets.bottom + 30 }]}>
-        {/* Thumbnail strip of captured photos */}
-        <View style={styles.thumbnailStrip}>
-          {STEPS.map((step, i) => (
-            <View key={step.angle} style={[styles.thumbnail, i === currentStep && styles.thumbnailActive]}>
-              {captures[i] ? (
-                <Image source={{ uri: captures[i]!.uri }} style={styles.thumbnailImage} />
-              ) : (
-                <Text style={styles.thumbnailPlaceholder}>{i + 1}</Text>
-              )}
-            </View>
-          ))}
-        </View>
-
         <View style={styles.shutterRow}>
           {/* Spacer to balance the upload button */}
           <View style={styles.shutterSideSlot} />
@@ -663,6 +640,13 @@ const styles = StyleSheet.create({
   },
 
   // Instruction
+  topInstructionRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
   instructionOverlay: {
     position: 'absolute',
     top: '45%',
@@ -774,7 +758,7 @@ const styles = StyleSheet.create({
   // Preview
   previewOverlay: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingHorizontal: Spacing.xl,
     paddingBottom: 60,
     backgroundColor: 'rgba(0,0,0,0.3)',

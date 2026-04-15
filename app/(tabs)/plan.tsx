@@ -13,7 +13,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Svg, { Circle, Path, Rect, Line } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useTabTransition } from '@/hooks/useTabTransition';
@@ -174,6 +175,37 @@ export default function PlanScreen() {
     ).start(() => setShowConfetti(false));
   };
 
+  /* ── checklist persistence ── */
+  const CHECKLIST_KEY = 'plan_checklist_v1';
+
+  const loadChecklist = useCallback(async () => {
+    try {
+      const stored = await AsyncStorage.getItem(CHECKLIST_KEY);
+      if (stored) {
+        const { date, ranks } = JSON.parse(stored);
+        const today = new Date().toDateString();
+        if (date === today) {
+          setDoneToday(new Set(ranks as number[]));
+        } else {
+          // New day — reset
+          setDoneToday(new Set());
+          await AsyncStorage.removeItem(CHECKLIST_KEY);
+        }
+      } else {
+        setDoneToday(new Set());
+      }
+    } catch {}
+  }, []);
+
+  const saveChecklist = useCallback(async (ranks: Set<number>) => {
+    try {
+      await AsyncStorage.setItem(CHECKLIST_KEY, JSON.stringify({
+        date: new Date().toDateString(),
+        ranks: Array.from(ranks),
+      }));
+    } catch {}
+  }, []);
+
   /* ── data loading ── */
   const fetchPlan = useCallback(async () => {
     setLoading(true);
@@ -192,7 +224,13 @@ export default function PlanScreen() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchPlan(); }, [fetchPlan]);
+  // Refresh plan + checklist every time this tab comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchPlan();
+      loadChecklist();
+    }, [fetchPlan, loadChecklist])
+  );
 
   /* ── shimmer on load ── */
   useEffect(() => {
@@ -208,6 +246,7 @@ export default function PlanScreen() {
     setDoneToday(prev => {
       const s = new Set(prev);
       if (s.has(rank)) s.delete(rank); else s.add(rank);
+      saveChecklist(s);
       return s;
     });
     if (!wasDone) triggerConfetti();

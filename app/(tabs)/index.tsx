@@ -22,7 +22,7 @@ import { HomeSkeleton } from '@/components/SkeletonLoader';
 import { useTabTransition } from '@/hooks/useTabTransition';
 import StreakCounter from '@/components/StreakCounter';
 import type { Database, SkinType, Severity } from '@/lib/database.types';
-import { differenceInDays } from 'date-fns';
+import { differenceInDays, startOfDay } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 
 type Profile          = Database['public']['Tables']['profiles']['Row'];
@@ -127,10 +127,11 @@ export default function HomeScreen() {
   const router  = useRouter();
   const { animatedStyle } = useTabTransition();
   const { t } = useTranslation();
-  const [profile,      setProfile]      = useState<Profile | null>(null);
-  const [skinProfile,  setSkinProfile]  = useState<SkinProfile | null>(null);
-  const [plan,         setPlan]         = useState<PersonalizedPlan | null>(null);
-  const [refreshing,   setRefreshing]   = useState(false);
+  const [profile,        setProfile]        = useState<Profile | null>(null);
+  const [skinProfile,    setSkinProfile]    = useState<SkinProfile | null>(null);
+  const [plan,           setPlan]           = useState<PersonalizedPlan | null>(null);
+  const [todaySessionId, setTodaySessionId] = useState<string | null>(null);
+  const [refreshing,     setRefreshing]     = useState(false);
   const [loaded,       setLoaded]       = useState(false);
 
   // ── Entrance stagger anims ──
@@ -170,6 +171,20 @@ export default function HomeScreen() {
     const profileRes = await supabase.from('profiles').select('*').eq('id', user.id).single() as any;
     const skinRes    = await supabase.from('skin_profiles').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single() as any;
     const planRes    = await supabase.from('personalized_plans').select('*').eq('user_id', user.id).eq('is_active', true).single() as any;
+
+    // Check if user has a completed scan today (since 12am)
+    const todayStart = startOfDay(new Date()).toISOString();
+    const sessionRes = await supabase
+      .from('scan_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .gte('created_at', todayStart)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single() as any;
+    setTodaySessionId(sessionRes.data?.id ?? null);
+
     if (profileRes.data) setProfile(profileRes.data);
     if (skinRes.data)    setSkinProfile(skinRes.data);
     if (planRes.data)    setPlan(planRes.data);
@@ -279,31 +294,39 @@ export default function HomeScreen() {
 
           {/* ── Scan Result Hero Card ── */}
           <Animated.View style={{ opacity: cardAnims[0].opacity, transform: [{ translateY: cardAnims[0].translateY }] }}>
-            <TouchableOpacity activeOpacity={0.92} onPress={() => router.push('/(tabs)/scan')}>
-              <LinearGradient
-                colors={['#5B35D5', '#3B1FA3']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.scanCard}
-              >
-                <Animated.View pointerEvents="none" style={[s.heroInnerGlow, { opacity: heroGlowOpacity }]} />
-
+            <TouchableOpacity
+              activeOpacity={0.92}
+              onPress={() => {
+                if (todaySessionId) {
+                  router.push({ pathname: '/(tabs)/scan', params: { loadSessionId: todaySessionId, loadTs: Date.now() } });
+                } else {
+                  router.push('/(tabs)/scan');
+                }
+              }}
+            >
+              <View style={s.scanCard}>
                 {/* Label + Streak row */}
                 <View style={s.scanCardTopRow}>
-                  <Text style={s.scanCardLabel}>{t('home.scanCard.label')}</Text>
+                  <Text style={s.scanCardLabel}>{todaySessionId ? t('home.scanCard.label') : "Today's Scan"}</Text>
                   <StreakCounter compact />
                 </View>
 
                 {/* Condition title */}
                 <Text style={s.scanCardTitle}>
-                  {skinLabel}{skinProfile.acne_type ? ` with ${skinProfile.acne_type} acne` : ''}
+                  {todaySessionId
+                    ? `${skinLabel}${skinProfile.acne_type ? ` with ${skinProfile.acne_type} acne` : ''}`
+                    : "Do your scan of the day"}
                 </Text>
 
-                {/* Analysis notes */}
-                {skinProfile.analysis_notes ? (
-                  <Text style={s.scanCardDesc} numberOfLines={4}>{skinProfile.analysis_notes}</Text>
+                {/* Analysis notes / CTA */}
+                {todaySessionId ? (
+                  skinProfile.analysis_notes ? (
+                    <Text style={s.scanCardDesc} numberOfLines={4}>{skinProfile.analysis_notes}</Text>
+                  ) : (
+                    <Text style={s.scanCardDesc}>{skinDesc}</Text>
+                  )
                 ) : (
-                  <Text style={s.scanCardDesc}>{skinDesc}</Text>
+                  <Text style={s.scanCardDesc}>Tap to scan your skin and track today's progress.</Text>
                 )}
 
                 {/* Photo + Metrics row */}
@@ -353,7 +376,7 @@ export default function HomeScreen() {
                     </View>
                   );
                 })()}
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </Animated.View>
 
@@ -539,6 +562,7 @@ const s = StyleSheet.create({
     padding: Spacing.lg,
     marginBottom: Spacing.sm,
     overflow: 'hidden',
+    backgroundColor: '#5B35D5',
     ...Shadows.xl,
   },
   heroInnerGlow: {

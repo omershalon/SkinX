@@ -153,71 +153,125 @@ HERBAL picks: Traditional herbs with real evidence + specific dosages. Spearmint
 
 LIFESTYLE picks: Natural practices — morning sunlight 10-20 min (circadian reset + vitamin D), grounding/earthing barefoot on grass, cold showers or ice rolling (reduces inflammation), gua sha facial massage (lymphatic drainage), silk/satin pillowcase (less friction), breathwork or meditation (cortisol management), exercise (sweating = detox), clean water (filtered, no fluoride).
 
-CRITICAL FORMAT — titles must be 1-3 words, rationale is a short actionable subtitle:
-{"pillar":"product","title":"Rosehip oil","rationale":"Natural vitamin A alt · nightly","impact_rank":1}
-{"pillar":"diet","title":"Bone broth","rationale":"1 cup daily · collagen + gut healing","impact_rank":2}
-{"pillar":"herbal","title":"Spearmint tea","rationale":"2 cups daily · anti-androgen","impact_rank":3}
-{"pillar":"lifestyle","title":"Morning sunlight","rationale":"15 min · circadian + vitamin D","impact_rank":4}
+CRITICAL FORMAT RULES:
+- "title": 1-3 words max
+- "rationale": ultra-short action hint (e.g. "2 cups daily · anti-androgen")
+- "notes": an array of exactly 3 bullet strings. Each bullet MUST (a) name the patient's exact skin type / acne type / severity from the profile above, (b) explain the biological or nutritional mechanism connecting this pick to THAT specific condition, (c) NEVER repeat or paraphrase the rationale field. Be precise, personal, and brief — each bullet is one short punchy sentence, no more than 15 words.
+
+BAD notes (do NOT do this): ["Rosehip oil is great for your skin.", "It helps with acne.", "Use it nightly."] — too vague, repeats rationale, doesn't mention their specific condition.
+GOOD notes: ["Your hormonal acne triggers excess sebum via androgens — rosehip's trans-retinoic acid directly normalises sebocyte output at the follicle.", "Unlike synthetic retinoids, it won't disrupt your combination skin barrier or trigger the inflammation that worsens your breakouts.", "The linoleic acid in rosehip also corrects the fatty-acid deficiency common in acne-prone skin."]
+
+Example items:
+{"pillar":"product","title":"Rosehip oil","rationale":"Natural vitamin A alt · nightly","notes":["Your hormonal acne triggers excess sebum via androgens — rosehip's trans-retinoic acid directly normalises sebocyte output at the follicle.","Unlike synthetic retinoids, it won't disrupt your combination skin barrier or trigger inflammation that worsens your breakouts.","The linoleic acid in rosehip corrects the fatty-acid deficiency that is consistently elevated in acne-prone skin."],"impact_rank":1}
+{"pillar":"diet","title":"Bone broth","rationale":"1 cup daily · collagen + gut healing","notes":["Your inflammatory acne is linked to intestinal permeability — a leaky gut floods your bloodstream with endotoxins that spike skin inflammation.","Bone broth's glycine and glutamine tighten tight-junction proteins in the intestinal wall, cutting off this inflammatory trigger at source.","Collagen peptides also support your skin's own structural repair, reducing the scarring severity common with your acne type."],"impact_rank":2}
 
 Return ONLY a JSON array. No markdown. No explanation. No backticks.
-[{"pillar":"...","title":"...","rationale":"...","impact_rank":1}, ...8 items]
+[{"pillar":"...","title":"...","rationale":"...","notes":["...","...","..."],"impact_rank":1}, ...8 items]
 
 pillar values: product | diet | herbal | lifestyle
-Exactly 8 items. At least 1 per pillar. impact_rank 1 = highest priority.`;
+Exactly 8 items. At least 1 per pillar. impact_rank 1 = highest priority. notes field is REQUIRED and must be personalised to this patient's exact profile.`;
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
+    const REQUIRED_PILLARS = ['product', 'diet', 'herbal', 'lifestyle'];
+
+    // Helper: extract every complete {...} object from an arbitrary string
+    function extractObjects(src: string): any[] {
+      const results: any[] = [];
+      let depth = 0;
+      let start = -1;
+      for (let i = 0; i < src.length; i++) {
+        if (src[i] === '{') {
+          if (depth === 0) start = i;
+          depth++;
+        } else if (src[i] === '}') {
+          depth--;
+          if (depth === 0 && start !== -1) {
+            try { results.push(JSON.parse(src.slice(start, i + 1))); } catch {}
+            start = -1;
+          }
+        }
+      }
+      return results;
+    }
+
+    function missingPillars(items: any[]): string[] {
+      const found = new Set(items.map((i: any) => i.pillar));
+      return REQUIRED_PILLARS.filter(p => !found.has(p));
+    }
+
+    async function callGemini(extraInstruction = ''): Promise<{ items: any[] | null; error?: string }> {
+      const body: any = {
+        contents: [{ parts: [{ text: extraInstruction ? `${prompt}\n\nCRITICAL: ${extraInstruction}` : prompt }] }],
         generationConfig: {
           temperature: 0.9,
-          maxOutputTokens: 1500,
+          maxOutputTokens: 4096,
           responseMimeType: 'application/json',
         },
-      }),
-    });
-
-    if (!res.ok) {
-      const err = await res.text();
-      return new Response(JSON.stringify({ error: 'Gemini API error', details: err }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      };
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
-    }
+      if (!r.ok) return { items: null, error: await r.text() };
 
-    const gemini = await res.json();
-    const text = gemini.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      const g = await r.json();
+      const t = g.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+      if (!t) return { items: null, error: `Empty response (finishReason: ${g.candidates?.[0]?.finishReason ?? 'unknown'})` };
 
-    console.log('[generate-plan] Gemini raw text (first 600):', text.substring(0, 600));
+      console.log('[generate-plan] Gemini raw text (first 600):', t.substring(0, 600));
 
-    if (!text) {
-      const reason = gemini.candidates?.[0]?.finishReason ?? 'unknown';
-      console.error('[generate-plan] Empty text from Gemini, finishReason:', reason, JSON.stringify(gemini).substring(0, 300));
-      return new Response(JSON.stringify({ error: `Gemini returned empty response (reason: ${reason})` }), {
-        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    let ranked_items;
-    try {
-      // With responseMimeType: 'application/json', Gemini returns pure JSON — parse directly
-      ranked_items = JSON.parse(text);
-
-      // Handle both array response and object wrapper
-      if (!Array.isArray(ranked_items)) {
-        const candidate = ranked_items?.ranked_items ?? ranked_items?.items ?? ranked_items?.recommendations;
-        if (Array.isArray(candidate)) ranked_items = candidate;
-        else throw new Error('Response is not a JSON array');
+      let parsed: any;
+      try { parsed = JSON.parse(t); } catch {
+        console.warn('[generate-plan] Direct JSON.parse failed — attempting object extraction');
+        parsed = extractObjects(t);
       }
 
-      ranked_items = ranked_items.filter(
+      if (!Array.isArray(parsed)) {
+        const candidate = parsed?.ranked_items ?? parsed?.items ?? parsed?.recommendations;
+        if (Array.isArray(candidate)) parsed = candidate; else return { items: null, error: 'Response is not a JSON array' };
+      }
+
+      const items = parsed.filter(
         (item: any) => item && typeof item === 'object' && item.pillar && item.title && item.rationale
       );
-      if (ranked_items.length === 0) throw new Error('No valid items after filtering');
-    } catch (e) {
-      console.error('Parse error:', e);
-      console.error('Full text:', text);
-      return new Response(JSON.stringify({ error: 'Failed to parse response', raw: text }), {
+      return { items };
+    }
+
+    // ── First attempt ──
+    let ranked_items: any[] | null = null;
+    const first = await callGemini();
+    if (!first.items || first.items.length === 0) {
+      console.error('First Gemini call failed:', first.error);
+      return new Response(JSON.stringify({ error: 'Failed to generate plan', details: first.error }), {
+        status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    ranked_items = first.items;
+
+    // ── Check all 4 pillars present; retry once if not ──
+    const missing = missingPillars(ranked_items);
+    if (missing.length > 0) {
+      console.warn('[generate-plan] Missing pillars after first attempt:', missing, '— retrying');
+      const retry = await callGemini(
+        `The previous response was MISSING items for these pillars: ${missing.join(', ')}. You MUST include at least one item for EVERY pillar: product, diet, herbal, lifestyle. No exceptions.`
+      );
+      if (retry.items && retry.items.length > 0) {
+        // Merge: keep retry result but backfill any still-missing pillars from the first attempt
+        const retryMissing = missingPillars(retry.items);
+        if (retryMissing.length < missing.length) {
+          ranked_items = retry.items;
+          // If retry still missing some, backfill from first attempt
+          for (const pillar of missingPillars(ranked_items)) {
+            const fallback = first.items.find((i: any) => i.pillar === pillar);
+            if (fallback) ranked_items.push(fallback);
+          }
+        }
+        // else retry made things worse — keep original
+      }
+    }
+
+    if (ranked_items.length === 0) {
+      return new Response(JSON.stringify({ error: 'Failed to parse response' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

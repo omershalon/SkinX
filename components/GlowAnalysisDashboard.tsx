@@ -350,7 +350,9 @@ const styles = StyleSheet.create({
 
   // ── Hero scan image ───────────────────────────────────────────────────────
   heroImage: {
-    height: 300,
+    width: SCREEN_WIDTH * 0.65,
+    height: 380,
+    alignSelf: 'center',
     marginBottom: 24,
     borderRadius: 24,
   },

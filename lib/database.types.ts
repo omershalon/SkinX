@@ -364,6 +364,7 @@ export interface RankedItem {
   pillar: 'herbal' | 'diet' | 'product' | 'lifestyle';
   title: string;
   rationale: string;
+  notes?: string[];
   impact_rank: number;
 }
 

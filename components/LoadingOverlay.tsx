@@ -6,10 +6,9 @@ import {
   Modal,
   Animated,
   Easing,
-  ActivityIndicator,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
+import Svg, { Line } from 'react-native-svg';
 import { Colors, Typography, BorderRadius, Spacing } from '@/lib/theme';
 
 interface LoadingOverlayProps {
@@ -25,9 +24,12 @@ export function LoadingOverlay({
   subtitle = 'Claude AI is working its magic',
   steps,
 }: LoadingOverlayProps) {
+  // Use a large degree value so we never reset mid-spin (avoids the loop-reset glitch)
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const spinRef = useRef<Animated.CompositeAnimation | null>(null);
+  const pulseRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -38,34 +40,42 @@ export function LoadingOverlay({
         useNativeDriver: true,
       }).start();
 
-      // Rotate
-      Animated.loop(
+      // Smooth spin: animate to 3600° (10 full rotations) over 8s, then loop
+      rotateAnim.setValue(0);
+      const spin = Animated.loop(
         Animated.timing(rotateAnim, {
-          toValue: 1,
-          duration: 2000,
+          toValue: 10,       // 10 full rotations per loop, interpolated to 3600°
+          duration: 12000,   // 1200ms per rotation × 10
           easing: Easing.linear,
           useNativeDriver: true,
         })
-      ).start();
+      );
+      spinRef.current = spin;
+      spin.start();
 
       // Pulse
-      Animated.loop(
+      pulseAnim.setValue(1);
+      const pulse = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
-            toValue: 1.1,
-            duration: 800,
+            toValue: 1.12,
+            duration: 700,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 800,
+            duration: 700,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      pulseRef.current = pulse;
+      pulse.start();
     } else {
+      spinRef.current?.stop();
+      pulseRef.current?.stop();
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 200,
@@ -75,8 +85,8 @@ export function LoadingOverlay({
   }, [visible]);
 
   const rotation = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    inputRange: [0, 10],
+    outputRange: ['0deg', '3600deg'],
   });
 
   if (!visible) return null;
@@ -87,7 +97,13 @@ export function LoadingOverlay({
         <BlurView intensity={20} style={StyleSheet.absoluteFill} />
         <View style={styles.container}>
           <View style={styles.card}>
-            <ActivityIndicator size="large" color={Colors.primary} style={{ marginVertical: Spacing.xl }} />
+            {/* Spinning X */}
+            <Animated.View style={[styles.spinnerWrap, { transform: [{ rotate: rotation }, { scale: pulseAnim }] }]}>
+              <Svg width={32} height={32} viewBox="0 0 32 32" fill="none">
+                <Line x1={6} y1={6} x2={26} y2={26} stroke={Colors.primary} strokeWidth={6} strokeLinecap="round" />
+                <Line x1={26} y1={6} x2={6} y2={26} stroke={Colors.primary} strokeWidth={6} strokeLinecap="round" />
+              </Svg>
+            </Animated.View>
 
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
@@ -157,6 +173,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 40,
     elevation: 20,
+  },
+  spinnerWrap: {
+    marginVertical: Spacing.xl,
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   logoWrapper: {
     marginBottom: Spacing.sm,

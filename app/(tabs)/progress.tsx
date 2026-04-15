@@ -15,15 +15,20 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  Pressable,
+  PanResponder,
 } from 'react-native';
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  withSpring,
   Easing,
   interpolate,
   runOnJS,
 } from 'react-native-reanimated';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Svg, { Path, Circle, Line, Polyline } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -144,14 +149,40 @@ export default function ProgressScreen() {
   const flatListRef = useRef<FlatList>(null);
 
 
+  // In-app camera state
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const logCameraRef = useRef<CameraView>(null);
+  const shutterScale = useRef(new Animated.Value(1)).current;
+  const shutterFill = useRef(new Animated.Value(0)).current;
+  const shutterBg = shutterFill.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#7C5CFC'] });
+
+  const onShutterPressIn = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(shutterScale, { toValue: 0.82, useNativeDriver: true, speed: 50, bounciness: 4 }),
+      Animated.timing(shutterFill, { toValue: 1, duration: 200, useNativeDriver: false }),
+    ]).start();
+  }, []);
+  const onShutterPressOut = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(shutterScale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 10 }),
+      Animated.timing(shutterFill, { toValue: 0, duration: 300, useNativeDriver: false }),
+    ]).start();
+  }, []);
+
   // Bottom sheet animation (Reanimated — runs on UI thread)
   const sheetProgress = useSharedValue(0);
   const [expandPhoto, setExpandPhoto] = useState<ProgressPhoto | null>(null);
   const burstRef = useRef<ParticleBurstHandle>(null);
 
 
-  const fetchPhotos = useCallback(async () => {
-    setLoading(true);
+  const scrollToCurrentMonth = useCallback(() => {
+    const y = monthYPositions.current[currentMonthIdxRef.current];
+    if (y != null) scrollRef.current?.scrollTo({ y, animated: false });
+  }, []);
+
+  const fetchPhotos = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
@@ -169,35 +200,53 @@ export default function ProgressScreen() {
     const fetched = (data as ProgressPhoto[]) || [];
     setPhotos(fetched);
 
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => { fetchPhotos(); }, [fetchPhotos]);
 
   // ─── Upload + Claude analysis ─────────────────────────────────────────────
   const logProgressPhoto = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!cameraPermission?.granted) {
+      const { granted } = await requestCameraPermission();
+      if (!granted) {
+        Alert.alert('Camera Access', 'Please allow camera access to log progress photos.');
+        return;
+      }
+    }
+    setShowCamera(true);
+  };
 
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.85,
-      base64: true,
-    });
+  const captureProgressPhoto = async () => {
+    if (!logCameraRef.current || uploading) return;
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (result.canceled || !result.assets[0]) return;
+    let uri: string;
+    let base64: string;
+    try {
+      const photo = await logCameraRef.current.takePictureAsync({ quality: 0.85, base64: true });
+      if (!photo?.base64) return;
+      // Front camera captures mirrored — flip horizontally to correct it
+      const flipped = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ flip: ImageManipulator.FlipType.Horizontal }],
+        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+      uri = flipped.uri;
+      base64 = flipped.base64!;
+    } catch {
+      Alert.alert('Error', 'Could not take photo. Please try again.');
+      return;
+    }
 
+    setShowCamera(false);
     setUploading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    try {
-      const uri = result.assets[0].uri;
-      const base64 = result.assets[0].base64 ?? await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64' as any,
-      });
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploading(false); return; }
 
+    try {
       const weekNumber = photos.length > 0
         ? differenceInWeeks(new Date(), new Date(photos[photos.length - 1].created_at)) + photos[photos.length - 1].week_number
         : 1;
@@ -234,8 +283,9 @@ export default function ProgressScreen() {
 
       if (insertError) throw insertError;
 
-      await fetchPhotos();
+      await fetchPhotos(true);
       burstRef.current?.trigger();
+      setTimeout(scrollToCurrentMonth, 100);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err) {
       console.error('Progress tracking error:', err);
@@ -265,16 +315,60 @@ export default function ProgressScreen() {
     }, 50);
   };
 
+  // Extra translateY for live drag
+  const dragY = useSharedValue(0);
+
   // Reanimated animated styles for the bottom sheet
   const sheetAnimStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: interpolate(sheetProgress.value, [0, 1], [SCREEN_HEIGHT * 0.9, 0]) }],
+    transform: [{
+      translateY: interpolate(sheetProgress.value, [0, 1], [SCREEN_HEIGHT * 0.9, 0]) + dragY.value,
+    }],
   }));
   const backdropAnimStyle = useAnimatedStyle(() => ({
-    opacity: sheetProgress.value,
+    opacity: interpolate(
+      dragY.value,
+      [0, SCREEN_HEIGHT * 0.4],
+      [sheetProgress.value, 0],
+    ),
   }));
+
+  const dismissBySwipe = () => {
+    setExpandPhoto(null);
+    dragY.value = 0;
+    sheetProgress.value = 0;
+  };
+
+  // Pan responder — drag down to dismiss
+  const sheetPanResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dy) > 8 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) dragY.value = g.dy;
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 80 || g.vy > 0.5) {
+          // Continue sliding down from where the finger released — no snap back up
+          const sheetH = SCREEN_HEIGHT * 0.75;
+          const remaining = sheetH - g.dy;
+          const duration = Math.max(80, Math.min(200, remaining / (g.vy || 1)));
+          dragY.value = withTiming(sheetH, { duration }, () => {
+            runOnJS(dismissBySwipe)();
+          });
+        } else {
+          // Not far enough — spring back
+          dragY.value = withSpring(0, { damping: 20, stiffness: 200 });
+        }
+      },
+      onPanResponderTerminate: () => {
+        dragY.value = withSpring(0, { damping: 20, stiffness: 200 });
+      },
+    })
+  ).current;
 
   // ─── Expand from calendar cell ────────────────────────────────────────────
   const expandFromCell = (_dateKey: string, photo: ProgressPhoto) => {
+    dragY.value = 0;
     setExpandPhoto(photo);
     sheetProgress.value = 0;
     sheetProgress.value = withTiming(1, {
@@ -594,7 +688,7 @@ export default function ProgressScreen() {
           <Reanimated.View style={[styles.expandBackdrop, backdropAnimStyle]}>
             <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeExpand} />
           </Reanimated.View>
-          <Reanimated.View style={[styles.expandSheet, sheetAnimStyle]}>
+          <Reanimated.View style={[styles.expandSheet, sheetAnimStyle]} {...sheetPanResponder.panHandlers}>
 
             {/* Drag handle */}
             <View style={styles.sheetHandleRow}>
@@ -679,6 +773,89 @@ export default function ProgressScreen() {
         </View>
       )}
       <ParticleBurst ref={burstRef} />
+
+      {/* ── In-app camera modal (slides up) ──────────────────────────────── */}
+      <Modal
+        visible={showCamera}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowCamera(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <CameraView ref={logCameraRef} style={StyleSheet.absoluteFillObject} facing="front" />
+
+          {/* Instruction */}
+          <View style={[logCamStyles.topInstruction, { top: insets.top + 12 }]}>
+            <View style={logCamStyles.instructionBadge}>
+              <Text style={logCamStyles.instructionText}>Log your photo</Text>
+            </View>
+          </View>
+
+          {/* Corner brackets */}
+          <View style={[StyleSheet.absoluteFillObject, { justifyContent: 'center', alignItems: 'center' }]}>
+            <View style={[logCamStyles.bracket, logCamStyles.cTL]} />
+            <View style={[logCamStyles.bracket, logCamStyles.cTR]} />
+            <View style={[logCamStyles.bracket, logCamStyles.cBL]} />
+            <View style={[logCamStyles.bracket, logCamStyles.cBR]} />
+          </View>
+
+          {/* Shutter + cancel + upload */}
+          <View style={[logCamStyles.shutterArea, { paddingBottom: insets.bottom + 30 }]}>
+            <View style={logCamStyles.shutterRow}>
+              <TouchableOpacity style={logCamStyles.cancelBtn} onPress={() => setShowCamera(false)} activeOpacity={0.75}>
+                <Text style={logCamStyles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <Pressable onPress={captureProgressPhoto} onPressIn={onShutterPressIn} onPressOut={onShutterPressOut}>
+                <Animated.View style={[logCamStyles.shutterOuter, { transform: [{ scale: shutterScale }] }]}>
+                  <Animated.View style={[logCamStyles.shutterInner, { backgroundColor: shutterBg }]} />
+                </Animated.View>
+              </Pressable>
+
+              <TouchableOpacity
+                style={logCamStyles.uploadBtn}
+                activeOpacity={0.75}
+                onPress={async () => {
+                  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                  if (status !== 'granted') return;
+                  const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.85, base64: true });
+                  if (result.canceled || !result.assets?.[0]?.base64) return;
+                  const asset = result.assets[0];
+                  setShowCamera(false);
+                  setUploading(true);
+                  const { data: { user } } = await supabase.auth.getUser();
+                  if (!user) { setUploading(false); return; }
+                  const uri = asset.uri;
+                  const base64 = asset.base64!;
+                  const weekNumber = photos.length > 0
+                    ? differenceInWeeks(new Date(), new Date(photos[photos.length - 1].created_at)) + photos[photos.length - 1].week_number
+                    : 1;
+                  try {
+                    let photoUrl = uri;
+                    try {
+                      const fileName = `${user.id}/progress-${Date.now()}.jpg`;
+                      const { data: uploadData } = await supabase.storage.from('progress-photos').upload(fileName, decode(base64), { contentType: 'image/jpeg' });
+                      if (uploadData) photoUrl = supabase.storage.from('progress-photos').getPublicUrl(fileName).data.publicUrl;
+                    } catch {}
+                    const { data: trackData, error: fnError } = await supabase.functions.invoke('track-progress', { body: { user_id: user.id, image_base64: base64, week_number: weekNumber } });
+                    if (fnError) throw fnError;
+                    await supabase.from('progress_photos').insert({ user_id: user.id, photo_url: photoUrl, week_number: weekNumber, severity_score: Math.round(trackData.severity_score ?? 5), improvement_percentage: trackData.improvement_percentage ?? null, analysis_notes: trackData.analysis_notes ?? '', notes: '', annotations: trackData.zones ?? {} } as any);
+                    await fetchPhotos();
+                    burstRef.current?.trigger();
+                    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  } catch {
+                    Alert.alert('Error', t('progress.errorSavePhoto'));
+                  } finally {
+                    setUploading(false);
+                  }
+                }}
+              >
+                <Text style={logCamStyles.uploadText}>Upload</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
@@ -961,4 +1138,78 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   expandDeleteText: { ...Typography.labelLarge, color: Colors.error },
+});
+
+const logCamStyles = StyleSheet.create({
+  topInstruction: {
+    position: 'absolute',
+    left: 0, right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  instructionBadge: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  instructionText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  bracket: {
+    position: 'absolute',
+    width: 36,
+    height: 36,
+    borderColor: '#FFFFFF',
+  },
+  cTL: { top: 155, left: 55, borderTopWidth: 3, borderLeftWidth: 3, borderTopLeftRadius: 4 },
+  cTR: { top: 155, right: 55, borderTopWidth: 3, borderRightWidth: 3, borderTopRightRadius: 4 },
+  cBL: { bottom: 200, left: 55, borderBottomWidth: 3, borderLeftWidth: 3, borderBottomLeftRadius: 4 },
+  cBR: { bottom: 200, right: 55, borderBottomWidth: 3, borderRightWidth: 3, borderBottomRightRadius: 4 },
+  shutterArea: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  shutterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 32,
+    width: '100%',
+    paddingHorizontal: 32,
+  },
+  shutterOuter: {
+    width: 80, height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shutterInner: {
+    width: 62, height: 62,
+    borderRadius: 31,
+  },
+  cancelBtn: {
+    width: 72,
+    alignItems: 'center',
+  },
+  cancelText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  uploadBtn: {
+    width: 72,
+    alignItems: 'center',
+  },
+  uploadText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 15,
+    fontWeight: '500',
+  },
 });
