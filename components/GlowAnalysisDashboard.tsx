@@ -53,21 +53,21 @@ export interface GlowAnalysisDashboardProps {
 // ─── Default data (matches the reference design exactly) ────────────────────
 
 const DEFAULT_SNAPSHOTS: SnapshotCardData[] = [
-  { id: 'dark_marks',  label: 'Dark marks',  severity: 'Mild', severityColor: '#53E6B0', iconType: 'circle',    iconColor: '#F6BE63' },
-  { id: 'active_acne', label: 'Active acne', severity: 'Low',  severityColor: '#53E6B0', iconType: 'lightning', iconColor: '#53E6B0' },
-  { id: 'tzone_oil',   label: 'T-zone oil',  severity: 'Mild', severityColor: '#53E6B0', iconType: 'droplet',   iconColor: '#60A5FA' },
-  { id: 'tzone_oil_2', label: 'T-zone oil',  severity: 'Mild', severityColor: '#53E6B0', iconType: 'droplet',   iconColor: '#60A5FA' },
+  { id: 'dark_marks',  label: 'Dark marks',  severity: 'Mild', severityColor: '#53E6B0', iconType: 'circle',    iconColor: '#E88B53' },
+  { id: 'active_acne', label: 'Active acne', severity: 'Low',  severityColor: '#53E6B0', iconType: 'lightning', iconColor: '#4D9A8D' },
+  { id: 'tzone_oil',   label: 'T-zone oil',  severity: 'Mild', severityColor: '#53E6B0', iconType: 'droplet',   iconColor: '#7C5BFF' },
+  { id: 'tzone_oil_2', label: 'T-zone oil',  severity: 'Mild', severityColor: '#53E6B0', iconType: 'droplet',   iconColor: '#7C5BFF' },
 ];
 
 const DEFAULT_RECOMMENDATIONS: RecommendationData[] = [
-  { icon: 'sun',      title: 'Daily SPF protection', subtitle: 'Use SPF 30+ to prevent dark marks',    accentColor: '#F6BE63', glowColor: 'rgba(255,190,99,0.14)' },
-  { icon: 'sparkles', title: 'Vitamin C serum',      subtitle: 'Fade dark spots and brighten skin',    accentColor: '#FF9AD8', glowColor: 'rgba(255,144,209,0.12)' },
-  { icon: 'droplet',  title: 'Mild AHA exfoliant',   subtitle: 'Exfoliate weekly to renew skin',       accentColor: '#8F7CFF', glowColor: 'rgba(110,123,255,0.12)' },
+  { icon: 'sun',      title: 'Daily SPF protection', subtitle: 'Use SPF 30+ to prevent dark marks',    accentColor: '#E88B53', glowColor: 'rgba(232,139,83,0.22)' },
+  { icon: 'sparkles', title: 'Vitamin C serum',      subtitle: 'Fade dark spots and brighten skin',    accentColor: '#E5D2A0', glowColor: 'rgba(229,210,160,0.18)' },
+  { icon: 'droplet',  title: 'Mild AHA exfoliant',   subtitle: 'Exfoliate weekly to renew skin',       accentColor: '#7C5BFF', glowColor: 'rgba(124,91,255,0.25)' },
 ];
 
 // ─── SVG Icon Components ────────────────────────────────────────────────────
 
-function ChevronRight({ size = 18, color = 'rgba(228,221,255,0.38)' }: { size?: number; color?: string }) {
+function ChevronRight({ size = 16, color = '#7A6F95' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -77,8 +77,16 @@ function ChevronRight({ size = 18, color = 'rgba(228,221,255,0.38)' }: { size?: 
 
 function CheckMark({ color }: { color: string }) {
   return (
-    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ArrowDownIcon({ size = 20, color = '#000' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12l7 7 7-7" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -86,7 +94,7 @@ function CheckMark({ color }: { color: string }) {
 function SnapshotIcon({ type, color, size = 16 }: { type: SnapshotCardData['iconType']; color: string; size?: number }) {
   switch (type) {
     case 'circle':
-      return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
+      return <View style={{ width: size * 0.65, height: size * 0.65, borderRadius: size / 2, backgroundColor: color }} />;
     case 'lightning':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -108,7 +116,7 @@ function SnapshotIcon({ type, color, size = 16 }: { type: SnapshotCardData['icon
   }
 }
 
-function SunIcon({ size = 22, color = '#F6BE63' }: { size?: number; color?: string }) {
+function SunIcon({ size = 20, color = '#E88B53' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <SvgCircle cx={12} cy={12} r={4} fill={color} />
@@ -122,7 +130,7 @@ function SunIcon({ size = 22, color = '#F6BE63' }: { size?: number; color?: stri
   );
 }
 
-function SparklesIcon({ size = 22, color = '#FF9AD8' }: { size?: number; color?: string }) {
+function SparklesIcon({ size = 20, color = '#E5D2A0' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 3l1.8 5.4L19.2 12l-5.4 1.8L12 21l-1.8-7.2L4.8 12l5.4-1.8L12 3z" fill={color} />
@@ -131,7 +139,7 @@ function SparklesIcon({ size = 22, color = '#FF9AD8' }: { size?: number; color?:
   );
 }
 
-function DropletIconLarge({ size = 22, color = '#8F7CFF' }: { size?: number; color?: string }) {
+function DropletIconLarge({ size = 20, color = '#7C5BFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" fill={color} />
@@ -139,11 +147,11 @@ function DropletIconLarge({ size = 22, color = '#8F7CFF' }: { size?: number; col
   );
 }
 
-function RecommendationIcon({ icon }: { icon: RecommendationData['icon'] }) {
+function RecommendationIcon({ icon, color }: { icon: RecommendationData['icon']; color?: string }) {
   switch (icon) {
-    case 'sun':      return <SunIcon />;
-    case 'sparkles': return <SparklesIcon />;
-    case 'droplet':  return <DropletIconLarge />;
+    case 'sun':      return <SunIcon color={color} />;
+    case 'sparkles': return <SparklesIcon color={color} />;
+    case 'droplet':  return <DropletIconLarge color={color} />;
   }
 }
 
@@ -155,7 +163,7 @@ export default function GlowAnalysisDashboard({
   description = 'A few post-acne dark marks are visible on your cheeks. No major active breakouts were detected today.',
   mainConcern = 'Dark marks',
   severity = 'Low',
-  severityColor = '#53E6B0',
+  severityColor = '#4D9A8D',
   skinType = 'Combination',
   snapshotItems = DEFAULT_SNAPSHOTS,
   recommendations = DEFAULT_RECOMMENDATIONS,
@@ -170,45 +178,15 @@ export default function GlowAnalysisDashboard({
     <View style={styles.screen}>
       {/* ── Deep gradient base ────────────────────────────────────────────── */}
       <LinearGradient
-        colors={['#050210', '#0A0320', '#14052C']}
+        colors={['#050210', '#080310', '#0A0320']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* ── Fixed ambient glow orbs (behind content) ─────────────────────── */}
-      <View
-        style={[
-          styles.bgGlow,
-          { top: 70, left: -60, width: 260, height: 260, backgroundColor: 'rgba(120,70,255,0.16)', shadowColor: '#7C4DFF', shadowRadius: 90 },
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        style={[
-          styles.bgGlow,
-          { top: 330, right: -70, width: 280, height: 280, backgroundColor: 'rgba(255,90,200,0.10)', shadowColor: '#FF5AC8', shadowRadius: 100 },
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        style={[
-          styles.bgGlow,
-          { bottom: 100, left: 10, width: 300, height: 300, backgroundColor: 'rgba(82,120,255,0.08)', shadowColor: '#6C7DFF', shadowRadius: 110 },
-        ]}
-        pointerEvents="none"
-      />
-      <View
-        style={[
-          styles.bgGlow,
-          { top: 520, right: -30, width: 220, height: 220, backgroundColor: 'rgba(140,92,255,0.14)', shadowColor: '#8C5CFF', shadowRadius: 90 },
-        ]}
-        pointerEvents="none"
-      />
-
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: 140 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Top row: avatar + summary ──────────────────────────────────── */}
@@ -230,17 +208,15 @@ export default function GlowAnalysisDashboard({
         <View style={styles.heroCard}>
           {/* Purple gradient wash */}
           <LinearGradient
-            colors={['rgba(120,72,255,0.22)', 'rgba(66,25,130,0.14)', 'rgba(20,10,40,0.10)']}
+            colors={['#2D1B54', '#140A2B']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
+            style={[StyleSheet.absoluteFill, { borderRadius: 24 }]}
           />
-          {/* Top-left inner bloom */}
-          <View style={styles.heroInnerGlow} pointerEvents="none" />
-          {/* Bottom-right corner bloom */}
-          <View style={styles.heroCornerGlow} pointerEvents="none" />
-          {/* Bottom-right highlight streak */}
-          <View style={styles.heroHighlightStreak} pointerEvents="none" />
+          {/* Top-left lens flare line */}
+          <View style={styles.heroFlareTop} pointerEvents="none" />
+          {/* Bottom-right lens flare line */}
+          <View style={styles.heroFlareBottom} pointerEvents="none" />
 
           <Text style={styles.heroTitle}>{headline}</Text>
           <Text style={styles.heroBody}>{description}</Text>
@@ -248,7 +224,7 @@ export default function GlowAnalysisDashboard({
           {/* Pill row: main concern + severity */}
           <View style={styles.pillRow}>
             <View style={styles.infoPill}>
-              <View style={[styles.dot, { backgroundColor: '#F6BE63', marginRight: 10 }]} />
+              <View style={[styles.dot, { backgroundColor: '#E88B53', marginRight: 10 }]} />
               <Text style={styles.pillLabel}>Main concern:</Text>
               <Text style={styles.pillValue}>{mainConcern}</Text>
             </View>
@@ -259,9 +235,9 @@ export default function GlowAnalysisDashboard({
           </View>
 
           {/* Pill: skin type */}
-          <View style={[styles.infoPill, { alignSelf: 'flex-start' }]}>
-            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" style={{ marginRight: 10 }}>
-              <Path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" fill="#9C6BFF" />
+          <View style={[styles.infoPill, { alignSelf: 'flex-start', marginRight: 0 }]}>
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" style={{ marginRight: 10 }}>
+              <Path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0L12 2.69z" fill="#7C5BFF" />
             </Svg>
             <Text style={styles.pillLabel}>Skin type:</Text>
             <Text style={styles.pillValue}>{skinType}</Text>
@@ -269,133 +245,151 @@ export default function GlowAnalysisDashboard({
         </View>
 
         {/* ── YOUR SKIN SNAPSHOT ─────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>Your Skin Snapshot</Text>
-        <View style={styles.grid}>
-          {snapshotItems.map((item, i) => (
-            <TouchableOpacity
-              key={item.id + '-' + i}
-              style={[
-                styles.snapshotCard,
-                i % 2 === 0 ? { marginRight: 10 } : { marginLeft: 10 },
-              ]}
-              activeOpacity={0.72}
-              onPress={() => onSnapshotPress?.(item.id)}
-            >
-              {/* Corner glows */}
-              <View style={[styles.snapGlowA, { backgroundColor: item.iconColor + '1C' }]} pointerEvents="none" />
-              <View style={styles.snapGlowB} pointerEvents="none" />
-
-              {/* Horizontal layout */}
-              <View style={styles.snapRow}>
-                {/* Icon with halo */}
-                <View style={[styles.snapIconHalo, { backgroundColor: item.iconColor + '22' }]}>
-                  <SnapshotIcon type={item.iconType} color={item.iconColor} size={16} />
-                </View>
-
-                {/* Label + sublabel */}
-                <View style={styles.snapTextWrap}>
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionLabel}>YOUR SKIN SNAPSHOT</Text>
+          <View style={styles.grid}>
+            {snapshotItems.map((item, i) => (
+              <TouchableOpacity
+                key={item.id + '-' + i}
+                style={[
+                  styles.snapshotCard,
+                  i % 2 === 0 ? { marginRight: 6 } : { marginLeft: 6 },
+                ]}
+                activeOpacity={0.72}
+                onPress={() => onSnapshotPress?.(item.id)}
+              >
+                <View style={styles.snapRow}>
+                  {/* Icon */}
+                  <View style={[styles.snapIconWrap, { }]}>
+                    <SnapshotIcon type={item.iconType} color={item.iconColor} size={16} />
+                  </View>
+                  {/* Label */}
                   <Text style={styles.snapTitle}>{item.label}</Text>
-                  <Text style={[styles.snapSub, { color: item.severityColor }]}>{item.severity}</Text>
                 </View>
-
-                {/* Severity text + chevron */}
-                <Text style={[styles.snapSeverity, { color: item.severityColor }]}>{item.severity}</Text>
-                <ChevronRight size={16} color="rgba(228,221,255,0.38)" />
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View style={styles.snapBottomRow}>
+                  <Text style={[styles.snapSeverity, { color: item.severityColor }]}>{item.severity}</Text>
+                  <ChevronRight size={16} color="#7A6F95" />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {/* ── DO THIS TODAY ──────────────────────────────────────────────── */}
-        <Text style={styles.sectionLabel}>Do This Today</Text>
-        {recommendations.map((rec, i) => (
-          <TouchableOpacity
-            key={i}
-            style={styles.recCard}
-            activeOpacity={0.72}
-            onPress={() => onRecommendationPress?.(i)}
-          >
-            {/* Per-card glow orb on the left */}
-            <View style={[styles.recGlowOrb, { backgroundColor: rec.glowColor }]} pointerEvents="none" />
-            {/* Left accent bar */}
-            <View style={[styles.recLeftEdge, { backgroundColor: rec.accentColor }]} />
+        <View style={styles.sectionWrap}>
+          <Text style={styles.sectionLabel}>DO THIS TODAY</Text>
+          <View style={{ gap: 12 }}>
+            {recommendations.map((rec, i) => (
+              <TouchableOpacity
+                key={i}
+                activeOpacity={0.72}
+                onPress={() => onRecommendationPress?.(i)}
+              >
+                {/* Gradient border wrapper */}
+                <LinearGradient
+                  colors={[rec.accentColor + '80', '#2B1754', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.recBorderGradient}
+                >
+                  {/* Inner card */}
+                  <View style={styles.recCardInner}>
+                    {/* Accent glow orb in top-left */}
+                    <View
+                      style={[
+                        styles.recGlowOrb,
+                        { backgroundColor: rec.accentColor, opacity: 0.22 },
+                      ]}
+                      pointerEvents="none"
+                    />
 
-            <View style={styles.recRow}>
-              <View style={styles.recIconWrap}>
-                <RecommendationIcon icon={rec.icon} />
-              </View>
-              <View style={styles.recTextWrap}>
-                <Text style={styles.recTitle}>{rec.title}</Text>
-                <Text style={styles.recSubtitle} numberOfLines={1}>
-                  {rec.subtitle}
-                </Text>
-              </View>
-              <ChevronRight size={18} color="rgba(228,221,255,0.42)" />
-            </View>
-          </TouchableOpacity>
-        ))}
-
-        {/* ── CTA Button ────────────────────────────────────────────────── */}
-        <TouchableOpacity style={styles.ctaButton} activeOpacity={0.85} onPress={onStartPlan}>
-          <LinearGradient
-            colors={['#6E46FF', '#8B5CFF', '#9A73FF']}
-            start={{ x: 0, y: 0.5 }}
-            end={{ x: 1, y: 0.5 }}
-            style={styles.ctaGradient}
-          >
-            {/* Right-side inner gloss */}
-            <View style={styles.ctaInnerGlow} pointerEvents="none" />
-            <Text style={styles.ctaText}>Start My Plan</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        {/* ── Secondary link ─────────────────────────────────────────────── */}
-        <TouchableOpacity style={styles.secondaryBtn} onPress={onViewFullScan}>
-          <Text style={styles.secondaryText}>View Full Scan</Text>
-        </TouchableOpacity>
-
-        <View style={{ height: insets.bottom + 24 }} />
+                    <View style={styles.recRow}>
+                      <View style={styles.recIconWrap}>
+                        <RecommendationIcon icon={rec.icon} color={rec.accentColor} />
+                      </View>
+                      <View style={styles.recTextWrap}>
+                        <Text style={styles.recTitle}>{rec.title}</Text>
+                        <Text style={styles.recSubtitle} numberOfLines={1}>
+                          {rec.subtitle}
+                        </Text>
+                      </View>
+                      <ChevronRight size={16} color="#7A6F95" />
+                    </View>
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
       </ScrollView>
+
+      {/* ── Fixed Bottom Button Area ─────────────────────────────────────── */}
+      <View style={[styles.bottomCtaWrap, { paddingBottom: insets.bottom + 12 }]}>
+        <LinearGradient
+          colors={['transparent', '#0A0413', '#0A0413']}
+          locations={[0, 0.35, 1]}
+          style={styles.bottomCtaGradient}
+        >
+          <View style={styles.ctaButtonRow}>
+            <TouchableOpacity
+              style={styles.ctaButton}
+              activeOpacity={0.85}
+              onPress={onStartPlan}
+            >
+              <LinearGradient
+                colors={['#2B1A65', '#4828A2', '#2B1A65']}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={styles.ctaGradient}
+              >
+                <Text style={styles.ctaText}>Start My Plan</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            {/* White circle arrow button */}
+            <TouchableOpacity
+              style={styles.ctaArrowBtn}
+              activeOpacity={0.85}
+              onPress={onStartPlan}
+            >
+              <ArrowDownIcon size={20} color="#000" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Secondary link */}
+          <TouchableOpacity style={styles.secondaryBtn} onPress={onViewFullScan}>
+            <Text style={styles.secondaryText}>View Full Scan</Text>
+          </TouchableOpacity>
+        </LinearGradient>
+      </View>
     </View>
   );
 }
 
 // ─── Styles ─────────────────────────────────────────────────────────────────
 
-const SNAP_CARD_W = (SCREEN_WIDTH - 44 - 10) / 2;
+const SNAP_CARD_W = (SCREEN_WIDTH - 44 - 12) / 2;
 
 const styles = StyleSheet.create({
   // ── Screen ────────────────────────────────────────────────────────────────
   screen: {
     flex: 1,
-    backgroundColor: '#050210',
+    backgroundColor: '#080310',
   },
   content: {
-    paddingHorizontal: 22,
-    paddingBottom: 40,
-  },
-
-  // ── Background glow orbs ─────────────────────────────────────────────────
-  bgGlow: {
-    position: 'absolute',
-    borderRadius: 999,
-    shadowOpacity: 0.35,
-    shadowOffset: { width: 0, height: 0 },
+    paddingHorizontal: 20,
   },
 
   // ── Top row ──────────────────────────────────────────────────────────────
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 18,
+    marginBottom: 24,
+    gap: 14,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    marginRight: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    width: 52,
+    height: 52,
+    borderRadius: 14,
   },
   avatarPlaceholder: {
     backgroundColor: 'rgba(120,70,255,0.30)',
@@ -405,137 +399,131 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   topTitle: {
-    color: '#F7F3FF',
-    fontFamily: Fonts.bold,
-    fontSize: 22,
-    letterSpacing: -0.5,
-    marginBottom: 6,
+    color: '#FFFFFF',
+    fontFamily: Fonts.semibold,
+    fontSize: 18,
+    marginBottom: 4,
   },
   topSubtitle: {
-    color: 'rgba(236,228,255,0.76)',
+    color: '#8B80A5',
     fontFamily: Fonts.regular,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 18,
   },
 
   // ── Hero card ────────────────────────────────────────────────────────────
   heroCard: {
     overflow: 'hidden',
-    borderRadius: 28,
-    padding: 22,
+    borderRadius: 24,
+    padding: 24,
     marginBottom: 28,
-    backgroundColor: 'rgba(32,16,70,0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(167,130,255,0.20)',
+    borderColor: 'rgba(62,41,122,0.50)',
     shadowColor: '#7B4DFF',
     shadowOpacity: 0.35,
     shadowRadius: 30,
     shadowOffset: { width: 0, height: 10 },
     elevation: 12,
   },
-  heroInnerGlow: {
+  heroFlareTop: {
     position: 'absolute',
-    top: -20,
-    left: -20,
-    width: 220,
-    height: 160,
+    top: -1,
+    left: 24,
+    width: 120,
+    height: 2,
     borderRadius: 999,
-    backgroundColor: 'rgba(164,112,255,0.16)',
+    backgroundColor: 'rgba(195,149,255,0.80)',
+    shadowColor: '#A56BFF',
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
-  heroCornerGlow: {
+  heroFlareBottom: {
     position: 'absolute',
-    right: -20,
-    bottom: -10,
-    width: 140,
-    height: 140,
+    bottom: -1,
+    right: 24,
+    width: 120,
+    height: 2,
     borderRadius: 999,
-    backgroundColor: 'rgba(120,92,255,0.12)',
-  },
-  heroHighlightStreak: {
-    position: 'absolute',
-    bottom: 18,
-    right: 18,
-    width: 180,
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: 'rgba(187,147,255,0.55)',
-    shadowColor: '#C49BFF',
-    shadowOpacity: 0.8,
-    shadowRadius: 18,
+    backgroundColor: 'rgba(195,149,255,0.80)',
+    shadowColor: '#A56BFF',
+    shadowOpacity: 0.9,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 0 },
   },
   heroTitle: {
-    color: '#F7F3FF',
+    color: '#FFFFFF',
     fontFamily: Fonts.bold,
-    fontSize: 28,
-    letterSpacing: -0.7,
-    marginBottom: 12,
+    fontSize: 22,
+    marginBottom: 8,
   },
   heroBody: {
-    color: 'rgba(236,228,255,0.78)',
+    color: '#8B80A5',
     fontFamily: Fonts.regular,
-    fontSize: 15,
-    lineHeight: 25,
-    marginBottom: 18,
-    maxWidth: '93%',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   pillRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 10,
   },
   infoPill: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 999,
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 14,
-    backgroundColor: 'rgba(78,49,146,0.34)',
+    backgroundColor: 'rgba(0,0,0,0.20)',
     borderWidth: 1,
-    borderColor: 'rgba(196,176,255,0.08)',
-    marginRight: 10,
+    borderColor: 'rgba(62,41,122,0.30)',
+    marginRight: 8,
   },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    backgroundColor: 'rgba(78,49,146,0.30)',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(0,0,0,0.30)',
     borderWidth: 1,
-    borderColor: 'rgba(196,176,255,0.08)',
+    borderColor: 'rgba(62,41,122,0.30)',
     gap: 6,
   },
   statusText: {
-    fontFamily: Fonts.bold,
-    fontSize: 15,
+    fontFamily: Fonts.medium,
+    fontSize: 13,
   },
   pillLabel: {
-    color: 'rgba(228,220,255,0.76)',
+    color: '#8B80A5',
     fontFamily: Fonts.regular,
-    fontSize: 14,
-    marginRight: 6,
+    fontSize: 13,
+    marginRight: 4,
   },
   pillValue: {
-    color: '#F8F4FF',
-    fontFamily: Fonts.bold,
-    fontSize: 14,
+    color: '#FFFFFF',
+    fontFamily: Fonts.medium,
+    fontSize: 13,
   },
   dot: {
-    width: 13,
-    height: 13,
+    width: 10,
+    height: 10,
     borderRadius: 999,
   },
 
-  // ── Section label ────────────────────────────────────────────────────────
+  // ── Section ─────────────────────────────────────────────────────────────
+  sectionWrap: {
+    marginBottom: 28,
+    paddingHorizontal: 0,
+  },
   sectionLabel: {
-    color: 'rgba(193,177,227,0.65)',
-    fontFamily: Fonts.semibold,
-    fontSize: 13,
-    letterSpacing: 3,
-    textTransform: 'uppercase',
+    color: '#7A6F95',
+    fontFamily: Fonts.bold,
+    fontSize: 11,
+    letterSpacing: 1.5,
     marginBottom: 16,
   },
 
@@ -543,103 +531,60 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 28,
   },
   snapshotCard: {
     width: SNAP_CARD_W,
     overflow: 'hidden',
-    borderRadius: 20,
-    padding: 14,
-    paddingVertical: 16,
+    borderRadius: 16,
+    padding: 12,
     marginBottom: 12,
-    backgroundColor: 'rgba(25,12,58,0.80)',
+    backgroundColor: '#180E2F',
     borderWidth: 1,
-    borderColor: 'rgba(130,94,230,0.16)',
-    shadowColor: '#6F42FF',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-  snapGlowA: {
-    position: 'absolute',
-    top: -10,
-    left: -10,
-    width: 110,
-    height: 110,
-    borderRadius: 999,
-  },
-  snapGlowB: {
-    position: 'absolute',
-    bottom: -18,
-    right: -8,
-    width: 90,
-    height: 90,
-    borderRadius: 999,
-    backgroundColor: 'rgba(103,130,255,0.07)',
+    borderColor: '#2B1754',
   },
   snapRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 8,
   },
-  snapIconHalo: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
+  snapIconWrap: {
+    width: 24,
     alignItems: 'center',
   },
-  snapTextWrap: {
+  snapTitle: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.regular,
+    fontSize: 14,
     flex: 1,
   },
-  snapTitle: {
-    color: '#F7F3FF',
-    fontFamily: Fonts.semibold,
-    fontSize: 13,
-    marginBottom: 2,
-  },
-  snapSub: {
-    fontFamily: Fonts.regular,
-    fontSize: 11,
-    opacity: 0.8,
+  snapBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   snapSeverity: {
-    fontFamily: Fonts.bold,
+    fontFamily: Fonts.regular,
     fontSize: 13,
-    marginRight: 2,
   },
 
-  // ── Recommendation cards ─────────────────────────────────────────────────
-  recCard: {
+  // ── Recommendation cards (gradient-bordered) ────────────────────────────
+  recBorderGradient: {
+    borderRadius: 20,
+    padding: 1,
+  },
+  recCardInner: {
     overflow: 'hidden',
-    borderRadius: 22,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    marginBottom: 14,
-    backgroundColor: 'rgba(27,13,61,0.82)',
-    borderWidth: 1,
-    borderColor: 'rgba(145,112,255,0.16)',
-    shadowColor: '#6E41FF',
-    shadowOpacity: 0.20,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 7,
+    borderRadius: 19,
+    padding: 16,
+    backgroundColor: '#12082A',
   },
   recGlowOrb: {
     position: 'absolute',
-    left: -18,
-    top: 12,
-    width: 90,
-    height: 90,
-    borderRadius: 999,
-  },
-  recLeftEdge: {
-    position: 'absolute',
-    left: 0,
-    top: 14,
-    bottom: 14,
-    width: 3.5,
+    top: -12,
+    left: -12,
+    width: 32,
+    height: 32,
     borderRadius: 999,
   },
   recRow: {
@@ -647,7 +592,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   recIconWrap: {
-    width: 30,
+    width: 24,
     alignItems: 'center',
     marginRight: 12,
   },
@@ -655,60 +600,70 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   recTitle: {
-    color: '#F7F3FF',
-    fontFamily: Fonts.semibold,
-    fontSize: 16,
-    marginBottom: 5,
+    color: '#FFFFFF',
+    fontFamily: Fonts.medium,
+    fontSize: 15,
+    marginBottom: 3,
   },
   recSubtitle: {
-    color: 'rgba(236,228,255,0.70)',
+    color: '#8B80A5',
     fontFamily: Fonts.regular,
-    fontSize: 14,
+    fontSize: 13,
   },
 
-  // ── CTA ──────────────────────────────────────────────────────────────────
+  // ── Fixed Bottom CTA ────────────────────────────────────────────────────
+  bottomCtaWrap: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
+  bottomCtaGradient: {
+    paddingHorizontal: 20,
+    paddingTop: 48,
+    paddingBottom: 8,
+  },
+  ctaButtonRow: {
+    position: 'relative',
+    marginBottom: 8,
+  },
   ctaButton: {
     borderRadius: 999,
     overflow: 'hidden',
-    marginTop: 10,
-    shadowColor: '#8A5CFF',
-    shadowOpacity: 0.38,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
   },
   ctaGradient: {
-    paddingVertical: 20,
+    paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(210,190,255,0.18)',
-    overflow: 'hidden',
-  },
-  ctaInnerGlow: {
-    position: 'absolute',
-    right: 30,
-    top: 6,
-    width: 120,
-    height: 50,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   ctaText: {
     color: '#FFFFFF',
-    fontFamily: Fonts.bold,
-    fontSize: 18,
-    letterSpacing: 0.2,
+    fontFamily: Fonts.medium,
+    fontSize: 16,
+  },
+  ctaArrowBtn: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
   },
 
   // ── Secondary ────────────────────────────────────────────────────────────
   secondaryBtn: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 12,
   },
   secondaryText: {
-    color: 'rgba(228,220,255,0.42)',
-    fontFamily: Fonts.semibold,
-    fontSize: 15,
+    color: '#8B80A5',
+    fontFamily: Fonts.medium,
+    fontSize: 13,
   },
 });
