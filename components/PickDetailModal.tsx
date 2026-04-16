@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, FlatList, Linking, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, FlatList, Linking, Dimensions, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Rect, Circle } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius, Typography } from '@/lib/theme';
@@ -64,20 +64,33 @@ function openAmazonSearch(query: string) {
   Linking.openURL(`https://www.amazon.com/s?k=${encodeURIComponent(query)}`);
 }
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  Skincare: '✨', Supplements: '💊', Foods: '🥗', Herbal: '🌿', Accessories: '🛏️',
+};
+
 function CarouselCard({ product }: { product: Product }) {
+  const link = product.asin
+    ? `https://www.amazon.com/dp/${product.asin}`
+    : `https://www.amazon.com/s?k=${encodeURIComponent(`${product.brand} ${product.name}`)}`;
+
   return (
     <TouchableOpacity
       style={cStyles.carouselCard}
       activeOpacity={0.88}
-      onPress={() => openAmazonSearch(`${product.brand} ${product.name}`)}
+      onPress={() => Linking.openURL(link)}
     >
-      <View style={cStyles.carouselIcon}>
-        <Text style={cStyles.carouselEmoji}>
-          {product.category === 'Skincare' ? '✨' :
-           product.category === 'Supplements' ? '💊' :
-           product.category === 'Foods' ? '🥗' :
-           product.category === 'Herbal' ? '🌿' : '🛏️'}
-        </Text>
+      <View style={cStyles.carouselImageBox}>
+        {product.image_url ? (
+          <Image
+            source={{ uri: product.image_url }}
+            style={cStyles.carouselImage}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={cStyles.carouselEmoji}>
+            {CATEGORY_EMOJI[product.category] ?? '✨'}
+          </Text>
+        )}
       </View>
       {product.brand ? <Text style={cStyles.carouselBrand}>{product.brand}</Text> : null}
       <Text style={cStyles.carouselName} numberOfLines={2}>{product.name}</Text>
@@ -364,16 +377,21 @@ const cStyles = StyleSheet.create({
     padding: 12,
     gap: 4,
   },
-  carouselIcon: {
+  carouselImageBox: {
     width: CAROUSEL_CARD_WIDTH - 24,
-    height: 70,
-    backgroundColor: Colors.cardGlass,
+    height: 80,
+    backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
+    overflow: 'hidden',
   },
-  carouselEmoji: { fontSize: 24 },
+  carouselImage: {
+    width: '85%',
+    height: '85%',
+  },
+  carouselEmoji: { fontSize: 28 },
   carouselBrand: {
     fontSize: 9,
     fontWeight: '700',

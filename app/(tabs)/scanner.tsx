@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -16,21 +16,18 @@ import Svg, { Rect as SvgRect, Circle as SvgCircle, Path as SvgPath } from 'reac
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Animated } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useTabTransition } from '@/hooks/useTabTransition';
 import { supabase } from '@/lib/supabase';
 import { Colors, Shadows } from '@/lib/theme';
 import ScreenBackground from '@/components/ScreenBackground';
-import type { Database } from '@/lib/database.types';
-import { PRODUCTS, PRODUCT_CATEGORIES, CATEGORY_META } from '@/lib/products';
-import type { Product, ProductCategory } from '@/lib/products';
-import { searchProducts, fetchByCategory } from '@/lib/product-search';
+import type { Product } from '@/lib/products';
+import { matchProductsToPick } from '@/lib/match-products-to-pick';
 import ProductCard from '@/components/ProductCard';
 import { useFavorites } from '@/hooks/useFavorites';
 import { cleanProductName } from '@/lib/clean-product-name';
+import type { RankedItem } from '@/lib/database.types';
 import { useTranslation } from 'react-i18next';
-
-type ProductScan = Database['public']['Tables']['product_scans']['Row'];
 
 const CARD_GAP = 14;
 const SEARCH_DEBOUNCE = 600;
@@ -41,23 +38,90 @@ export default function ScannerScreen() {
   const router = useRouter();
   const { animatedStyle } = useTabTransition();
   const [permission, requestPermission] = useCameraPermissions();
+
+  // Barcode scanner state
   const [scanning, setScanning] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [scansUsed, setScansUsed] = useState(0);
-  const [activeFilter, setActiveFilter] = useState<'All' | ProductCategory>('All');
-  const [sortBy, setSortBy] = useState<'match' | 'price_asc' | 'price_desc'>('match');
-  const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
-  const [categoryLoading, setCategoryLoading] = useState(false);
+
+  // Plan-based products
+  const [planProducts, setPlanProducts] = useState<Product[]>([]);
+  const [hasPlan, setHasPlan] = useState<boolean | null>(null); // null = loading
+  const [loadingPlan, setLoadingPlan] = useState(true);
+
+  // Search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Product[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [showFavorites, setShowFavorites] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Favorites
+  const [showFavorites, setShowFavorites] = useState(false);
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
 
+  // ── Load plan-matched products on focus ──────────────────────────────────
+  const loadPlanProducts = useCallback(async () => {
+    setLoadingPlan(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setHasPlan(false); setLoadingPlan(false); return; }
+
+      // Load scan count
+      const profileRes = await supabase
+        .from('profiles')
+        .select('product_scans_used')
+        .eq('id', user.id)
+        .single();
+      if (profileRes.data) setScansUsed(profileRes.data.product_scans_used || 0);
+
+      // Load active plan
+      const { data: plan } = await supabase
+        .from('personalized_plans')
+        .select('ranked_items')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!plan || !plan.ranked_items) {
+        setHasPlan(false);
+        setLoadingPlan(false);
+        return;
+      }
+
+      setHasPlan(true);
+      const items = plan.ranked_items as unknown as RankedItem[];
+
+      // Match curated products to each plan item, dedupe
+      const seen = new Set<string>();
+      const matched: Product[] = [];
+      for (const item of items) {
+        const picks = matchProductsToPick(item, 4);
+        for (const p of picks) {
+          if (!seen.has(p.id)) {
+            seen.add(p.id);
+            matched.push(p);
+          }
+        }
+      }
+
+      setPlanProducts(matched);
+    } catch (err) {
+      console.error('loadPlanProducts error:', err);
+      setHasPlan(false);
+    } finally {
+      setLoadingPlan(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    loadPlanProducts();
+  }, [loadPlanProducts]));
+
+  // ── Search via Rainforest (official Amazon images) ───────────────────────
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -69,15 +133,19 @@ export default function ScannerScreen() {
       return;
     }
 
-    // Debounced API search for 3+ chars
     if (text.trim().length >= 3) {
       setIsSearching(true);
       searchTimer.current = setTimeout(async () => {
         try {
-          const results = await searchProducts(text.trim());
-          setSearchResults(results);
+          const { data, error } = await supabase.functions.invoke('search-products', {
+            body: { query: text.trim() },
+          });
+          if (error) throw error;
+          if (data?.error) console.warn('[shop] Rainforest API error:', data.error);
+          setSearchResults(data?.products ?? []);
           setHasSearched(true);
-        } catch {
+        } catch (err) {
+          console.error('Search error:', err);
           setSearchResults([]);
         } finally {
           setIsSearching(false);
@@ -94,30 +162,7 @@ export default function ScannerScreen() {
     if (searchTimer.current) clearTimeout(searchTimer.current);
   };
 
-  const loadUserData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const profileRes = await supabase
-      .from('profiles')
-      .select('product_scans_used, subscription_tier')
-      .eq('id', user.id)
-      .single();
-    if (profileRes.data) {
-      setScansUsed(profileRes.data.product_scans_used || 0);
-    }
-  }, []);
-
-  useEffect(() => { loadUserData(); }, [loadUserData]);
-
-  useEffect(() => {
-    if (activeFilter === 'All') { setCategoryProducts([]); return; }
-    setCategoryLoading(true);
-    fetchByCategory(activeFilter)
-      .then(setCategoryProducts)
-      .catch(() => setCategoryProducts([]))
-      .finally(() => setCategoryLoading(false));
-  }, [activeFilter]);
-
+  // ── Barcode scanner ──────────────────────────────────────────────────────
   const handleBarcodeScan = async (barcode: string) => {
     if (!barcode.trim()) return;
     setScanning(false);
@@ -145,38 +190,14 @@ export default function ScannerScreen() {
     setScanning(true);
   };
 
-  // Show search results if we have them, otherwise filter curated picks
-  const isLiveSearch = hasSearched && searchResults.length > 0;
-
-  const baseProducts = activeFilter === 'All' ? PRODUCTS.slice(0, 30) : categoryProducts;
-
-  const filteredPicks = baseProducts
-    .filter((p) => {
-      const q = searchQuery.trim().toLowerCase();
-      return !q ||
-        p.name.toLowerCase().includes(q) ||
-        (p.brand || '').toLowerCase().includes(q) ||
-        (p.description || '').toLowerCase().includes(q);
-    })
-    .sort((a, b) => {
-      if (sortBy === 'price_asc') return (a.price_numeric ?? 999) - (b.price_numeric ?? 999);
-      if (sortBy === 'price_desc') return (b.price_numeric ?? 0) - (a.price_numeric ?? 0);
-      return b.match_percent - a.match_percent;
-    });
-
-  const displayProducts = isLiveSearch ? searchResults : filteredPicks;
-
   const handleProductPress = (product: Product) => {
     router.push({
       pathname: '/product/[id]',
-      params: {
-        id: product.id,
-        data: JSON.stringify(product),
-      },
+      params: { id: product.id, data: JSON.stringify(product) },
     });
   };
 
-  // Camera overlay
+  // ── Camera overlay ───────────────────────────────────────────────────────
   if (scanning && permission?.granted) {
     return (
       <View style={styles.container}>
@@ -190,33 +211,15 @@ export default function ScannerScreen() {
             onBarcodeScanned={({ data }) => handleBarcodeScan(data)}
           />
           <View style={styles.scannerOverlay}>
-            <TouchableOpacity
-              style={[styles.backBtn, { top: insets.top + 16 }]}
-              onPress={() => setScanning(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.backBtnText}>{'\u2039'}</Text>
+            <TouchableOpacity style={[styles.backBtn, { top: insets.top + 16 }]} onPress={() => setScanning(false)} activeOpacity={0.8}>
+              <Text style={styles.backBtnText}>‹</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.torchBtn, { top: insets.top + 16 }]}
-              onPress={() => setTorchOn(prev => !prev)}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={[styles.torchBtn, { top: insets.top + 16 }]} onPress={() => setTorchOn(prev => !prev)} activeOpacity={0.8}>
               <View style={styles.torchCircle}>
                 <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-                  {/* Flashlight head / lens */}
-                  <SvgPath
-                    d="M8.5 4.5 C8.5 3 15.5 3 15.5 4.5 L16 7 H8 L8.5 4.5z"
-                    fill={torchOn ? '#FFD700' : '#8A8A8A'}
-                  />
-                  {/* Wide head ring */}
+                  <SvgPath d="M8.5 4.5 C8.5 3 15.5 3 15.5 4.5 L16 7 H8 L8.5 4.5z" fill={torchOn ? '#FFD700' : '#8A8A8A'} />
                   <SvgRect x={7.5} y={7} width={9} height={2.5} rx={0.8} fill={torchOn ? '#FFD700' : '#8A8A8A'} />
-                  {/* Body - tapered */}
-                  <SvgPath
-                    d="M8.5 9.5 H15.5 L14.5 20 C14.5 21 9.5 21 9.5 20 L8.5 9.5z"
-                    fill={torchOn ? '#FFD700' : '#7A7A7A'}
-                  />
-                  {/* Button circle */}
+                  <SvgPath d="M8.5 9.5 H15.5 L14.5 20 C14.5 21 9.5 21 9.5 20 L8.5 9.5z" fill={torchOn ? '#FFD700' : '#7A7A7A'} />
                   <SvgCircle cx={12} cy={15} r={1.5} fill={torchOn ? 'rgba(0,0,0,0.3)' : '#999999'} />
                   <SvgCircle cx={12} cy={15} r={0.8} fill={torchOn ? 'rgba(255,255,255,0.5)' : '#AAAAAA'} />
                 </Svg>
@@ -234,19 +237,73 @@ export default function ScannerScreen() {
     );
   }
 
-  const counts: Record<string, number> = { All: PRODUCTS.length };
-  for (const p of PRODUCTS) counts[p.category] = (counts[p.category] || 0) + 1;
+  const isLiveSearch = searchQuery.trim().length >= 3;
+  const displayProducts = isLiveSearch ? searchResults : planProducts;
 
+  // ── No plan yet ──────────────────────────────────────────────────────────
+  if (!loadingPlan && hasPlan === false && !isLiveSearch) {
+    return (
+      <Animated.View style={[styles.container, { paddingTop: insets.top }, animatedStyle]}>
+        <ScreenBackground preset="shop" />
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>{t('scanner.title')}</Text>
+            <Text style={styles.subtitle}>{t('scanner.subtitle')}</Text>
+          </View>
+        </View>
+
+        {/* Search still works even without a plan */}
+        <View style={styles.searchWrap}>
+          <View style={styles.searchBar}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search any product..."
+              placeholderTextColor="#B5AFA5"
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              returnKeyType="search"
+            />
+            {isSearching && <ActivityIndicator size="small" color="#7C5CFC" style={{ marginRight: 4 }} />}
+            {searchQuery.length > 0 && !isSearching && (
+              <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={styles.clearIcon}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateEmoji}>🌿</Text>
+          <Text style={styles.emptyStateTitle}>Your shop is waiting</Text>
+          <Text style={styles.emptyStateBody}>
+            Complete your first skin scan to get products personally matched to your skin type and condition.
+          </Text>
+          <TouchableOpacity
+            style={styles.scanNowBtn}
+            onPress={() => router.push('/(tabs)/scan')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.scanNowText}>Do Your First Scan →</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  // ── Main shop ────────────────────────────────────────────────────────────
   return (
     <Animated.View style={[styles.container, { paddingTop: insets.top }, animatedStyle]}>
       <ScreenBackground preset="shop" />
+
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>{t('scanner.title')}</Text>
-          <Text style={styles.subtitle}>{t('scanner.subtitle')}</Text>
+          <Text style={styles.subtitle}>
+            {isLiveSearch ? `Results for "${searchQuery}"` : 'Matched to your routine'}
+          </Text>
         </View>
         <TouchableOpacity style={styles.favBtn} onPress={() => setShowFavorites(true)} activeOpacity={0.8}>
-          <Text style={styles.favBtnIcon}>{'\u2665'}</Text>
+          <Text style={styles.favBtnIcon}>♥</Text>
           {favorites.length > 0 && (
             <View style={styles.favCount}>
               <Text style={styles.favCountText}>{favorites.length}</Text>
@@ -256,12 +313,12 @@ export default function ScannerScreen() {
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollInner} showsVerticalScrollIndicator={false}>
-        {/* Search row */}
-        <View style={styles.searchRow}>
-          <View style={[styles.searchBar, { flex: 1 }]}>
+        {/* Search */}
+        <View style={styles.searchWrap}>
+          <View style={styles.searchBar}>
             <TextInput
               style={styles.searchInput}
-              placeholder={t('scanner.searchPlaceholder')}
+              placeholder="Search any product on Amazon..."
               placeholderTextColor="#B5AFA5"
               value={searchQuery}
               onChangeText={handleSearchChange}
@@ -270,99 +327,54 @@ export default function ScannerScreen() {
             {isSearching && <ActivityIndicator size="small" color="#7C5CFC" style={{ marginRight: 4 }} />}
             {searchQuery.length > 0 && !isSearching && (
               <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.clearIcon}>{'\u2715'}</Text>
+                <Text style={styles.clearIcon}>✕</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
 
-        {/* Category tabs — hide during live search */}
-
-        {/* Section heading */}
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>
-            {isLiveSearch ? `Results for "${searchQuery}"` : activeFilter === 'All' ? t('scanner.recommended') : CATEGORY_META[activeFilter as ProductCategory].label}
-          </Text>
-          <TouchableOpacity style={styles.filterBtn} onPress={() => setShowFilterMenu(true)} activeOpacity={0.8}>
-            <Text style={styles.filterBtnText}>
-              {sortBy === 'price_asc' ? t('scanner.filterLow') : sortBy === 'price_desc' ? t('scanner.filterHigh') : t('scanner.filterBestMatch')}
-            </Text>
-            <Text style={styles.filterBtnIcon}>{'\u25BC'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Filter modal */}
-        <Modal visible={showFilterMenu} animationType="fade" transparent onRequestClose={() => setShowFilterMenu(false)}>
-          <TouchableOpacity style={styles.filterOverlay} activeOpacity={1} onPress={() => setShowFilterMenu(false)}>
-            <View style={styles.filterDropdown}>
-              <Text style={styles.filterDropdownTitle}>{t('scanner.category')}</Text>
-              {(['All', 'Skincare', 'Supplements', 'Foods', 'Herbal', 'Accessories'] as const).map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.filterOption, activeFilter === cat && styles.filterOptionActive]}
-                  onPress={() => { setActiveFilter(cat); setShowFilterMenu(false); }}
-                >
-                  <Text style={[styles.filterOptionText, activeFilter === cat && styles.filterOptionTextActive]}>{cat === 'All' ? t('scanner.recommended') : cat}</Text>
-                  {activeFilter === cat && <Text style={styles.filterCheck}>{'\u2713'}</Text>}
-                </TouchableOpacity>
-              ))}
-              <View style={styles.filterDivider} />
-              <Text style={styles.filterDropdownTitle}>{t('scanner.sortByPrice')}</Text>
-              {([
-                { key: 'match', label: t('scanner.bestMatch') },
-                { key: 'price_asc', label: t('scanner.priceLow') },
-                { key: 'price_desc', label: t('scanner.priceHigh') },
-              ] as const).map((s) => (
-                <TouchableOpacity
-                  key={s.key}
-                  style={[styles.filterOption, sortBy === s.key && styles.filterOptionActive]}
-                  onPress={() => { setSortBy(s.key); setShowFilterMenu(false); }}
-                >
-                  <Text style={[styles.filterOptionText, sortBy === s.key && styles.filterOptionTextActive]}>{s.label}</Text>
-                  {sortBy === s.key && <Text style={styles.filterCheck}>{'\u2713'}</Text>}
-                </TouchableOpacity>
-              ))}
-            </View>
-          </TouchableOpacity>
-        </Modal>
-
-        {/* Search hint */}
-        {searchQuery.trim().length > 0 && searchQuery.trim().length < 3 && !isSearching && (
-          <Text style={styles.searchHint}>{t('scanner.searchHint')}</Text>
-        )}
-
-        {(analyzing || categoryLoading) && (
+        {/* Loading plan */}
+        {loadingPlan && !isLiveSearch && (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color="#7C5CFC" />
-            <Text style={styles.loadingText}>{categoryLoading ? t('scanner.loading', { category: activeFilter }) : t('scanner.loadingProduct')}</Text>
+            <Text style={styles.loadingText}>Loading your picks...</Text>
           </View>
         )}
 
         {/* Product grid */}
-        <View style={styles.grid}>
-          {displayProducts.map((product, i) => (
-            <View key={product.id} style={[styles.gridCell, i % 2 === 0 ? { marginRight: CARD_GAP / 2 } : { marginLeft: CARD_GAP / 2 }]}>
-              <ProductCard
-                product={product}
-                onPress={handleProductPress}
-                isFavorite={isFavorite(product.id)}
-                onToggleFavorite={toggleFavorite}
-              />
-            </View>
-          ))}
-        </View>
-
-        {displayProducts.length === 0 && !analyzing && !isSearching && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>{'\u{1F50D}'}</Text>
-            <Text style={styles.emptyTitle}>{hasSearched ? t('scanner.noResults') : t('scanner.noMatches')}</Text>
-            <Text style={styles.emptyBody}>{hasSearched ? t('scanner.tryDifferent') : t('scanner.trySearch')}</Text>
+        {!loadingPlan && (
+          <View style={styles.grid}>
+            {displayProducts.map((product, i) => (
+              <View key={product.id} style={[styles.gridCell, i % 2 === 0 ? { marginRight: CARD_GAP / 2 } : { marginLeft: CARD_GAP / 2 }]}>
+                <ProductCard
+                  product={product}
+                  onPress={handleProductPress}
+                  isFavorite={isFavorite(product.id)}
+                  onToggleFavorite={toggleFavorite}
+                />
+              </View>
+            ))}
           </View>
         )}
 
+        {/* Empty states */}
+        {!loadingPlan && displayProducts.length === 0 && !isSearching && isLiveSearch && (
+          <View style={styles.emptySearch}>
+            <Text style={styles.emptySearchIcon}>🔍</Text>
+            <Text style={styles.emptySearchTitle}>No results found</Text>
+            <Text style={styles.emptySearchBody}>Try a different search term</Text>
+          </View>
+        )}
+
+        {analyzing && (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator size="small" color="#7C5CFC" />
+            <Text style={styles.loadingText}>Analyzing product...</Text>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Favorites sidebar */}
+      {/* Favorites drawer */}
       <Modal visible={showFavorites} animationType="slide" transparent onRequestClose={() => setShowFavorites(false)}>
         <View style={styles.favOverlay}>
           <TouchableOpacity style={styles.favBackdrop} activeOpacity={1} onPress={() => setShowFavorites(false)} />
@@ -370,12 +382,12 @@ export default function ScannerScreen() {
             <View style={styles.favHeader}>
               <Text style={styles.favTitle}>{t('scanner.savedFavorites')}</Text>
               <TouchableOpacity onPress={() => setShowFavorites(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={styles.favClose}>{'\u2715'}</Text>
+                <Text style={styles.favClose}>✕</Text>
               </TouchableOpacity>
             </View>
             {favorites.length === 0 ? (
               <View style={styles.favEmpty}>
-                <Text style={styles.favEmptyIcon}>{'\u2661'}</Text>
+                <Text style={styles.favEmptyIcon}>♡</Text>
                 <Text style={styles.favEmptyText}>{t('scanner.noFavorites')}</Text>
                 <Text style={styles.favEmptySubtext}>{t('scanner.noFavoritesHint')}</Text>
               </View>
@@ -393,11 +405,8 @@ export default function ScannerScreen() {
                       <Text style={styles.favItemName} numberOfLines={2}>{cleanProductName(product.name, product.brand)}</Text>
                       {product.price ? <Text style={styles.favItemPrice}>{product.price}</Text> : null}
                     </View>
-                    <TouchableOpacity
-                      onPress={() => toggleFavorite(product)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Text style={styles.favItemHeart}>{'\u2665'}</Text>
+                    <TouchableOpacity onPress={() => toggleFavorite(product)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <Text style={styles.favItemHeart}>♥</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -406,89 +415,65 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
-
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#08080F' },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+
+  header: {
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 4,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+  },
   title: { fontSize: 30, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.4 },
   subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+
   scroll: { flex: 1 },
   scrollInner: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 130 },
 
-  searchRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14,
-  },
+  searchWrap: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 4 },
   searchBar: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#F2EDE6', borderRadius: 14,
     paddingHorizontal: 14, height: 48,
   },
-  scanBtn: {
-    width: 48, height: 48, borderRadius: 14,
-    backgroundColor: '#7C5CFC',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  scanBtnIcon: {
-    width: 20, height: 20, position: 'relative',
-  },
-  scanCorner: {
-    position: 'absolute', width: 7, height: 7,
-    borderColor: '#FFFFFF', borderRadius: 1,
-  },
-  searchIcon: { fontSize: 15, opacity: 0.45, marginRight: 8 },
   searchInput: { flex: 1, fontSize: 14, color: '#1C1C1A', height: 48 },
   clearIcon: { fontSize: 13, color: '#9B9488', padding: 4 },
-  searchHint: { fontSize: 12, color: '#B5AFA5', marginBottom: 12, fontStyle: 'italic' },
 
-  tabsScroll: { marginHorizontal: -20, marginBottom: 22 },
-  tabsRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 20 },
-  tab: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderRadius: 24, backgroundColor: '#F2EDE6',
-  },
-  tabActive: { backgroundColor: '#7C5CFC' },
-  tabEmoji: { fontSize: 14 },
-  tabLabel: { fontSize: 13, fontWeight: '600', color: '#6B6358' },
-  tabLabelActive: { color: '#FFFFFF' },
-  countBubble: {
-    backgroundColor: '#E4DED5', borderRadius: 10,
-    paddingHorizontal: 7, paddingVertical: 1, minWidth: 22, alignItems: 'center',
-  },
-  countBubbleActive: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  countText: { fontSize: 11, fontWeight: '700', color: '#8A8478' },
-  countTextActive: { color: '#FFFFFF' },
-
-  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 16 },
-  sectionTitle: { fontSize: 20, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.2 },
-  sectionCount: { fontSize: 13, color: '#FFFFFF' },
-
-  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 20 },
   loadingText: { fontSize: 13, color: '#7C5CFC', fontWeight: '500' },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingTop: 16 },
   gridCell: { marginBottom: CARD_GAP },
 
-  empty: { alignItems: 'center', paddingVertical: 48, gap: 6 },
-  emptyIcon: { fontSize: 36, opacity: 0.35, marginBottom: 4 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#1C1C1A' },
-  emptyBody: { fontSize: 13, color: '#9B9488' },
-
-  scanCta: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#FFFFFF', borderRadius: 16,
-    padding: 18, marginTop: 8, ...Shadows.sm,
+  // ── No plan empty state ──
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 36,
+    paddingTop: 60,
+    gap: 16,
   },
-  scanCtaIcon: { width: 28, height: 28, position: 'relative' },
-  ctaCorner: { position: 'absolute', width: 9, height: 9, borderColor: '#7C5CFC', borderRadius: 1 },
-  scanCtaTitle: { fontSize: 14, fontWeight: '600', color: '#1C1C1A' },
-  scanCtaSub: { fontSize: 12, color: '#9B9488', marginTop: 1 },
-  scanCtaArrow: { fontSize: 22, color: '#C4BDB0', marginLeft: 'auto', fontWeight: '300' },
+  emptyStateEmoji: { fontSize: 52, marginBottom: 8 },
+  emptyStateTitle: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', letterSpacing: -0.3 },
+  emptyStateBody: { fontSize: 15, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 22 },
+  scanNowBtn: {
+    marginTop: 8,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 28, paddingVertical: 16,
+    borderRadius: 16,
+  },
+  scanNowText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
 
+  // ── Search empty ──
+  emptySearch: { alignItems: 'center', paddingVertical: 48, gap: 6 },
+  emptySearchIcon: { fontSize: 36, opacity: 0.35, marginBottom: 4 },
+  emptySearchTitle: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
+  emptySearchBody: { fontSize: 13, color: '#9B9488' },
+
+  // ── Camera ──
   cameraContainer: { flex: 1, position: 'relative' },
   camera: { flex: 1 },
   scannerOverlay: {
@@ -497,7 +482,6 @@ const styles = StyleSheet.create({
   },
   scannerFrame: { width: 240, height: 140, position: 'relative' },
   corner: { position: 'absolute', width: 26, height: 26, borderColor: '#FFFFFF' },
-  scanLabel: { fontSize: 14, color: '#FFFFFF', marginTop: 18, opacity: 0.85 },
   backBtn: {
     position: 'absolute', left: 16, zIndex: 20,
     width: 40, height: 40, borderRadius: 20,
@@ -516,58 +500,8 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(180,180,180,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
-  torchBtnText: { fontSize: 20, color: 'rgba(255,255,255,0.6)' },
-  torchBtnActive: { color: '#FFD700' },
-  cancelBtn: { position: 'absolute', bottom: 40, left: 0, right: 0, alignItems: 'center' },
-  cancelText: {
-    fontSize: 15, fontWeight: '600', color: '#FFFFFF',
-    backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 28, paddingVertical: 12,
-    borderRadius: 100, overflow: 'hidden',
-  },
 
-  paywallOverlay: {
-    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(28,28,26,0.85)', justifyContent: 'flex-end',
-  },
-  paywallCard: {
-    backgroundColor: '#7C5CFC', borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    padding: 28, paddingBottom: 44, gap: 16, alignItems: 'center',
-  },
-  paywallEmoji: { fontSize: 44 },
-  paywallTitle: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' },
-  paywallBody: { fontSize: 14, color: 'rgba(255,255,255,0.65)', textAlign: 'center', lineHeight: 22 },
-  upgradeBtn: {
-    width: '100%', height: 52, borderRadius: 14,
-    backgroundColor: '#C8573E', justifyContent: 'center', alignItems: 'center',
-  },
-  upgradeText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF' },
-  dismissText: { fontSize: 14, color: 'rgba(255,255,255,0.4)', textDecorationLine: 'underline' },
-
-  // Filter button
-  filterBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: Colors.card, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 6,
-  },
-  filterBtnText: { fontSize: 13, fontWeight: '600', color: Colors.white },
-  filterBtnIcon: { fontSize: 8, color: '#9B9488' },
-
-  // Filter dropdown
-  filterOverlay: { flex: 1, justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 180, paddingRight: 20 },
-  filterDropdown: {
-    backgroundColor: Colors.card, borderRadius: 16,
-    paddingVertical: 8, minWidth: 200,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  filterDropdownTitle: { fontSize: 10, fontWeight: '700', color: '#9B9488', letterSpacing: 1.2, paddingHorizontal: 16, paddingVertical: 8 },
-  filterOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
-  filterOptionActive: { backgroundColor: 'rgba(124,92,252,0.12)' },
-  filterOptionText: { fontSize: 14, fontWeight: '500', color: Colors.white },
-  filterOptionTextActive: { color: Colors.primary, fontWeight: '600' },
-  filterCheck: { fontSize: 14, color: Colors.primary, fontWeight: '700' },
-  filterDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
-
-  // Header favorites button
+  // ── Favorites ──
   favBtn: {
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: Colors.card,
@@ -581,8 +515,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   favCountText: { fontSize: 9, fontWeight: '700', color: '#FFFFFF' },
-
-  // Favorites drawer
   favOverlay: { flex: 1, justifyContent: 'flex-end' },
   favBackdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'transparent' },
   favDrawer: {
