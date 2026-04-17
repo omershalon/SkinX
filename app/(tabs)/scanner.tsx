@@ -57,6 +57,16 @@ export default function ScannerScreen() {
   const [hasSearched, setHasSearched] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Filter / sort
+  const [sortFilter, setSortFilter] = useState<'best' | 'low' | 'high'>('best');
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterLabel = sortFilter === 'low' ? t('scanner.filterLow') : sortFilter === 'high' ? t('scanner.filterHigh') : t('scanner.filterBestMatch');
+  const FILTER_OPTIONS: { key: 'best' | 'low' | 'high'; label: string }[] = [
+    { key: 'best', label: t('scanner.bestMatch') },
+    { key: 'low',  label: t('scanner.priceLow') },
+    { key: 'high', label: t('scanner.priceHigh') },
+  ];
+
   // Favorites
   const [showFavorites, setShowFavorites] = useState(false);
   const { favorites, toggle: toggleFavorite, isFavorite } = useFavorites();
@@ -238,7 +248,12 @@ export default function ScannerScreen() {
   }
 
   const isLiveSearch = searchQuery.trim().length >= 3;
-  const displayProducts = isLiveSearch ? searchResults : planProducts;
+  const baseProducts = isLiveSearch ? searchResults : planProducts;
+  const displayProducts = [...baseProducts].sort((a, b) => {
+    if (sortFilter === 'best') return 0;
+    const priceOf = (p: Product) => parseFloat((p.price ?? '').replace(/[^0-9.]/g, '')) || 0;
+    return sortFilter === 'low' ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a);
+  });
 
   // ── No plan yet ──────────────────────────────────────────────────────────
   if (!loadingPlan && hasPlan === false && !isLiveSearch) {
@@ -332,6 +347,40 @@ export default function ScannerScreen() {
             )}
           </View>
         </View>
+
+        {/* Filter row + section label */}
+        {!loadingPlan && (
+          <View style={styles.filterRow}>
+            <Text style={styles.sectionLabel}>
+              {isLiveSearch ? `Results for "${searchQuery}"` : t('scanner.recommended')}
+            </Text>
+            <View>
+              <TouchableOpacity
+                style={styles.filterChip}
+                onPress={() => { Haptics.selectionAsync(); setShowFilterMenu(p => !p); }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.filterChipText}>{filterLabel} ▾</Text>
+              </TouchableOpacity>
+              {showFilterMenu && (
+                <View style={styles.filterMenu}>
+                  {FILTER_OPTIONS.map(opt => (
+                    <TouchableOpacity
+                      key={opt.key}
+                      style={[styles.filterMenuItem, sortFilter === opt.key && styles.filterMenuItemActive]}
+                      onPress={() => { Haptics.selectionAsync(); setSortFilter(opt.key); setShowFilterMenu(false); }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterMenuItemText, sortFilter === opt.key && styles.filterMenuItemTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
         {/* Loading plan */}
         {loadingPlan && !isLiveSearch && (
@@ -432,7 +481,7 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollInner: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 130 },
 
-  searchWrap: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 4 },
+  searchWrap: { paddingTop: 14, paddingBottom: 4 },
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#F2EDE6', borderRadius: 14,
@@ -440,6 +489,27 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: '#1C1C1A', height: 48 },
   clearIcon: { fontSize: 13, color: '#9B9488', padding: 4 },
+
+  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, paddingBottom: 4 },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.2, textTransform: 'uppercase' },
+  filterChip: {
+    paddingHorizontal: 14, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+  },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  filterMenu: {
+    position: 'absolute', top: 36, right: 0, zIndex: 100,
+    backgroundColor: '#1C1C28', borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden', minWidth: 180,
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+  },
+  filterMenuItem: { paddingVertical: 13, paddingHorizontal: 16 },
+  filterMenuItemActive: { backgroundColor: 'rgba(124,92,252,0.15)' },
+  filterMenuItemText: { fontSize: 14, fontWeight: '500', color: 'rgba(255,255,255,0.6)' },
+  filterMenuItemTextActive: { color: '#7C5CFC', fontWeight: '700' },
 
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 20 },
   loadingText: { fontSize: 13, color: '#7C5CFC', fontWeight: '500' },
