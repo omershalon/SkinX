@@ -179,21 +179,60 @@ export default function GlowAnalysisDashboard({
         style={StyleSheet.absoluteFill}
       />
 
+      {/* ── Sticky "Scan Results" header ─────────────────────────────────── */}
+      <View style={[styles.scanResultsHeader, { paddingTop: insets.top + 10 }]}>
+        <Text style={styles.scanResultsLabel}>Scan Results</Text>
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: 140 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 8, paddingBottom: 140 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Hero scan image ────────────────────────────────────────────── */}
-        {avatarUri ? (
-          <Image
-            source={{ uri: avatarUri }}
-            style={styles.heroImage}
-            resizeMode="cover"
-          />
-        ) : (
-          <View style={[styles.heroImage, styles.heroImagePlaceholder]} />
-        )}
+        {/* ── Hero row: photo left + summary card right ─────────────────── */}
+        <View style={styles.heroRow}>
+          {/* Photo */}
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.heroImage, styles.heroImagePlaceholder]} />
+          )}
+
+          {/* Skin score card */}
+          {(() => {
+            const score = severity === 'severe' ? 32 : severity === 'moderate' ? 58 : severity === 'mild' ? 76 : 91;
+            const radius = 38;
+            const stroke = 5;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference * (1 - score / 100);
+            const scoreColor = score >= 80 ? '#4ADE80' : score >= 60 ? '#FCD34D' : score >= 40 ? '#FB923C' : '#F87171';
+            return (
+              <View style={styles.heroSummaryCard}>
+                <Text style={styles.heroSummaryEyebrow}>Skin Score</Text>
+                <View style={styles.scoreRingWrap}>
+                  <Svg width={96} height={96}>
+                    <SvgCircle cx={48} cy={48} r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+                    <SvgCircle
+                      cx={48} cy={48} r={radius}
+                      stroke={scoreColor} strokeWidth={stroke} fill="none"
+                      strokeDasharray={`${circumference}`}
+                      strokeDashoffset={offset}
+                      strokeLinecap="round"
+                      rotation="-90" origin="48,48"
+                    />
+                  </Svg>
+                  <View style={styles.scoreRingInner}>
+                    <Text style={[styles.scoreNumber, { color: scoreColor }]}>{score}</Text>
+                    <Text style={styles.scoreOutOf}>/100</Text>
+                  </View>
+                </View>
+                <Text style={styles.scoreLabel}>
+                  {score >= 80 ? 'Great condition' : score >= 60 ? 'Moderate' : score >= 40 ? 'Needs care' : 'High concern'}
+                </Text>
+              </View>
+            );
+          })()}
+        </View>
 
         {/* ── Hero card (glassmorphism) ──────────────────────────────────── */}
         <View style={styles.heroCard}>
@@ -349,12 +388,73 @@ const styles = StyleSheet.create({
   },
 
   // ── Hero scan image ───────────────────────────────────────────────────────
-  heroImage: {
-    width: SCREEN_WIDTH * 0.65,
-    height: 380,
-    alignSelf: 'center',
+  scanResultsHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  scanResultsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  heroRow: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 24,
-    borderRadius: 24,
+  },
+  heroImage: {
+    flex: 1,
+    height: 220,
+    borderRadius: 20,
+  },
+  heroSummaryCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+  heroSummaryEyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  scoreRingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  scoreRingInner: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 1,
+  },
+  scoreNumber: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  scoreOutOf: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    marginTop: 8,
+  },
+  scoreLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    textAlign: 'center',
+    marginTop: 8,
   },
   heroImagePlaceholder: {
     backgroundColor: 'rgba(120,70,255,0.30)',

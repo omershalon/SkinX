@@ -57,9 +57,26 @@ export default function ScannerScreen() {
   const [hasSearched, setHasSearched] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Category filter
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
   // Filter / sort
   const [sortFilter, setSortFilter] = useState<'best' | 'low' | 'high'>('best');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
+  const filterAnim = useRef(new Animated.Value(0)).current;
+
+  const openFilterMenu = () => {
+    setShowFilterMenu(true);
+    filterAnim.setValue(0);
+    Animated.spring(filterAnim, { toValue: 1, tension: 80, friction: 10, useNativeDriver: true }).start();
+  };
+
+  const closeFilterMenu = (cb?: () => void) => {
+    Animated.timing(filterAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      setShowFilterMenu(false);
+      cb?.();
+    });
+  };
   const filterLabel = sortFilter === 'low' ? t('scanner.filterLow') : sortFilter === 'high' ? t('scanner.filterHigh') : t('scanner.filterBestMatch');
   const FILTER_OPTIONS: { key: 'best' | 'low' | 'high'; label: string }[] = [
     { key: 'best', label: t('scanner.bestMatch') },
@@ -247,9 +264,14 @@ export default function ScannerScreen() {
     );
   }
 
+  const CATEGORY_FILTERS = ['All', 'Skincare', 'Supplements', 'Herbal', 'Accessories', 'Foods'];
+
   const isLiveSearch = searchQuery.trim().length >= 3;
   const baseProducts = isLiveSearch ? searchResults : planProducts;
-  const displayProducts = [...baseProducts].sort((a, b) => {
+  const categoryFiltered = categoryFilter === 'All'
+    ? baseProducts
+    : baseProducts.filter(p => p.category === categoryFilter);
+  const displayProducts = [...categoryFiltered].sort((a, b) => {
     if (sortFilter === 'best') return 0;
     const priceOf = (p: Product) => parseFloat((p.price ?? '').replace(/[^0-9.]/g, '')) || 0;
     return sortFilter === 'low' ? priceOf(a) - priceOf(b) : priceOf(b) - priceOf(a);
@@ -357,18 +379,25 @@ export default function ScannerScreen() {
             <View>
               <TouchableOpacity
                 style={styles.filterChip}
-                onPress={() => { Haptics.selectionAsync(); setShowFilterMenu(p => !p); }}
+                onPress={() => { Haptics.selectionAsync(); showFilterMenu ? closeFilterMenu() : openFilterMenu(); }}
                 activeOpacity={0.8}
               >
                 <Text style={styles.filterChipText}>{filterLabel} ▾</Text>
               </TouchableOpacity>
               {showFilterMenu && (
-                <View style={styles.filterMenu}>
+                <Animated.View style={[styles.filterMenu, {
+                  opacity: filterAnim,
+                  transform: [
+                    { translateY: filterAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) },
+                    { scaleY: filterAnim.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) },
+                  ],
+                }]}>
+                  <Text style={styles.filterMenuSection}>SORT</Text>
                   {FILTER_OPTIONS.map(opt => (
                     <TouchableOpacity
                       key={opt.key}
                       style={[styles.filterMenuItem, sortFilter === opt.key && styles.filterMenuItemActive]}
-                      onPress={() => { Haptics.selectionAsync(); setSortFilter(opt.key); setShowFilterMenu(false); }}
+                      onPress={() => { Haptics.selectionAsync(); closeFilterMenu(() => setSortFilter(opt.key)); }}
                       activeOpacity={0.8}
                     >
                       <Text style={[styles.filterMenuItemText, sortFilter === opt.key && styles.filterMenuItemTextActive]}>
@@ -376,7 +405,21 @@ export default function ScannerScreen() {
                       </Text>
                     </TouchableOpacity>
                   ))}
-                </View>
+                  <View style={styles.filterMenuDivider} />
+                  <Text style={styles.filterMenuSection}>CATEGORY</Text>
+                  {CATEGORY_FILTERS.map(cat => (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[styles.filterMenuItem, categoryFilter === cat && styles.filterMenuItemActive]}
+                      onPress={() => { Haptics.selectionAsync(); closeFilterMenu(() => setCategoryFilter(cat)); }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterMenuItemText, categoryFilter === cat && styles.filterMenuItemTextActive]}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </Animated.View>
               )}
             </View>
           </View>
@@ -443,7 +486,15 @@ export default function ScannerScreen() {
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
                 {favorites.map((product) => (
-                  <View key={product.id} style={styles.favItem}>
+                  <TouchableOpacity
+                    key={product.id}
+                    style={styles.favItem}
+                    activeOpacity={0.75}
+                    onPress={() => {
+                      setShowFavorites(false);
+                      setTimeout(() => handleProductPress(product), 300);
+                    }}
+                  >
                     {product.image_url ? (
                       <Image source={{ uri: product.image_url }} style={styles.favImage} resizeMode="contain" />
                     ) : (
@@ -454,10 +505,10 @@ export default function ScannerScreen() {
                       <Text style={styles.favItemName} numberOfLines={2}>{cleanProductName(product.name, product.brand)}</Text>
                       {product.price ? <Text style={styles.favItemPrice}>{product.price}</Text> : null}
                     </View>
-                    <TouchableOpacity onPress={() => toggleFavorite(product)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity onPress={(e) => { e.stopPropagation(); toggleFavorite(product); }} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                       <Text style={styles.favItemHeart}>♥</Text>
                     </TouchableOpacity>
-                  </View>
+                  </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
@@ -489,6 +540,21 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: 14, color: '#1C1C1A', height: 48 },
   clearIcon: { fontSize: 13, color: '#9B9488', padding: 4 },
+
+  filterMenuSection: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 1.2,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  filterMenuDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 4,
+  },
 
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, paddingBottom: 4 },
   sectionLabel: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.2, textTransform: 'uppercase' },

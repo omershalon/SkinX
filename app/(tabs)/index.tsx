@@ -61,6 +61,15 @@ function ScanLineIcon({ size = 28, color = '#fff' }: { size?: number; color?: st
   );
 }
 
+function CameraIconLarge({ size = 44, color = 'rgba(255,255,255,0.5)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke={color} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
+      <Circle cx={12} cy={13} r={4} stroke={color} strokeWidth={1.6} fill="none" />
+    </Svg>
+  );
+}
+
 function ChatBubbleIcon({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -304,78 +313,103 @@ export default function HomeScreen() {
                 }
               }}
             >
-              <View style={s.scanCard}>
-                {/* Label + Streak row */}
-                <View style={s.scanCardTopRow}>
-                  <Text style={s.scanCardLabel}>{todaySessionId ? t('home.scanCard.label') : "Today's Scan"}</Text>
-                  <StreakCounter compact />
-                </View>
-
-                {/* Condition title */}
-                <Text style={s.scanCardTitle}>
-                  {todaySessionId
-                    ? `${skinLabel}${skinProfile.acne_type ? ` with ${skinProfile.acne_type} acne` : ''}`
-                    : "Do your scan of the day"}
-                </Text>
-
-                {/* Analysis notes / CTA */}
-                {todaySessionId ? (
-                  skinProfile.analysis_notes ? (
-                    <Text style={s.scanCardDesc} numberOfLines={4}>{skinProfile.analysis_notes}</Text>
-                  ) : (
-                    <Text style={s.scanCardDesc}>{skinDesc}</Text>
-                  )
-                ) : (
-                  <Text style={s.scanCardDesc}>Tap to scan your skin and track today's progress.</Text>
+              <View style={[s.scanCard, !todaySessionId && s.scanCardEmpty]}>
+                {/* Label + Streak row — only shown when scan exists */}
+                {todaySessionId && (
+                  <View style={s.scanCardTopRow}>
+                    <Text style={s.scanCardLabel}>{"Today's Scan"}</Text>
+                    <StreakCounter compact />
+                  </View>
                 )}
 
-                {/* Photo + Metrics row */}
-                <View style={s.photoMetricsRow}>
-                  {skinProfile.photo_url ? (
-                    <Image source={{ uri: skinProfile.photo_url }} style={s.scanFacePhoto} resizeMode="cover" />
-                  ) : (
-                    <View style={[s.scanFacePhoto, s.scanFacePhotoPlaceholder]} />
-                  )}
-                  <View style={s.metricsStack}>
-                    <View style={s.metricRow}>
-                      <Text style={s.metricRowLabel}>{t('home.scanCard.breakouts')}</Text>
-                      <Text style={[s.metricRowValue, { color: getSeverityColor(skinProfile.severity) }]}>{capitalize(skinProfile.severity ?? 'mild')}</Text>
-                    </View>
-                    <View style={s.metricRow}>
-                      <Text style={s.metricRowLabel}>{t('home.scanCard.oil')}</Text>
-                      <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'oily' ? '#FCD34D' : skinProfile.skin_type === 'combination' ? '#FCD34D' : Colors.textSecondary }]}>
-                        {skinProfile.skin_type === 'oily' ? t('home.scanCard.high') : skinProfile.skin_type === 'combination' ? t('home.scanCard.medium') : skinProfile.skin_type === 'dry' ? t('home.scanCard.low') : t('home.scanCard.normal')}
-                      </Text>
-                    </View>
-                    <View style={s.metricRow}>
-                      <Text style={s.metricRowLabel}>{t('home.scanCard.redness')}</Text>
-                      <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'sensitive' ? '#F87171' : Colors.textSecondary }]}>
-                        {skinProfile.skin_type === 'sensitive' ? t('home.scanCard.high') : skinProfile.severity === 'severe' ? t('home.scanCard.high') : skinProfile.severity === 'moderate' ? t('home.scanCard.medium') : t('home.scanCard.low')}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                {todaySessionId ? (
+                  <>
+                    {/* Condition title */}
+                    <Text style={s.scanCardTitle}>
+                      {`${skinLabel}${skinProfile.acne_type ? ` with ${skinProfile.acne_type} acne` : ''}`}
+                    </Text>
 
-                {/* Zone indicators */}
-                {(() => {
-                  const zones = (skinProfile as any).zones as Record<string, { severity: string; note: string }> | null;
-                  if (!zones || Object.keys(zones).length === 0) return null;
-                  const ZONE_COLOR: Record<string, string> = { clear: '#4ADE80', mild: '#FCD34D', moderate: '#FB923C', severe: '#F87171' };
-                  const ZONE_LABELS: Record<string, string> = { forehead: 'Forehead', left_cheek: 'Left Cheek', right_cheek: 'Right Cheek', nose: 'Nose', chin: 'Chin', jawline: 'Jawline' };
-                  return (
-                    <View style={s.zonesSection}>
-                      <Text style={s.zonesSectionLabel}>{t('home.scanCard.zones')}</Text>
-                      <View style={s.zoneChips}>
-                        {Object.entries(zones).filter(([k]) => ZONE_LABELS[k]).map(([key, val]) => (
-                          <View key={key} style={s.zoneChip}>
-                            <View style={[s.zoneChipDot, { backgroundColor: ZONE_COLOR[val.severity] ?? '#A78BFA' }]} />
-                            <Text style={s.zoneChipText}>{ZONE_LABELS[key]}</Text>
-                          </View>
-                        ))}
+                    {/* Analysis notes */}
+                    {skinProfile.analysis_notes ? (
+                      <Text style={s.scanCardDesc} numberOfLines={4}>{skinProfile.analysis_notes}</Text>
+                    ) : (
+                      <Text style={s.scanCardDesc}>{skinDesc}</Text>
+                    )}
+
+                    {/* Photo + Metrics row */}
+                    <View style={s.photoMetricsRow}>
+                      {skinProfile.photo_url ? (
+                        <Image source={{ uri: skinProfile.photo_url }} style={s.scanFacePhoto} resizeMode="cover" />
+                      ) : (
+                        <View style={[s.scanFacePhoto, s.scanFacePhotoPlaceholder]} />
+                      )}
+                      <View style={s.metricsStack}>
+                        <View style={s.metricRow}>
+                          <Text style={s.metricRowLabel}>{t('home.scanCard.breakouts')}</Text>
+                          <Text style={[s.metricRowValue, { color: getSeverityColor(skinProfile.severity) }]}>{capitalize(skinProfile.severity ?? 'mild')}</Text>
+                        </View>
+                        <View style={s.metricRow}>
+                          <Text style={s.metricRowLabel}>{t('home.scanCard.oil')}</Text>
+                          <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'oily' ? '#FCD34D' : skinProfile.skin_type === 'combination' ? '#FCD34D' : Colors.textSecondary }]}>
+                            {skinProfile.skin_type === 'oily' ? t('home.scanCard.high') : skinProfile.skin_type === 'combination' ? t('home.scanCard.medium') : skinProfile.skin_type === 'dry' ? t('home.scanCard.low') : t('home.scanCard.normal')}
+                          </Text>
+                        </View>
+                        <View style={s.metricRow}>
+                          <Text style={s.metricRowLabel}>{t('home.scanCard.redness')}</Text>
+                          <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'sensitive' ? '#F87171' : Colors.textSecondary }]}>
+                            {skinProfile.skin_type === 'sensitive' ? t('home.scanCard.high') : skinProfile.severity === 'severe' ? t('home.scanCard.high') : skinProfile.severity === 'moderate' ? t('home.scanCard.medium') : t('home.scanCard.low')}
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                  );
-                })()}
+
+                    {/* Zone indicators */}
+                    {(() => {
+                      const zones = (skinProfile as any).zones as Record<string, { severity: string; note: string }> | null;
+                      if (!zones || Object.keys(zones).length === 0) return null;
+                      const ZONE_COLOR: Record<string, string> = { clear: '#4ADE80', mild: '#FCD34D', moderate: '#FB923C', severe: '#F87171' };
+                      const ZONE_LABELS: Record<string, string> = { forehead: 'Forehead', left_cheek: 'Left Cheek', right_cheek: 'Right Cheek', nose: 'Nose', chin: 'Chin', jawline: 'Jawline' };
+                      return (
+                        <View style={s.zonesSection}>
+                          <View style={s.zoneChips}>
+                            {Object.entries(zones).filter(([k]) => ZONE_LABELS[k]).map(([key, val]) => (
+                              <View key={key} style={s.zoneChip}>
+                                <View style={[s.zoneChipDot, { backgroundColor: ZONE_COLOR[val.severity] ?? '#A78BFA' }]} />
+                                <Text style={s.zoneChipText}>{ZONE_LABELS[key]}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  /* ── No scan today ── */
+                  <View style={s.scanCardEmptyBody}>
+                    <View style={s.scanEmptyTop}>
+                      <CameraIconLarge size={38} color="rgba(255,255,255,0.35)" />
+                      <View style={s.scanEmptyTextBlock}>
+                        <Text style={s.scanEmptyEyebrow}>Daily Check-in</Text>
+                        <Text style={s.scanCardEmptyText}>Do your scan{'\n'}of the day</Text>
+                      </View>
+                    </View>
+
+                    <View style={s.scanEmptyDivider} />
+
+                    <View style={s.scanEmptyMetrics}>
+                      {[
+                        { label: 'Breakouts', color: '#A78BFA' },
+                        { label: 'Oil level', color: '#FCD34D' },
+                        { label: 'Redness',  color: '#F87171' },
+                      ].map(({ label, color }) => (
+                        <View key={label} style={s.metricRow}>
+                          <Text style={s.metricRowLabel}>{label}</Text>
+                          <Text style={[s.metricRowValue, { color: 'rgba(255,255,255,0.2)' }]}>—</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             </TouchableOpacity>
           </Animated.View>
@@ -559,7 +593,9 @@ const s = StyleSheet.create({
   /* Scan card */
   scanCard: {
     borderRadius: BorderRadius.xxl,
-    padding: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingHorizontal: Spacing.xxl,
+    paddingBottom: Spacing.md,
     marginBottom: Spacing.sm,
     overflow: 'hidden',
     backgroundColor: '#5B35D5',
@@ -578,7 +614,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.xs,
+    marginBottom: 12,
   },
   scanCardLabel: {
     fontFamily: Fonts.medium,
@@ -591,24 +627,24 @@ const s = StyleSheet.create({
     color: Colors.white,
     lineHeight: 32,
     letterSpacing: -0.5,
-    marginBottom: Spacing.sm,
+    marginBottom: 12,
   },
   scanCardDesc: {
     fontFamily: Fonts.regular,
     fontSize: 13,
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 18,
-    marginBottom: Spacing.sm,
+    marginBottom: 36,
   },
   photoMetricsRow: {
     flexDirection: 'row',
     gap: Spacing.md,
-    marginBottom: Spacing.sm,
+    marginBottom: 36,
     alignItems: 'stretch',
   },
   scanFacePhoto: {
-    width: 110,
-    height: 130,
+    width: 130,
+    height: 180,
     borderRadius: BorderRadius.lg,
   },
   scanFacePhotoPlaceholder: {
@@ -616,7 +652,7 @@ const s = StyleSheet.create({
   },
   metricsStack: {
     flex: 1,
-    gap: Spacing.sm,
+    gap: Spacing.md,
     justifyContent: 'space-between',
   },
   metricRow: {
@@ -627,7 +663,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
   },
   metricRowLabel: {
     fontFamily: Fonts.regular,
@@ -640,7 +676,7 @@ const s = StyleSheet.create({
     color: Colors.white,
   },
   zonesSection: {
-    marginTop: Spacing.xs,
+    marginTop: 8,
   },
   zonesSectionLabel: {
     fontFamily: Fonts.bold,
@@ -652,15 +688,15 @@ const s = StyleSheet.create({
   zoneChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
   zoneChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     borderRadius: BorderRadius.pill,
   },
   zoneChipDot: {
@@ -682,6 +718,47 @@ const s = StyleSheet.create({
   metricValue: { fontFamily: Fonts.semibold, fontSize: 12, color: Colors.white },
   metricsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: Spacing.lg },
   zoneRow: { flexDirection: 'row', gap: 12, marginBottom: Spacing.xl },
+  scanCardEmpty: {
+    paddingBottom: 72,
+    minHeight: 870,
+  },
+  scanCardEmptyBody: {
+    gap: 48,
+    flex: 1,
+  },
+  scanEmptyTop: {
+    alignItems: 'center',
+    paddingTop: 72,
+    paddingBottom: 32,
+    gap: 28,
+  },
+  scanEmptyTextBlock: {
+    gap: 8,
+    alignItems: 'center',
+  },
+  scanEmptyEyebrow: {
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  scanCardEmptyText: {
+    fontFamily: Fonts.extrabold,
+    fontSize: 28,
+    color: Colors.white,
+    letterSpacing: -0.6,
+    lineHeight: 34,
+    textAlign: 'center',
+  },
+  scanEmptyDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginVertical: 28,
+  },
+  scanEmptyMetrics: {
+    gap: 20,
+  },
   scanCardCta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   scanCardCtaText: { fontFamily: Fonts.semibold, fontSize: 13, color: 'rgba(255,255,255,0.55)' },
   scanAgoText: { fontFamily: Fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.5)' },

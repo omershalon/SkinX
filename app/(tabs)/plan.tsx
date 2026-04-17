@@ -86,6 +86,7 @@ function StarIcon({ size = 16, color = Colors.text }: { size?: number; color?: s
   );
 }
 
+
 const PILLAR_ICONS: Record<string, IconComponent> = {
   product:   BottleIcon,
   diet:      SaladIcon,
@@ -134,11 +135,11 @@ export default function PlanScreen() {
   const { animatedStyle } = useTabTransition();
   const { t } = useTranslation();
 
-  const [plan,       setPlan]       = useState<PersonalizedPlan | null>(null);
-  const [acneType,   setAcneType]   = useState<AcneType | null>(null);
-  const [loading,    setLoading]    = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [doneToday,  setDoneToday]  = useState<Set<number>>(new Set());
+  const [plan,         setPlan]         = useState<PersonalizedPlan | null>(null);
+  const [acneType,     setAcneType]     = useState<AcneType | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [generating,   setGenerating]   = useState(false);
+  const [doneToday,    setDoneToday]    = useState<Set<number>>(new Set());
   const [selectedPick, setSelectedPick] = useState<RankedItem | null>(null);
 
   const cardScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
@@ -543,4 +544,5 @@ const styles = StyleSheet.create({
   generateBtnText: { ...Typography.headlineSmall, color: Colors.white },
 
   confettiContainer: { ...StyleSheet.absoluteFillObject, zIndex: 999 },
+
 });
