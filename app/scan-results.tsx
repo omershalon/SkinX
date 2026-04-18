@@ -10,67 +10,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Fonts } from '@/lib/theme';
 import { loadScanSession } from '@/lib/scan-api';
-import type { ScanSession, Recommendation } from '@/lib/scan-types';
-import {
-  deriveSnapshotItems,
-  getSkinHeadline,
-  getRecommendationIcon,
-  type SnapshotItem,
-} from '@/lib/snapshot-utils';
-import GlowAnalysisDashboard, { type RecommendationData } from '@/components/GlowAnalysisDashboard';
-
-// ─── Emoji → component icon mapping ────────────────────────────────────────
-
-const ICON_MAP: Record<string, RecommendationData['icon']> = {
-  '☀️': 'sun',
-  '✨': 'sparkles',
-  '💧': 'droplet',
-  '🫧': 'droplet',
-  '💦': 'droplet',
-  '🧴': 'sparkles',
-  '🎭': 'droplet',
-};
-
-const REC_ACCENT: Record<string, string> = {
-  '☀️': '#F6BE63',
-  '✨': '#FF9AD8',
-  '💧': '#8F7CFF',
-  '🫧': '#53E6B0',
-  '💦': '#6FA8FF',
-  '🧴': '#A78BFA',
-  '🎭': '#F472B6',
-};
-
-const REC_GLOW: Record<string, string> = {
-  '☀️': 'rgba(255,190,99,0.14)',
-  '✨': 'rgba(255,144,209,0.12)',
-  '💧': 'rgba(110,123,255,0.12)',
-  '🫧': 'rgba(83,230,176,0.10)',
-  '💦': 'rgba(111,168,255,0.10)',
-  '🧴': 'rgba(167,139,250,0.12)',
-  '🎭': 'rgba(244,114,182,0.10)',
-};
-
-function mapRecommendation(rec: Recommendation): RecommendationData {
-  const emoji = getRecommendationIcon(rec.title);
-  return {
-    icon: ICON_MAP[emoji] ?? 'sparkles',
-    title: rec.title,
-    subtitle: rec.description,
-    accentColor: REC_ACCENT[emoji] ?? '#8B5CFF',
-    glowColor: REC_GLOW[emoji] ?? 'rgba(139,92,255,0.10)',
-  };
-}
-
-function findMatchingSnapshot(recTitle: string, items: SnapshotItem[]): string | null {
-  const t = recTitle.toLowerCase();
-  if (t.includes('spf') || t.includes('sun'))            return items.find((i) => i.id === 'dark_marks')?.id  ?? null;
-  if (t.includes('vitamin c') || t.includes('brighten')) return items.find((i) => i.id === 'dark_marks')?.id  ?? null;
-  if (t.includes('aha') || t.includes('exfoli'))         return items.find((i) => i.id === 'skin_texture')?.id ?? items[0]?.id ?? null;
-  if (t.includes('niacinamide'))                         return items.find((i) => i.id === 'oiliness')?.id     ?? items[0]?.id ?? null;
-  if (t.includes('cleanser'))                            return items.find((i) => i.id === 'active_acne')?.id  ?? items[0]?.id ?? null;
-  return items[0]?.id ?? null;
-}
+import type { ScanSession, ReviewedDetection } from '@/lib/scan-types';
+import { getSkinHeadline } from '@/lib/snapshot-utils';
+import GlowAnalysisDashboard from '@/components/GlowAnalysisDashboard';
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
@@ -129,36 +71,27 @@ export default function ScanResultsScreen() {
     : 'None detected';
   const severity       = session.severity ?? 'mild';
   const severityLabel  = severity === 'mild' ? 'Low' : severity === 'moderate' ? 'Moderate' : 'High';
-  const severityColor  = severity === 'mild' ? '#53E6B0' : severity === 'moderate' ? '#F6BE63' : '#F87171';
 
-  const snapshotItems   = deriveSnapshotItems(session);
-  const recommendations = (session.recommendations as Recommendation[]) ?? [];
-  const topRecs         = recommendations.slice(0, 3).map(mapRecommendation);
-
-  const goToDetail = (id: string) =>
-    router.push({ pathname: '/snapshot-detail', params: { sessionId: session.id, snapshotId: id } });
+  const frontDetections: ReviewedDetection[] =
+    (session.reviewed_detections as any)?.front ?? [];
+  const imgW = (session.image_dimensions as any)?.front?.width  ?? 1080;
+  const imgH = (session.image_dimensions as any)?.front?.height ?? 1440;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <GlowAnalysisDashboard
-      avatarUri={session.front_image_url}
+      avatarUri={session.front_image_url ?? ''}
       headline={headline}
       description={description}
       mainConcern={primaryConcern}
       severity={severityLabel}
-      severityColor={severityColor}
       skinType={skinType}
-      snapshotItems={snapshotItems}
-      recommendations={topRecs}
+      detections={frontDetections}
+      imageNativeWidth={imgW}
+      imageNativeHeight={imgH}
+      zoneScores={session.zone_scores ?? undefined}
+      skinAssessment={session.skin_assessment ?? undefined}
       onStartPlan={() => router.push('/(tabs)/plan')}
-      onSnapshotPress={(id) => goToDetail(id)}
-      onRecommendationPress={(index) => {
-        const rec = recommendations[index];
-        if (rec) {
-          const matchId = findMatchingSnapshot(rec.title, snapshotItems);
-          if (matchId) goToDetail(matchId);
-        }
-      }}
       onViewFullScan={() => router.back()}
     />
   );
@@ -197,23 +130,16 @@ const styles = StyleSheet.create({
   retryBtn: {
     borderRadius: 999,
     overflow: 'hidden',
-    marginTop: 24,
-    width: 200,
-    shadowColor: '#8A5CFF',
-    shadowOpacity: 0.38,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
+    marginTop: 28,
   },
   retryGradient: {
-    paddingVertical: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   retryText: {
     color: '#FFFFFF',
-    fontFamily: Fonts.bold,
-    fontSize: 18,
-    letterSpacing: 0.2,
+    fontFamily: Fonts.medium,
+    fontSize: 16,
   },
 });

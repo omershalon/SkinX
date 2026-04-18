@@ -9,7 +9,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle as SvgCircle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts } from '@/lib/theme';
 import AcneMapHero from '@/components/AcneMapHero';
@@ -33,7 +33,7 @@ export interface GlowAnalysisDashboardProps {
   imageNativeHeight: number;
   zoneScores?: ZoneScore[];
   skinAssessment?: SkinAssessmentItem[];
-  onScanAgain: () => void;
+  onScanAgain?: () => void;
   onStartPlan?: () => void;
   onViewFullScan?: () => void;
 }
