@@ -78,6 +78,8 @@ interface PreviousSession {
   primary_acne_type: string | null;
   description: string | null;
   matched_products: any[] | null;
+  skin_assessment?: any[] | null;
+  zone_scores?: any[] | null;
 }
 
 // ── Helpers ──
@@ -286,6 +288,8 @@ function buildCachedResponse(prev: PreviousSession, current: AllDetections): obj
     recommendations: prev.recommendations ?? [],
     skin_plan: prev.skin_plan ?? { morning_routine: [], evening_routine: [], weekly_treatments: [] },
     matched_products: prev.matched_products ?? null,
+    skin_assessment: prev.skin_assessment ?? undefined,
+    zone_scores: prev.zone_scores ?? undefined,
     cached: true,
     gemini_called: false,
   };
@@ -596,16 +600,30 @@ Your role is strictly complementary to the YOLO model:
 
 Return ONLY valid JSON. No markdown fences. No explanation outside the JSON object.`;
 
-    // Build per-zone counts from front detections for Gemini context
-    const frontZoneCounts: Record<string, number> = {};
+    // Build per-zone counts for Gemini context using 5-zone layout
+    const fiveZoneCounts: Record<string, number> = {
+      forehead: 0, left_cheek: 0, right_cheek: 0, nose: 0, chin_jawline: 0,
+    };
+    const frontImgW = image_dimensions?.front?.width  ?? 1280;
+    const frontImgH = image_dimensions?.front?.height ?? 1280;
     for (const det of current.front) {
-      const normY = ((det.bbox[1] + det.bbox[3]) / 2) / (image_dimensions?.front?.height ?? 1280);
-      const zone = yToZone(normY);
-      frontZoneCounts[zone] = (frontZoneCounts[zone] ?? 0) + 1;
+      const normX = ((det.bbox[0] + det.bbox[2]) / 2) / frontImgW;
+      const normY = ((det.bbox[1] + det.bbox[3]) / 2) / frontImgH;
+      if (normY < 0.28) {
+        fiveZoneCounts.forehead += 1;
+      } else if (normY > 0.72) {
+        fiveZoneCounts.chin_jawline += 1;
+      } else if (normX > 0.35 && normX < 0.65) {
+        fiveZoneCounts.nose += 1;
+      } else if (normX <= 0.5) {
+        fiveZoneCounts.left_cheek += 1;
+      } else {
+        fiveZoneCounts.right_cheek += 1;
+      }
     }
-    const zoneCountContext = Object.entries(frontZoneCounts).length > 0
-      ? '\n\nFront image zone counts (from YOLO): ' +
-        Object.entries(frontZoneCounts).map(([z, c]) => `${z}: ${c}`).join(', ')
+    const zoneCountContext = current.front.length > 0
+      ? '\n\nFront image zone counts (from YOLO, 5-zone layout): ' +
+        Object.entries(fiveZoneCounts).map(([z, c]) => `${z}: ${c}`).join(', ')
       : '';
     ultralyticsContext += zoneCountContext;
 
@@ -669,15 +687,10 @@ Return ONLY valid JSON:
   "skin_assessment": [
     {"category": "active_breakouts", "label": "Several inflamed spots on forehead and chin", "score": 7, "is_strength": false},
     {"category": "comedones", "label": "Very few blackheads or whiteheads detected", "score": 2, "is_strength": true},
-    {"category": "dark_spots", "label": "Some post-inflammatory marks still fading", "score": 5, "is_strength": false},
-    {"category": "redness", "label": "Mild redness around the cheeks", "score": 4, "is_strength": false},
+    {"category": "dark_spots", "label": "Some post-inflammatory marks still fading", "score": 6, "is_strength": false},
+    {"category": "redness", "label": "Mild redness around the cheeks", "score": 5, "is_strength": false},
     {"category": "skin_texture", "label": "Texture looks relatively smooth overall", "score": 3, "is_strength": true},
-    {"category": "pore_visibility", "label": "Pores are fairly minimal", "score": 2, "is_strength": true},
-    {"category": "skin_tone_evenness", "label": "Complexion looks fairly even", "score": 3, "is_strength": true},
-    {"category": "oiliness", "label": "Some shine visible in the T-zone", "score": 5, "is_strength": false},
-    {"category": "hydration", "label": "Skin looks well moisturised", "score": 2, "is_strength": true},
-    {"category": "brightness", "label": "Skin appears a little dull", "score": 6, "is_strength": false},
-    {"category": "under_eye", "label": "Mild darkness under the eyes", "score": 4, "is_strength": false}
+    {"category": "hydration", "label": "Skin looks well moisturised", "score": 2, "is_strength": true}
   ],
   "recommendations": [],
   "skin_plan": {"morning_routine": [], "evening_routine": [], "weekly_treatments": []}
@@ -826,6 +839,14 @@ CRITICAL:
         JSON.stringify({ error: 'Claude returned incomplete response', missing_fields: missing }),
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Warn if new analysis fields are missing (non-fatal)
+    if (!result.skin_assessment || result.skin_assessment.length === 0) {
+      console.warn('[gemini-review-scan] skin_assessment missing or empty from Gemini response');
+    }
+    if (!result.zone_scores || result.zone_scores.length === 0) {
+      console.warn('[gemini-review-scan] zone_scores missing or empty from Gemini response');
     }
 
     result.gemini_called = true;
