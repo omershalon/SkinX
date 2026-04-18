@@ -73,6 +73,20 @@ export interface ZoneBreakdown {
   note: string;
 }
 
+export interface SkinAssessmentItem {
+  category: string;   // e.g. "active_breakouts", "redness", "pore_visibility"
+  label: string;      // friendly one-liner from Gemini, e.g. "Very few blackheads detected"
+  score: number;      // 0–10, lower = better condition
+  is_strength: boolean;
+}
+
+export interface ZoneScore {
+  zone: 'forehead' | 'left_cheek' | 'right_cheek' | 'nose' | 'chin_jawline';
+  lesion_count: number;
+  severity: 'clear' | 'mild' | 'moderate' | 'severe';
+  primary_types: string[];
+}
+
 export interface SkinInsights {
   skin_type: string;
   moisture: string;
@@ -123,6 +137,8 @@ export interface GeminiResponse {
   skin_insights: SkinInsights;
   recommendations: Recommendation[];
   skin_plan: SkinPlan;
+  skin_assessment?: SkinAssessmentItem[];   // ← add
+  zone_scores?: ZoneScore[];                // ← add
 }
 
 export interface ScanResponse extends GeminiResponse {
