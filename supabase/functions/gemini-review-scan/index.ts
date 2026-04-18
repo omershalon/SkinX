@@ -541,7 +541,7 @@ serve(async (req) => {
     // ── Step 5: Build Anthropic request ──
     console.log('[gemini-review-scan] step 5: building Anthropic request');
 
-    const ultralyticsContext = [
+    let ultralyticsContext = [
       `## Ultralytics YOLO Detections (all 3 angles)\n`,
       `Total spots found: ${currentTotal}`,
       `Average confidence: ${avgConfidence(current).toFixed(2)}`,
@@ -596,6 +596,19 @@ Your role is strictly complementary to the YOLO model:
 
 Return ONLY valid JSON. No markdown fences. No explanation outside the JSON object.`;
 
+    // Build per-zone counts from front detections for Gemini context
+    const frontZoneCounts: Record<string, number> = {};
+    for (const det of current.front) {
+      const normY = ((det.bbox[1] + det.bbox[3]) / 2) / (image_dimensions?.front?.height ?? 1280);
+      const zone = yToZone(normY);
+      frontZoneCounts[zone] = (frontZoneCounts[zone] ?? 0) + 1;
+    }
+    const zoneCountContext = Object.entries(frontZoneCounts).length > 0
+      ? '\n\nFront image zone counts (from YOLO): ' +
+        Object.entries(frontZoneCounts).map(([z, c]) => `${z}: ${c}`).join(', ')
+      : '';
+    ultralyticsContext += zoneCountContext;
+
     const imageCount = 1 + (hasLeftImage ? 1 : 0) + (hasRightImage ? 1 : 0);
     const userPrompt = `You are provided with ${imageCount} face image${imageCount > 1 ? 's' : ''} of the same person:
 - ${frontLabel}${hasLeftImage ? `\n- ${leftLabel}` : ''}${hasRightImage ? `\n- ${rightLabel}` : ''}
@@ -610,30 +623,21 @@ Using all ${imageCount} images and the YOLO detection list:
 - Note any possible missed spots on any image
 - Cross-reference all angles for a complete picture of the person's skin
 
-### Task 2 — Skin analysis + plan
-Generate a comprehensive dermatologist-level analysis based on the YOLO results AND your visual assessment of all ${imageCount} images:
-- Overall severity and zone breakdown (using all angles)
-- Skin type and moisture
-- Personalised skincare routine (morning/evening)
-- Weekly treatment recommendations
-- Product category recommendations (no brand names)
+### Task 2 — Skin analysis
+- Overall severity and zone breakdown
+- Skin type, moisture, 2 key observations
+- zone_scores: assess all 5 facial zones (forehead, left_cheek, right_cheek, nose, chin_jawline) using YOLO data + photo. Every zone must be present even if lesion_count is 0.
+- skin_assessment: assess all 11 categories below from the photo and YOLO data. Score each 0–10 (lower = better condition). Mark exactly the 3 lowest scores as is_strength=true, exactly the 3 highest scores as is_strength=false. Label must be a friendly one-sentence plain-English description.
+
+Categories: active_breakouts, comedones, dark_spots, redness, skin_texture, pore_visibility, skin_tone_evenness, oiliness, hydration, brightness, under_eye
 
 ## Required JSON output
 
-Return ONLY valid JSON with exactly this structure:
+Return ONLY valid JSON:
 
 {
   "reviewed_detections": {
-    "front": [
-      {
-        "bbox": [x1, y1, x2, y2],
-        "classIndex": 0,
-        "className": "blackheads",
-        "confidence": 0.95,
-        "source": "model",
-        "status": "confirmed"
-      }
-    ],
+    "front": [{"bbox": [x1,y1,x2,y2], "classIndex": 0, "className": "blackheads", "confidence": 0.95, "source": "model", "status": "confirmed"}],
     "left": [],
     "right": []
   },
@@ -645,52 +649,44 @@ Return ONLY valid JSON with exactly this structure:
     "ai_added_spots": 2,
     "ai_corrected_spots": 0,
     "primary_acne_type": "comedonal",
-    "description": "2-3 sentence personalised overview"
+    "description": "One sentence overview."
   },
   "zone_breakdown": [
-    {
-      "zone": "chin",
-      "spot_count": 7,
-      "primary_types": ["papules", "pustules"],
-      "severity": "moderate",
-      "note": "insight specific to this zone"
-    }
+    {"zone": "forehead", "spot_count": 7, "primary_types": ["papules"], "severity": "moderate", "note": "brief"}
   ],
   "skin_insights": {
     "skin_type": "combination",
     "moisture": "low-normal",
-    "key_observations": ["observation 1", "observation 2"]
+    "key_observations": ["obs 1", "obs 2"]
   },
-  "recommendations": [
-    {
-      "title": "title",
-      "description": "why and how",
-      "priority": "high",
-      "category": "product",
-      "product_keywords": ["niacinamide", "serum"]
-    }
+  "zone_scores": [
+    {"zone": "forehead", "lesion_count": 7, "severity": "moderate", "primary_types": ["papules"]},
+    {"zone": "left_cheek", "lesion_count": 3, "severity": "mild", "primary_types": ["dark spot"]},
+    {"zone": "right_cheek", "lesion_count": 1, "severity": "clear", "primary_types": []},
+    {"zone": "nose", "lesion_count": 0, "severity": "clear", "primary_types": []},
+    {"zone": "chin_jawline", "lesion_count": 4, "severity": "moderate", "primary_types": ["papules", "pustules"]}
   ],
-  "skin_plan": {
-    "morning_routine": [
-      {"step": "Gentle cleanser", "product_type": "cleanser", "reason": "why"}
-    ],
-    "evening_routine": [
-      {"step": "Double cleanse", "product_type": "oil cleanser", "reason": "why"}
-    ],
-    "weekly_treatments": [
-      {"treatment": "BHA exfoliant", "frequency": "2-3x per week", "reason": "why"}
-    ]
-  }
+  "skin_assessment": [
+    {"category": "active_breakouts", "label": "Several inflamed spots on forehead and chin", "score": 7, "is_strength": false},
+    {"category": "comedones", "label": "Very few blackheads or whiteheads detected", "score": 2, "is_strength": true},
+    {"category": "dark_spots", "label": "Some post-inflammatory marks still fading", "score": 5, "is_strength": false},
+    {"category": "redness", "label": "Mild redness around the cheeks", "score": 4, "is_strength": false},
+    {"category": "skin_texture", "label": "Texture looks relatively smooth overall", "score": 3, "is_strength": true},
+    {"category": "pore_visibility", "label": "Pores are fairly minimal", "score": 2, "is_strength": true},
+    {"category": "skin_tone_evenness", "label": "Complexion looks fairly even", "score": 3, "is_strength": true},
+    {"category": "oiliness", "label": "Some shine visible in the T-zone", "score": 5, "is_strength": false},
+    {"category": "hydration", "label": "Skin looks well moisturised", "score": 2, "is_strength": true},
+    {"category": "brightness", "label": "Skin appears a little dull", "score": 6, "is_strength": false},
+    {"category": "under_eye", "label": "Mild darkness under the eyes", "score": 4, "is_strength": false}
+  ],
+  "recommendations": [],
+  "skin_plan": {"morning_routine": [], "evening_routine": [], "weekly_treatments": []}
 }
 
-CRITICAL constraints:
-- summary.severity MUST be exactly one of: "mild", "moderate", or "severe" — no other values
-- Rules for reviewed_detections:
-  - YOLO detections you can visually confirm on the image: source="model", status="confirmed"
-  - Spots you ADD (model missed): source="ai", status="added", aiConfidence="high"|"medium"
-  - YOLO result you CORRECT (only if 100% certain): source="model", status="corrected", include originalClass
-  - YOLO false positive (only if 100% certain): source="model", status="removed"
-  - Empty arrays are valid if no detections`;
+CRITICAL:
+- severity must be exactly "mild", "moderate", or "severe"
+- confirmed YOLO detections: source="model" status="confirmed"; missed: source="ai" status="added"; false positive: status="removed"
+- Keep all text values short. Empty arrays are valid.`;
 
     // Build Gemini content parts — images + text
     const geminiParts: any[] = [
@@ -713,7 +709,12 @@ CRITICAL constraints:
 
     // ── Step 6: Call Gemini API (with retry) ──
     console.log('[gemini-review-scan] step 6: calling Gemini API (with retry support)');
-    const geminiResult = await callGeminiWithRetry(anthropicKey, geminiContents, { temperature: 0.3, maxOutputTokens: 32768 });
+    const geminiResult = await callGeminiWithRetry(anthropicKey, geminiContents, {
+      temperature: 0.3,
+      maxOutputTokens: 8192,
+      responseMimeType: 'application/json',
+      thinkingConfig: { thinkingBudget: 0 },
+    });
 
     console.log(`[gemini-review-scan] Gemini call completed — status: ${geminiResult.status}, attempts: ${geminiResult.attempts}`);
 
@@ -759,15 +760,32 @@ CRITICAL constraints:
     try {
       result = JSON.parse(resultText);
     } catch {
-      const jsonMatch = resultText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        result = JSON.parse(jsonMatch[0]);
-      } else {
-        console.error('[gemini-review-scan] Could not parse Claude response as JSON:', resultText.substring(0, 300));
-        return new Response(
-          JSON.stringify({ error: 'Could not parse Claude response as JSON', snippet: resultText.substring(0, 200) }),
-          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+      // Try stripping markdown fences first
+      const stripped = resultText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      try {
+        result = JSON.parse(stripped);
+      } catch {
+        // Try extracting the outermost JSON object
+        const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            result = JSON.parse(jsonMatch[0]);
+          } catch (parseErr) {
+            console.error('[gemini-review-scan] Could not parse Gemini JSON (truncated?):', String(parseErr));
+            console.error('[gemini-review-scan] response snippet (first 500):', resultText.substring(0, 500));
+            return new Response(
+              JSON.stringify({ error: 'Gemini returned malformed or truncated JSON', snippet: resultText.substring(0, 300), parse_error: String(parseErr) }),
+              { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } else {
+          console.error('[gemini-review-scan] No JSON object found in Gemini response');
+          console.error('[gemini-review-scan] response snippet:', resultText.substring(0, 300));
+          return new Response(
+            JSON.stringify({ error: 'Could not parse Gemini response as JSON', snippet: resultText.substring(0, 200) }),
+            { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 
