@@ -20,55 +20,16 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Colors, Typography, BorderRadius, Spacing } from '@/lib/theme';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
-import type { ViewAngle, CapturedImage, ScanSession, Recommendation } from '@/lib/scan-types';
+import type { ViewAngle, CapturedImage, ScanSession } from '@/lib/scan-types';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { runDetectionOnAll, countDetections } from '@/lib/yolo';
 import { runScanPipeline, loadScanSession } from '@/lib/scan-api';
 import {
-  deriveSnapshotItems,
   getSkinHeadline,
-  getRecommendationIcon,
-  type SnapshotItem,
 } from '@/lib/snapshot-utils';
-import GlowAnalysisDashboard, { type RecommendationData } from '@/components/GlowAnalysisDashboard';
+import GlowAnalysisDashboard from '@/components/GlowAnalysisDashboard';
 import { useTranslation } from 'react-i18next';
 
-// ─── Scan results helpers (inline so results stay inside the tab) ────────────
-
-const ICON_MAP: Record<string, RecommendationData['icon']> = {
-  '☀️': 'sun', '✨': 'sparkles', '💧': 'droplet',
-  '🫧': 'droplet', '💦': 'droplet', '🧴': 'sparkles', '🎭': 'droplet',
-};
-const REC_ACCENT: Record<string, string> = {
-  '☀️': '#F6BE63', '✨': '#FF9AD8', '💧': '#8F7CFF',
-  '🫧': '#53E6B0', '💦': '#6FA8FF', '🧴': '#A78BFA', '🎭': '#F472B6',
-};
-const REC_GLOW: Record<string, string> = {
-  '☀️': 'rgba(255,190,99,0.14)', '✨': 'rgba(255,144,209,0.12)', '💧': 'rgba(110,123,255,0.12)',
-  '🫧': 'rgba(83,230,176,0.10)', '💦': 'rgba(111,168,255,0.10)',
-  '🧴': 'rgba(167,139,250,0.12)', '🎭': 'rgba(244,114,182,0.10)',
-};
-
-function mapRecommendation(rec: Recommendation): RecommendationData {
-  const emoji = getRecommendationIcon(rec.title);
-  return {
-    icon: ICON_MAP[emoji] ?? 'sparkles',
-    title: rec.title,
-    subtitle: rec.description,
-    accentColor: REC_ACCENT[emoji] ?? '#8B5CFF',
-    glowColor: REC_GLOW[emoji] ?? 'rgba(139,92,255,0.10)',
-  };
-}
-
-function findMatchingSnapshot(recTitle: string, items: SnapshotItem[]): string | null {
-  const t = recTitle.toLowerCase();
-  if (t.includes('spf') || t.includes('sun'))            return items.find(i => i.id === 'dark_marks')?.id ?? null;
-  if (t.includes('vitamin c') || t.includes('brighten')) return items.find(i => i.id === 'dark_marks')?.id ?? null;
-  if (t.includes('aha') || t.includes('exfoli'))         return items.find(i => i.id === 'skin_texture')?.id ?? items[0]?.id ?? null;
-  if (t.includes('niacinamide'))                         return items.find(i => i.id === 'oiliness')?.id ?? items[0]?.id ?? null;
-  if (t.includes('cleanser'))                            return items.find(i => i.id === 'active_acne')?.id ?? items[0]?.id ?? null;
-  return items[0]?.id ?? null;
-}
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -139,6 +100,7 @@ export default function ScanScreen() {
   // Completed scan — when set, show results inline inside this tab
   const [completedSession, setCompletedSession] = useState<ScanSession | null>(null);
   const [skinProfileId, setSkinProfileId] = useState<string | null>(null);
+  const [frontImageDims, setFrontImageDims] = useState<{ width: number; height: number } | null>(null);
   const [planGenerating, setPlanGenerating] = useState(false);
 
   // Only restore results when explicitly navigated from home (loadTs changes each tap)
@@ -276,6 +238,11 @@ export default function ScanScreen() {
       // Step 1: Run YOLO on-device
       setProcessingStep('Detecting acne spots...');
       const detections = await runDetectionOnAll(images);
+
+      // Use imageWidth/imageHeight from DetectionResult — guaranteed same coordinate space as bbox coords
+      if (detections.front) {
+        setFrontImageDims({ width: detections.front.imageWidth, height: detections.front.imageHeight });
+      }
       const totalDetected = countDetections(detections);
       console.log(`[Scan] YOLO detected ${totalDetected} spots`);
 
@@ -313,6 +280,7 @@ export default function ScanScreen() {
     setProcessing(false);
     setCompletedSession(null);
     setSkinProfileId(null);
+    setFrontImageDims(null);
   };
 
   // Helper: extract a human-readable message from a Supabase FunctionsHttpError
@@ -410,13 +378,6 @@ export default function ScanScreen() {
       : 'None detected';
     const severity      = completedSession.severity ?? 'mild';
     const severityLabel = severity === 'mild' ? 'Low' : severity === 'moderate' ? 'Moderate' : 'High';
-    const severityColor = severity === 'mild' ? '#53E6B0' : severity === 'moderate' ? '#F6BE63' : '#F87171';
-    const snapshotItems = deriveSnapshotItems(completedSession);
-    const recommendations = (completedSession.recommendations as Recommendation[]) ?? [];
-    const topRecs       = recommendations.slice(0, 3).map(mapRecommendation);
-
-    const goToDetail = (id: string) =>
-      router.push({ pathname: '/snapshot-detail', params: { sessionId: completedSession.id, snapshotId: id } });
 
     return (
       <View style={{ flex: 1 }}>
@@ -432,21 +393,15 @@ export default function ScanScreen() {
           description={description}
           mainConcern={primaryConcern}
           severity={severityLabel}
-          severityColor={severityColor}
           skinType={skinType}
-          snapshotItems={snapshotItems}
-          recommendations={topRecs}
+          zoneScores={(completedSession as any).zone_scores ?? undefined}
+          skinAssessment={(completedSession as any).skin_assessment ?? undefined}
           onStartPlan={handleStartPlan}
           onScanAgain={resetScan}
-          onSnapshotPress={(id) => goToDetail(id)}
-          onRecommendationPress={(index) => {
-            const rec = recommendations[index];
-            if (rec) {
-              const matchId = findMatchingSnapshot(rec.title, snapshotItems);
-              if (matchId) goToDetail(matchId);
-            }
-          }}
           onViewFullScan={resetScan}
+          detections={completedSession.model_detections?.front}
+          imageNativeWidth={frontImageDims?.width ?? 0}
+          imageNativeHeight={frontImageDims?.height ?? 0}
         />
       </View>
     );
