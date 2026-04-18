@@ -46,16 +46,16 @@ export default function SkinStrengthsWeaknesses({ assessment }: SkinStrengthsWea
       {strengths.length > 0 && (
         <View style={styles.section}>
           <Text style={styles.sectionHeading}>✦ STRENGTHS</Text>
-          {strengths.map((item, i) => (
-            <AssessmentCard key={i} item={item} isStrength />
+          {strengths.map((item) => (
+            <AssessmentCard key={item.category} item={item} isStrength />
           ))}
         </View>
       )}
       {weaknesses.length > 0 && (
         <View style={styles.section}>
           <Text style={[styles.sectionHeading, styles.weaknessHeading]}>✦ WEAKNESSES</Text>
-          {weaknesses.map((item, i) => (
-            <AssessmentCard key={i} item={item} isStrength={false} />
+          {weaknesses.map((item) => (
+            <AssessmentCard key={item.category} item={item} isStrength={false} />
           ))}
         </View>
       )}
