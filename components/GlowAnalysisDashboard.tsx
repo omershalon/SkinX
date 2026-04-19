@@ -84,9 +84,14 @@ export default function GlowAnalysisDashboard({
         style={StyleSheet.absoluteFill}
       />
 
+      {/* ── Sticky "Scan Results" header ─────────────────────────────────── */}
+      <View style={[styles.scanResultsHeader, { paddingTop: insets.top + 10 }]}>
+        <Text style={styles.scanResultsLabel}>Scan Results</Text>
+      </View>
+
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 14, paddingBottom: 140 }]}
+        contentContainerStyle={[styles.content, { paddingTop: 8, paddingBottom: 140 }]}
         showsVerticalScrollIndicator={false}
       >
         {/* ── Hero scan image / acne map ─────────────────────────────────── */}
@@ -196,12 +201,73 @@ const styles = StyleSheet.create({
   },
 
   // ── Hero scan image ───────────────────────────────────────────────────────
-  heroImage: {
-    width: SCREEN_WIDTH * 0.65,
-    height: 380,
-    alignSelf: 'center',
+  scanResultsHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+  },
+  scanResultsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  heroRow: {
+    flexDirection: 'row',
+    gap: 12,
     marginBottom: 24,
-    borderRadius: 24,
+  },
+  heroImage: {
+    flex: 1,
+    height: 220,
+    borderRadius: 20,
+  },
+  heroSummaryCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    padding: 16,
+    justifyContent: 'space-between',
+  },
+  heroSummaryEyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+  },
+  scoreRingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  scoreRingInner: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 1,
+  },
+  scoreNumber: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  scoreOutOf: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.35)',
+    marginTop: 8,
+  },
+  scoreLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.45)',
+    textAlign: 'center',
+    marginTop: 8,
   },
   heroImagePlaceholder: {
     backgroundColor: 'rgba(120,70,255,0.30)',
