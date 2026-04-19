@@ -191,6 +191,8 @@ export interface ScanSession {
   recommendations: Recommendation[] | null;
   skin_plan: SkinPlan | null;
   matched_products: any[] | null;
+  zone_scores: ZoneScore[] | null;
+  skin_assessment: SkinAssessmentItem[] | null;
   status: 'processing' | 'completed' | 'failed';
 }
 

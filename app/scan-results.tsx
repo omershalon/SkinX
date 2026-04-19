@@ -73,9 +73,9 @@ export default function ScanResultsScreen() {
   const severityLabel  = severity === 'mild' ? 'Low' : severity === 'moderate' ? 'Moderate' : 'High';
 
   const frontDetections: ReviewedDetection[] =
-    (session.reviewed_detections as any)?.front ?? [];
-  const imgW = (session.image_dimensions as any)?.front?.width  ?? 1080;
-  const imgH = (session.image_dimensions as any)?.front?.height ?? 1440;
+    session.reviewed_detections?.front ?? [];
+  const imgW = session.model_detections?.image_dimensions?.front?.width  ?? 1080;
+  const imgH = session.model_detections?.image_dimensions?.front?.height ?? 1440;
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

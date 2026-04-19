@@ -301,6 +301,8 @@ export async function updateScanSession(
       recommendations: response.recommendations,
       skin_plan: response.skin_plan,
       matched_products: response.matched_products ?? null,
+      zone_scores: response.zone_scores ?? null,
+      skin_assessment: response.skin_assessment ?? null,
       status: 'completed',
     })
     .eq('id', sessionId);

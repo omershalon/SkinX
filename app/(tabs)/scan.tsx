@@ -394,12 +394,12 @@ export default function ScanScreen() {
           mainConcern={primaryConcern}
           severity={severityLabel}
           skinType={skinType}
-          zoneScores={(completedSession as any).zone_scores ?? undefined}
-          skinAssessment={(completedSession as any).skin_assessment ?? undefined}
+          zoneScores={completedSession.zone_scores ?? undefined}
+          skinAssessment={completedSession.skin_assessment ?? undefined}
           onStartPlan={handleStartPlan}
           onScanAgain={resetScan}
           onViewFullScan={resetScan}
-          detections={completedSession.model_detections?.front}
+          detections={completedSession.model_detections?.front ?? []}
           imageNativeWidth={frontImageDims?.width ?? 0}
           imageNativeHeight={frontImageDims?.height ?? 0}
         />
