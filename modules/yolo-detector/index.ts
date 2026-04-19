@@ -2,7 +2,7 @@ import { getModule, isAvailable } from './src/YoloDetectorModule';
 import type { Detection, DetectionResult } from '@/lib/scan-types';
 import { ACNE_CLASSES } from '@/lib/scan-types';
 
-const CONFIDENCE_THRESHOLD = 0.2;
+const CONFIDENCE_THRESHOLD = 0.25;
 
 export { isAvailable };
 

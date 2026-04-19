@@ -331,7 +331,7 @@ export function getSkinHeadline(session: ScanSession): string {
 // ── Map a recommendation to an icon ──
 
 export function getRecommendationIcon(title: string): string {
-  const t = title.toLowerCase();
+  const t = (title ?? '').toLowerCase();
   if (t.includes('spf') || t.includes('sun')) return '☀️';
   if (t.includes('vitamin c') || t.includes('serum') || t.includes('brighten')) return '✨';
   if (t.includes('aha') || t.includes('exfoli') || t.includes('retino')) return '💧';

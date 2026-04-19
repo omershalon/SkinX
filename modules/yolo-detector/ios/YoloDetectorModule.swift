@@ -105,10 +105,24 @@ public class YoloDetectorModule: Module {
     ) else { return nil }
 
     context.interpolationQuality = .high
+
+    // Fill with black so letterbox padding is black.
+    context.setFillColor(red: 0, green: 0, blue: 0, alpha: 1)
+    context.fill(CGRect(x: 0, y: 0, width: size, height: size))
+
+    // Letterbox: scale to fit within size×size, preserving aspect ratio.
+    // Use physical pixels (size.width * scale) to match imageWidth/imageHeight used in coordinate inverse.
+    let imgW = image.size.width * image.scale
+    let imgH = image.size.height * image.scale
+    let letterScale = min(CGFloat(size) / imgW, CGFloat(size) / imgH)
+    let drawW = imgW * letterScale
+    let drawH = imgH * letterScale
+    let drawX = (CGFloat(size) - drawW) / 2
+    let drawY = (CGFloat(size) - drawH) / 2
+
     // Draw via UIGraphics so UIImage's EXIF orientation is applied.
-    // Drawing cgImage directly ignores orientation, causing misaligned bboxes.
     UIGraphicsPushContext(context)
-    image.draw(in: CGRect(x: 0, y: 0, width: size, height: size))
+    image.draw(in: CGRect(x: drawX, y: drawY, width: drawW, height: drawH))
     UIGraphicsPopContext()
     return buffer
   }
@@ -148,8 +162,12 @@ public class YoloDetectorModule: Module {
     guard valuesPerDetection >= 6 else { return detections }
 
     let ptr = multiArray.dataPointer.assumingMemoryBound(to: Float.self)
-    let scaleX = Float(imageWidth) / Float(modelInputSize)
-    let scaleY = Float(imageHeight) / Float(modelInputSize)
+
+    // Reverse the letterbox transform applied in preprocessImage.
+    // letterScale = min(modelInputSize/imgW, modelInputSize/imgH)
+    let letterScale = min(Float(modelInputSize) / Float(imageWidth), Float(modelInputSize) / Float(imageHeight))
+    let padX = (Float(modelInputSize) - Float(imageWidth) * letterScale) / 2
+    let padY = (Float(modelInputSize) - Float(imageHeight) * letterScale) / 2
 
     for i in 0..<numDetections {
       let baseIdx: Int
@@ -159,23 +177,25 @@ public class YoloDetectorModule: Module {
         baseIdx = i * valuesPerDetection
       }
 
-      // YOLO output format: [x_center, y_center, width, height, confidence, class_id]
-      // All coordinates are in model-input pixel space (0..1280).
-      let cx         = ptr[baseIdx + 0]
-      let cy         = ptr[baseIdx + 1]
-      let bw         = ptr[baseIdx + 2]
-      let bh         = ptr[baseIdx + 3]
+      // End2end model output format: [x1, y1, x2, y2, confidence, class_id]
+      // Coordinates are already corners in model-input pixel space (0..1280).
+      let x1         = ptr[baseIdx + 0]
+      let y1         = ptr[baseIdx + 1]
+      let x2         = ptr[baseIdx + 2]
+      let y2         = ptr[baseIdx + 3]
       let confidence = ptr[baseIdx + 4]
       let classIdx   = Int(ptr[baseIdx + 5])
 
       // Skip low confidence or padding detections (end2end pads with zeros)
       guard confidence >= confidenceThreshold, classIdx >= 0, classIdx < classNames.count else { continue }
 
-      // Convert center format → corner format, then scale to original image dimensions
-      let scaledX1 = Double((cx - bw / 2) * scaleX)
-      let scaledY1 = Double((cy - bh / 2) * scaleY)
-      let scaledX2 = Double((cx + bw / 2) * scaleX)
-      let scaledY2 = Double((cy + bh / 2) * scaleY)
+      // Reverse letterbox. Y-axis is flipped because CGContext origin is bottom-left,
+      // so the image was drawn upside-down into the pixel buffer. Unflip by subtracting
+      // from modelInputSize, and swap y1/y2 so the smaller value stays y1.
+      let scaledX1 = Double((x1 - padX) / letterScale)
+      let scaledX2 = Double((x2 - padX) / letterScale)
+      let scaledY1 = Double((Float(modelInputSize) - y2 - padY) / letterScale)
+      let scaledY2 = Double((Float(modelInputSize) - y1 - padY) / letterScale)
 
       detections.append([
         "x1": scaledX1,

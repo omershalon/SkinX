@@ -1,5 +1,7 @@
 node_modules/
-ios/
+ios/Pods/
+ios/build/
+ios/Glow.xcworkspace/
 android/
 .expo/
 dist/
@@ -17,8 +19,6 @@ assets/products/
 # YOLO model files (too large for git)
 *.pt
 *.onnx
-*.mlpackage
-*.mlmodelc
 *.tflite
 yolo26m1280_saved_model/
 calibration_image_sample_data_20x128x128x3_float32.npy
