@@ -38,8 +38,8 @@ function AssessmentCard({ item, isStrength }: { item: SkinAssessmentItem; isStre
 export default function SkinStrengthsWeaknesses({ assessment }: SkinStrengthsWeaknessesProps) {
   if (!assessment || assessment.length === 0) return null;
 
-  const strengths  = assessment.filter(a => a.is_strength);
-  const weaknesses = assessment.filter(a => !a.is_strength);
+  const strengths  = assessment.filter(a => a.is_strength).slice(0, 4);
+  const weaknesses = assessment.filter(a => !a.is_strength).slice(0, 4);
 
   return (
     <View style={styles.container}>

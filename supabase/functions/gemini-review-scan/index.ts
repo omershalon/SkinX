@@ -99,6 +99,97 @@ function yToZone(normY: number): string {
   return 'chin_jawline';
 }
 
+// ── Detection colours (mirrors AcneMapHero CLASS_COLORS) ──────────────────────
+const CLASS_COLORS_HEX: Record<string, [number, number, number]> = {
+  papules:    [248, 113, 113],  // #F87171
+  pustules:   [252, 211,  77],  // #FCD34D
+  blackheads: [156, 163, 175],  // #9CA3AF
+  whiteheads: [196, 181, 253],  // #C4B5FD
+  nodules:    [244, 114, 182],  // #F472B6
+  'dark spot':[217, 119,   6],  // #D97706
+};
+
+/**
+ * Draw the AcneMapHero-style detection visualization onto the (already resized)
+ * front image and return it as raw base64 JPEG.
+ *
+ * Draws a coloured circle outline + subtle fill for every front detection.
+ * Uses dynamic import so a jimp load failure never crashes the edge function.
+ */
+async function buildAnnotatedImage(
+  resizedBase64: string,
+  detections: Detection[],
+  origWidth: number,
+  origHeight: number,
+): Promise<string | null> {
+  if (detections.length === 0) return null;
+  try {
+    const { default: Jimp } = await import('npm:jimp@0.22.12');
+
+    // Decode the already-resized JPEG
+    const bytes = Uint8Array.from(atob(resizedBase64), (c) => c.charCodeAt(0));
+    const img = await Jimp.read(bytes.buffer as ArrayBuffer);
+    const resW = img.bitmap.width;
+    const resH = img.bitmap.height;
+
+    // Scale from ORIGINAL pixel space → resized image space
+    const sx = resW / origWidth;
+    const sy = resH / origHeight;
+
+    for (const det of detections) {
+      const [x1, y1, x2, y2] = det.bbox;
+      const cx = ((x1 + x2) / 2) * sx;
+      const cy = ((y1 + y2) / 2) * sy;
+      const rx = ((x2 - x1) / 2) * sx;
+      const ry = ((y2 - y1) / 2) * sy;
+      const r  = Math.max(rx, ry, 8);
+
+      const [cr, cg, cb] = CLASS_COLORS_HEX[det.className] ?? [255, 255, 255];
+      const outlineInt = Jimp.rgbaToInt(cr, cg, cb, 255);
+
+      // Filled circle with 25 % opacity tint + 100 % outline ring
+      const outerR = r + 2;
+      for (let dy = -outerR; dy <= outerR; dy++) {
+        for (let dx = -outerR; dx <= outerR; dx++) {
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const px = Math.round(cx + dx);
+          const py = Math.round(cy + dy);
+          if (px < 0 || px >= resW || py < 0 || py >= resH) continue;
+
+          if (dist <= r) {
+            const existing = Jimp.intToRGBA(img.getPixelColor(px, py));
+            img.setPixelColor(Jimp.rgbaToInt(
+              Math.round(existing.r * 0.75 + cr * 0.25),
+              Math.round(existing.g * 0.75 + cg * 0.25),
+              Math.round(existing.b * 0.75 + cb * 0.25),
+              255,
+            ), px, py);
+          } else if (dist <= outerR) {
+            img.setPixelColor(outlineInt, px, py);
+          }
+        }
+      }
+    }
+
+    const dataUri = await img.getBase64Async(Jimp.MIME_JPEG);
+    return dataUri.replace(/^data:image\/jpeg;base64,/, '');
+  } catch (err) {
+    console.warn('[gemini-review-scan] annotation skipped (jimp unavailable):', String(err).substring(0, 200));
+    return null;
+  }
+}
+
+/** Classify a single detection into one of 5 facial zones (for Gemini context labels only — approximate) */
+function classifyDetectionZone(normX: number, normY: number): string {
+  if (normY < 0.28) return 'FOREHEAD';
+  if (normY > 0.72) return 'CHIN/JAWLINE';
+  if (normX > 0.35 && normX < 0.65) return 'NOSE';
+  if (normX <= 0.5) return 'LEFT CHEEK';
+  return 'RIGHT CHEEK';
+}
+
+const ZONE_NAMES = ['forehead', 'left_cheek', 'right_cheek', 'nose', 'chin_jawline'] as const;
+
 /** Return the set of unique class names across all angles */
 function uniqueClasses(det: AllDetections): Set<string> {
   const s = new Set<string>();
@@ -545,40 +636,39 @@ serve(async (req) => {
     // ── Step 5: Build Anthropic request ──
     console.log('[gemini-review-scan] step 5: building Anthropic request');
 
+    const frontImgWCtx = image_dimensions?.front?.width  ?? 1280;
+    const frontImgHCtx = image_dimensions?.front?.height ?? 1280;
+
     let ultralyticsContext = [
       `## Ultralytics YOLO Detections (all 3 angles)\n`,
       `Total spots found: ${currentTotal}`,
       `Average confidence: ${avgConfidence(current).toFixed(2)}`,
       ``,
       `### FRONT VIEW (${current.front.length} detections)`,
-      ...current.front.map((d, i) =>
-        `  [${i + 1}] ${d.className} (class ${d.classIndex}) — bbox [${d.bbox.map((v) => Math.round(v)).join(', ')}] — conf ${d.confidence.toFixed(3)}`
-      ),
+      `Each line shows: type — facial zone (center position as % of image) — confidence`,
+      ...current.front.map((d, i) => {
+        const cx = ((d.bbox[0] + d.bbox[2]) / 2) / frontImgWCtx;
+        const cy = ((d.bbox[1] + d.bbox[3]) / 2) / frontImgHCtx;
+        const zone = classifyDetectionZone(cx, cy);
+        return `  [${i + 1}] ${d.className} — ${zone} (${Math.round(cx * 100)}% left, ${Math.round(cy * 100)}% top) — conf ${d.confidence.toFixed(3)}`;
+      }),
       ``,
       `### LEFT SIDE (${current.left.length} detections)`,
       ...current.left.map((d, i) =>
-        `  [${i + 1}] ${d.className} (class ${d.classIndex}) — bbox [${d.bbox.map((v) => Math.round(v)).join(', ')}] — conf ${d.confidence.toFixed(3)}`
+        `  [${i + 1}] ${d.className} — conf ${d.confidence.toFixed(3)}`
       ),
       ``,
       `### RIGHT SIDE (${current.right.length} detections)`,
       ...current.right.map((d, i) =>
-        `  [${i + 1}] ${d.className} (class ${d.classIndex}) — bbox [${d.bbox.map((v) => Math.round(v)).join(', ')}] — conf ${d.confidence.toFixed(3)}`
+        `  [${i + 1}] ${d.className} — conf ${d.confidence.toFixed(3)}`
       ),
     ].join('\n');
 
-    const frontDim = image_dimensions?.front;
-    const leftDim = image_dimensions?.left;
-    const rightDim = image_dimensions?.right;
+    const frontDim  = image_dimensions?.front;
+    const leftDim   = image_dimensions?.left;
+    const rightDim  = image_dimensions?.right;
 
-    const frontLabel = frontDim
-      ? `IMAGE 1 — FRONT VIEW (${frontDim.width}x${frontDim.height}px original, sent resized to ≤${CONFIG.image_resize_for_gemini}px)`
-      : 'IMAGE 1 — FRONT VIEW';
-    const leftLabel = leftDim
-      ? `IMAGE 2 — LEFT SIDE VIEW (${leftDim.width}x${leftDim.height}px original, sent resized to ≤${CONFIG.image_resize_for_gemini}px)`
-      : 'IMAGE 2 — LEFT SIDE VIEW';
-    const rightLabel = rightDim
-      ? `IMAGE 3 — RIGHT SIDE VIEW (${rightDim.width}x${rightDim.height}px original, sent resized to ≤${CONFIG.image_resize_for_gemini}px)`
-      : 'IMAGE 3 — RIGHT SIDE VIEW';
+    // (Labels are now built dynamically after annotatedFront is known below)
 
     const frontMediaType = detectMediaType(front_image) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
     const leftMediaType = left_image ? detectMediaType(left_image) as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif' : frontMediaType;
@@ -600,42 +690,44 @@ Your role is strictly complementary to the YOLO model:
 
 Return ONLY valid JSON. No markdown fences. No explanation outside the JSON object.`;
 
-    // Build per-zone counts for Gemini context using 5-zone layout
-    const fiveZoneCounts: Record<string, number> = {
-      forehead: 0, left_cheek: 0, right_cheek: 0, nose: 0, chin_jawline: 0,
-    };
-    const frontImgW = image_dimensions?.front?.width  ?? 1280;
-    const frontImgH = image_dimensions?.front?.height ?? 1280;
-    for (const det of current.front) {
-      const normX = ((det.bbox[0] + det.bbox[2]) / 2) / frontImgW;
-      const normY = ((det.bbox[1] + det.bbox[3]) / 2) / frontImgH;
-      if (normY < 0.28) {
-        fiveZoneCounts.forehead += 1;
-      } else if (normY > 0.72) {
-        fiveZoneCounts.chin_jawline += 1;
-      } else if (normX > 0.35 && normX < 0.65) {
-        fiveZoneCounts.nose += 1;
-      } else if (normX <= 0.5) {
-        fiveZoneCounts.left_cheek += 1;
-      } else {
-        fiveZoneCounts.right_cheek += 1;
-      }
+    // ── Build annotated visualization (AcneMapHero-style circles) ──────────────
+    console.log('[gemini-review-scan] building annotated front image...');
+    const annotatedFront = await buildAnnotatedImage(
+      front_image,
+      current.front,
+      image_dimensions?.front?.width  ?? 1280,
+      image_dimensions?.front?.height ?? 1280,
+    );
+    if (annotatedFront) {
+      console.log('[gemini-review-scan] annotation built OK, size:', Math.round(annotatedFront.length * 3 / 4 / 1024), 'KB');
     }
-    const zoneCountContext = current.front.length > 0
-      ? '\n\nFront image zone counts (from YOLO, 5-zone layout): ' +
-        Object.entries(fiveZoneCounts).map(([z, c]) => `${z}: ${c}`).join(', ')
-      : '';
-    ultralyticsContext += zoneCountContext;
 
-    const imageCount = 1 + (hasLeftImage ? 1 : 0) + (hasRightImage ? 1 : 0);
+    const imageCount = 1 + (annotatedFront ? 1 : 0) + (hasLeftImage ? 1 : 0) + (hasRightImage ? 1 : 0);
+
+    // Build image labels — annotated image goes first when available
+    const annotatedLabel  = 'IMAGE 1 — ANNOTATED FRONT VIEW: coloured circles mark every YOLO-detected spot. Each numbered detection in the list below corresponds to one circle. Use this image to visually identify which facial region each circle sits in (forehead, left cheek, right cheek, nose, or chin/jawline) — the face may not be centred in the photo, so judge zones relative to the actual face visible in the image.';
+    const plainFrontIdx   = annotatedFront ? 2 : 1;
+    const plainFrontLabel = frontDim
+      ? `IMAGE ${plainFrontIdx} — FRONT VIEW original (${frontDim.width}x${frontDim.height}px, sent resized to ≤${CONFIG.image_resize_for_gemini}px) — use for skin texture, tone, and assessment`
+      : `IMAGE ${plainFrontIdx} — FRONT VIEW original`;
+    const leftIdx   = plainFrontIdx + 1;
+    const rightIdx  = leftIdx + 1;
+    const leftLabel = leftDim
+      ? `IMAGE ${leftIdx} — LEFT SIDE VIEW (${leftDim.width}x${leftDim.height}px original)`
+      : `IMAGE ${leftIdx} — LEFT SIDE VIEW`;
+    const rightLabel = rightDim
+      ? `IMAGE ${rightIdx} — RIGHT SIDE VIEW (${rightDim.width}x${rightDim.height}px original)`
+      : `IMAGE ${rightIdx} — RIGHT SIDE VIEW`;
+
     const userPrompt = `You are provided with ${imageCount} face image${imageCount > 1 ? 's' : ''} of the same person:
-- ${frontLabel}${hasLeftImage ? `\n- ${leftLabel}` : ''}${hasRightImage ? `\n- ${rightLabel}` : ''}
+${annotatedFront ? `- ${annotatedLabel}\n` : ''}- ${plainFrontLabel}${hasLeftImage ? `\n- ${leftLabel}` : ''}${hasRightImage ? `\n- ${rightLabel}` : ''}
 
 ${ultralyticsContext}
 
 ## Your two tasks
 
 ### Task 1 — Review YOLO detections across all angles
+${annotatedFront ? 'The FIRST image has coloured circles marking every YOLO-detected spot. Use it to visually locate each detection on the face. The SECOND image is the plain original for skin quality assessment.' : ''}
 Using all ${imageCount} images and the YOLO detection list:
 - Confirm detections on each angle's image that you can visually verify
 - Note any possible missed spots on any image
@@ -644,8 +736,8 @@ Using all ${imageCount} images and the YOLO detection list:
 ### Task 2 — Skin analysis
 - Overall severity and zone breakdown
 - Skin type, moisture, 2 key observations
-- zone_scores: assess all 5 facial zones (forehead, left_cheek, right_cheek, nose, chin_jawline) using YOLO data + photo. Every zone must be present even if lesion_count is 0.
-- skin_assessment: assess all 11 categories below from the photo and YOLO data. Score each 0–10 (lower = better condition). Mark exactly the 3 lowest scores as is_strength=true, exactly the 3 highest scores as is_strength=false. Label must be a friendly one-sentence plain-English description.
+- zone_assignments: for EACH front detection listed above (in order [1], [2], …), look at the annotated image and assign it to exactly one zone. Output as an array of strings, one per detection, in the same order. Valid values: "forehead", "left_cheek", "right_cheek", "nose", "chin_jawline". Judge relative to the actual face in the image — the face may not fill the frame.
+- skin_assessment: assess all 11 categories below from the photo and YOLO data. Score each 0–10 (lower = better condition). Mark between 1 and 4 of the lowest-scoring categories as is_strength=true, and between 1 and 4 of the highest-scoring as is_strength=false. Label must be a friendly one-sentence plain-English description.
 
 Categories: active_breakouts, comedones, dark_spots, redness, skin_texture, pore_visibility, skin_tone_evenness, oiliness, hydration, brightness, under_eye
 
@@ -677,13 +769,7 @@ Return ONLY valid JSON:
     "moisture": "low-normal",
     "key_observations": ["obs 1", "obs 2"]
   },
-  "zone_scores": [
-    {"zone": "forehead", "lesion_count": 7, "severity": "moderate", "primary_types": ["papules"]},
-    {"zone": "left_cheek", "lesion_count": 3, "severity": "mild", "primary_types": ["dark spot"]},
-    {"zone": "right_cheek", "lesion_count": 1, "severity": "clear", "primary_types": []},
-    {"zone": "nose", "lesion_count": 0, "severity": "clear", "primary_types": []},
-    {"zone": "chin_jawline", "lesion_count": 4, "severity": "moderate", "primary_types": ["papules", "pustules"]}
-  ],
+  "zone_assignments": ["forehead", "left_cheek", "chin_jawline"],
   "skin_assessment": [
     {"category": "active_breakouts", "label": "Several inflamed spots on forehead and chin", "score": 7, "is_strength": false},
     {"category": "comedones", "label": "Very few blackheads or whiteheads detected", "score": 2, "is_strength": true},
@@ -698,13 +784,17 @@ Return ONLY valid JSON:
 
 CRITICAL:
 - severity must be exactly "mild", "moderate", or "severe"
+- zone_assignments must have exactly ${current.front.length} entries (one per front detection, in order)
 - confirmed YOLO detections: source="model" status="confirmed"; missed: source="ai" status="added"; false positive: status="removed"
 - Keep all text values short. Empty arrays are valid.`;
 
-    // Build Gemini content parts — images + text
-    const geminiParts: any[] = [
-      { inline_data: { mime_type: frontMediaType, data: front_image } },
-    ];
+    // Build Gemini content parts — annotated image first (if available), then originals
+    const geminiParts: any[] = [];
+    if (annotatedFront) {
+      // Annotated visualization goes first — Gemini uses it to identify spot locations/zones
+      geminiParts.push({ inline_data: { mime_type: 'image/jpeg', data: annotatedFront } });
+    }
+    geminiParts.push({ inline_data: { mime_type: frontMediaType, data: front_image } });
     if (hasLeftImage) {
       geminiParts.push({ inline_data: { mime_type: leftMediaType, data: left_image } });
     }
@@ -717,7 +807,7 @@ CRITICAL:
 
     console.log('[gemini-review-scan] Gemini payload info:');
     console.log('  model:', GEMINI_MODEL);
-    console.log('  images sent:', imageCount);
+    console.log('  images sent:', imageCount, annotatedFront ? '(incl. annotated)' : '(no annotation)');
     console.log('  detections — front:', current.front.length, 'left:', current.left.length, 'right:', current.right.length);
 
     // ── Step 6: Call Gemini API (with retry) ──
@@ -841,12 +931,41 @@ CRITICAL:
       );
     }
 
-    // Warn if new analysis fields are missing (non-fatal)
-    if (!result.skin_assessment || result.skin_assessment.length === 0) {
-      console.warn('[gemini-review-scan] skin_assessment missing or empty from Gemini response');
+    // ── Build zone_scores from Gemini's per-detection zone_assignments ──────────
+    // Gemini assigns each front detection (in order) to a zone by looking at the
+    // annotated image. We tally those assignments here — counts always match YOLO total.
+    {
+      const assignments: string[] = Array.isArray(result.zone_assignments) ? result.zone_assignments : [];
+      console.log('[gemini-review-scan] zone_assignments from Gemini:', assignments);
+
+      const zoneData: Record<string, { count: number; types: Set<string> }> = {};
+      for (const z of ZONE_NAMES) zoneData[z] = { count: 0, types: new Set() };
+
+      current.front.forEach((det, i) => {
+        const raw = (assignments[i] ?? '').toLowerCase().trim();
+        // Accept minor variations ("left cheek" → "left_cheek", etc.)
+        const zone = ZONE_NAMES.find(z => z === raw || z.replace('_', ' ') === raw || raw.includes(z.split('_')[0]))
+          ?? 'left_cheek'; // fallback to left_cheek if Gemini returns garbage
+        zoneData[zone].count++;
+        zoneData[zone].types.add(det.className);
+      });
+
+      result.zone_scores = ZONE_NAMES.map(zone => {
+        const { count, types } = zoneData[zone];
+        const severity = count === 0 ? 'clear' : count <= 2 ? 'mild' : count <= 5 ? 'moderate' : 'severe';
+        return { zone, lesion_count: count, severity, primary_types: Array.from(types) };
+      });
+
+      console.log('[gemini-review-scan] zone_scores (from assignments):', result.zone_scores.map((z: any) => `${z.zone}:${z.lesion_count}`).join(', '));
     }
-    if (!result.zone_scores || result.zone_scores.length === 0) {
-      console.warn('[gemini-review-scan] zone_scores missing or empty from Gemini response');
+
+    // ── Clamp skin_assessment to 1–4 strengths and 1–4 weaknesses ──
+    if (Array.isArray(result.skin_assessment) && result.skin_assessment.length > 0) {
+      const strengths  = result.skin_assessment.filter((a: any) =>  a.is_strength).slice(0, 4);
+      const weaknesses = result.skin_assessment.filter((a: any) => !a.is_strength).slice(0, 4);
+      result.skin_assessment = [...strengths, ...weaknesses];
+    } else {
+      console.warn('[gemini-review-scan] skin_assessment missing or empty from Gemini response');
     }
 
     result.gemini_called = true;
