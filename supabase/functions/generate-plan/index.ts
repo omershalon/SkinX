@@ -51,7 +51,7 @@ serve(async (req) => {
       // Onboarding data
       supabaseClient
         .from('onboarding_data')
-        .select('age_range, acne_duration, tried_products, known_allergies, skin_concerns')
+        .select('age_range, acne_duration, tried_products, known_allergies, skin_concerns, hormonal_treatment')
         .eq('user_id', skin.user_id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -95,6 +95,9 @@ serve(async (req) => {
       ob.tried_products?.length ? `Products already tried: ${ob.tried_products.join(', ')}` : '',
       ob.known_allergies?.length ? `Known allergies: ${ob.known_allergies.join(', ')}` : '',
       ob.skin_concerns?.length ? `Primary concerns: ${ob.skin_concerns.join(', ')}` : '',
+      ob.hormonal_treatment?.length && !(ob.hormonal_treatment.length === 1 && ob.hormonal_treatment[0] === 'none')
+        ? `Hormonal treatment / birth control: ${ob.hormonal_treatment.join(', ')} — factor these hormonal inputs into androgen-driven acne reasoning and avoid recommendations that interact (e.g. anti-androgen herbs that could conflict with HRT).`
+        : '',
     ].filter(Boolean).join('\n') : '';
 
     // Product scan history — what they've scanned and results

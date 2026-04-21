@@ -56,6 +56,7 @@ async function saveOnboardingData(userId: string, onboardingData: string) {
       tried_products: ob.tried || [],
       known_allergies: [],
       skin_concerns: ob.concerns || [],
+      hormonal_treatment: ob.hormonalTreatment || [],
     });
   } catch {}
 }

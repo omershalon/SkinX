@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, Modal,
+  Animated, Modal, TextInput, Platform, Keyboard, Easing,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -24,13 +24,16 @@ import {
 type Ans = {
   gender: string; birthDate: BirthDate; skinType: string; sensitivity: string; duration: string;
   tried: string[]; concerns: string[]; breakoutZones: string[]; goal: string[]; holistic: string;
-  barriers: string[]; skincareRoutine: string; hearAbout: string; triedApps: string;
+  barriers: string[]; skincareRoutine: string; hormonalTreatment: string[]; hearAbout: string; triedApps: string;
+  referralCode: string;
 };
 const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
-const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', tried: [], concerns: [], breakoutZones: [], goal: [], holistic: '', barriers: [], skincareRoutine: '', hearAbout: '', triedApps: '' };
+const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', tried: [], concerns: [], breakoutZones: [], goal: [], holistic: '', barriers: [], skincareRoutine: '', hormonalTreatment: [], hearAbout: '', triedApps: '', referralCode: '' };
 
-// 13 questions + 1 graph + 1 bar comparison + 1 affirmation + 1 trust + 1 notifications = 18 screens
-const TOTAL = 18;
+// Step 14 (hormonal treatment) only renders for female users, so total screens is gender-dependent.
+const TOTAL_FEMALE = 20;
+const TOTAL_OTHER = 19;
+const HORMONAL_STEP = 14;
 
 const HEAR_SOURCES = [
   { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
@@ -138,9 +141,47 @@ export default function OnboardingScreen() {
   const [step, setStep] = useState(0);
   const [a, setA] = useState<Ans>(EMPTY);
   const [ageGateVisible, setAgeGateVisible] = useState(false);
-  const prog = useRef(new Animated.Value(1 / TOTAL)).current;
+  const [referralFocused, setReferralFocused] = useState(false);
+  const prog = useRef(new Animated.Value(1 / TOTAL_FEMALE)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
+  const keyboardLift = useRef(new Animated.Value(0)).current;
+  // Cache last-measured keyboard height so we can start lifting the moment the user taps the
+  // input (onFocus) rather than waiting for keyboardWillShow — otherwise there's a noticeable
+  // lag before the Skip button begins rising. 291 is the iPhone portrait default.
+  const lastKbHeight = useRef(291);
   const trustLottieRef = useRef<any>(null);
+
+  // Animate body + bottom bar up in lockstep with the iOS keyboard. The Skip button's original
+  // paddingBottom already includes the home-indicator inset, so we subtract insets.bottom from
+  // the keyboard height — otherwise the lift overshoots and the button hovers above where the
+  // keyboard actually sits. Matching iOS's own duration/easing keeps the motion native-feeling.
+  useEffect(() => {
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      lastKbHeight.current = e.endCoordinates.height;
+      Animated.timing(keyboardLift, {
+        toValue: Math.max(0, e.endCoordinates.height - insets.bottom),
+        duration: e.duration || 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+    const hideSub = Keyboard.addListener(hideEvt, (e) => {
+      Animated.timing(keyboardLift, {
+        toValue: 0,
+        duration: e?.duration || 250,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, [insets.bottom]);
+
+  const isFemale = a.gender === 'Female';
+  const total = isFemale ? TOTAL_FEMALE : TOTAL_OTHER;
+  // Effective step for progress bar — collapses skipped hormonal step for non-female users.
+  const effectiveStep = (s: number) => (isFemale || s < HORMONAL_STEP ? s : s - 1);
 
   const animateIn = () => {
     enterAnim.setValue(0);
@@ -150,15 +191,19 @@ export default function OnboardingScreen() {
   const goTo = (s: number) => {
     Animated.timing(enterAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
       setStep(s);
-      Animated.spring(prog, { toValue: (s + 1) / TOTAL, friction: 10, tension: 40, useNativeDriver: false }).start();
+      Animated.spring(prog, { toValue: (effectiveStep(s) + 1) / total, friction: 10, tension: 40, useNativeDriver: false }).start();
       animateIn();
     });
   };
 
-  const next = () => goTo(step + 1);
+  const next = () => {
+    const target = step + 1;
+    goTo(!isFemale && target === HORMONAL_STEP ? target + 1 : target);
+  };
   const back = () => {
-    if (step > 0) goTo(step - 1);
-    else router.back();
+    if (step === 0) { router.back(); return; }
+    const target = step - 1;
+    goTo(!isFemale && target === HORMONAL_STEP ? target - 1 : target);
   };
   useEffect(() => { animateIn(); }, []);
 
@@ -167,7 +212,7 @@ export default function OnboardingScreen() {
     router.push({ pathname: '/(auth)/photo-capture', params: { onboardingData: JSON.stringify({ ...a, age: String(age) }) } });
   };
 
-  const toggleMulti = (key: 'tried' | 'concerns' | 'barriers' | 'breakoutZones' | 'goal', val: string) => {
+  const toggleMulti = (key: 'tried' | 'concerns' | 'barriers' | 'breakoutZones' | 'goal' | 'hormonalTreatment', val: string) => {
     setA(p => ({ ...p, [key]: p[key].includes(val) ? p[key].filter((v: string) => v !== val) : [...p[key], val] }));
   };
 
@@ -188,15 +233,17 @@ export default function OnboardingScreen() {
       case 11: return true; // bar comparison
       case 12: return a.barriers.length > 0;
       case 13: return !!a.skincareRoutine;
-      case 14: return !!a.holistic;
-      case 15: return true; // affirmation
-      case 16: return true; // trust screen
-      case 17: return true; // notifications
+      case 14: return a.hormonalTreatment.length > 0; // female-only
+      case 15: return !!a.holistic;
+      case 16: return true; // affirmation
+      case 17: return true; // trust screen
+      case 18: return true; // notifications
+      case 19: return true; // referral code (optional — skip always allowed)
       default: return false;
     }
   };
 
-  const isLastStep = step === 17;
+  const isLastStep = step === 19;
 
   const Q = ({ title, subtitle, children, sticky }: { title: string; subtitle?: string; children: React.ReactNode; sticky?: boolean }) => {
     if (sticky) {
@@ -434,8 +481,27 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 14: Holistic ──
+      // ── 14: Hormonal treatment (female-only) ──
       case 14: return (
+        <Q title={t('onboarding.hormonalTitle')} subtitle={t('onboarding.selectAll')} sticky>
+          <View style={st.optionList}>
+            {[
+              { id: 'combined_pill',      title: t('onboarding.hormonalCombinedPillTitle'),  sub: t('onboarding.hormonalCombinedPillSub') },
+              { id: 'progestin_only_pill',title: t('onboarding.hormonalProgestinPillTitle'), sub: t('onboarding.hormonalProgestinPillSub') },
+              { id: 'hormonal_iud',       title: t('onboarding.hormonalIudTitle'),           sub: t('onboarding.hormonalIudSub') },
+              { id: 'implant_injection',  title: t('onboarding.hormonalImplantTitle'),       sub: t('onboarding.hormonalImplantSub') },
+              { id: 'hrt',                title: t('onboarding.hormonalHrtTitle'),           sub: t('onboarding.hormonalHrtSub') },
+              { id: 'other_hormonal',     title: t('onboarding.hormonalOtherTitle'),         sub: t('onboarding.hormonalOtherSub') },
+              { id: 'none',               title: t('onboarding.hormonalNoneTitle'),          sub: t('onboarding.hormonalNoneSub') },
+            ].map(o => (
+              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.hormonalTreatment.includes(o.id)} onPress={() => toggleMulti('hormonalTreatment', o.id)} />
+            ))}
+          </View>
+        </Q>
+      );
+
+      // ── 15: Holistic ──
+      case 15: return (
         <Q title={t('onboarding.holistic')} subtitle={t('onboarding.holisticSub')}>
           <View style={st.optionList}>
             {([
@@ -449,16 +515,16 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 15: Affirmation ──
-      case 15: return (
+      // ── 16: Affirmation ──
+      case 16: return (
         <View style={st.affirmCenter}>
           <Text style={st.affirmBig}>{t('onboarding.affirmTitle')}</Text>
           <Text style={st.affirmBody}>{t('onboarding.affirmBody')}</Text>
         </View>
       );
 
-      // ── 16: Trust / Privacy ──
-      case 16: return (
+      // ── 17: Trust / Privacy ──
+      case 17: return (
         <View style={st.trustWrap}>
           <LottieView
             ref={trustLottieRef}
@@ -479,8 +545,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 17: Push notifications ──
-      case 17: return (
+      // ── 18: Push notifications ──
+      case 18: return (
         <View style={st.notifWrap}>
           <Text style={st.notifTitle}>Get reminded to{'\n'}log scans.</Text>
           <View style={st.notifCard}>
@@ -490,16 +556,67 @@ export default function OnboardingScreen() {
             </Text>
             <View style={st.notifDividerH} />
             <View style={st.notifBtns}>
-              <TouchableOpacity style={st.notifBtnLeft} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); finish(); }}>
+              <TouchableOpacity style={st.notifBtnLeft} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); next(); }}>
                 <Text style={st.notifBtnLeftText}>Don't Allow</Text>
               </TouchableOpacity>
               <View style={st.notifDividerV} />
-              <TouchableOpacity style={st.notifBtnRight} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); finish(); }}>
+              <TouchableOpacity style={st.notifBtnRight} activeOpacity={0.7} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); next(); }}>
                 <Text style={st.notifBtnRightText}>Allow</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
+      );
+
+      // ── 19: Referral code (optional) ──
+      case 19: return (
+        <Q title={t('onboarding.referralTitle')} subtitle={t('onboarding.referralSub')}>
+          {/* Input lifts by half the Skip button's lift so it remains centered between the
+              title (fixed) and the Skip button (lifted) when the keyboard is open. */}
+          <Animated.View style={{ transform: [{ translateY: Animated.multiply(keyboardLift, -0.5) }] }}>
+          <View style={[st.referralCard, referralFocused && st.referralCardFocused]}>
+            <TextInput
+              style={st.referralInput}
+              placeholder={t('onboarding.referralPlaceholder')}
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              value={a.referralCode ?? ''}
+              onChangeText={(v) => setA(p => ({ ...p, referralCode: v }))}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="done"
+              onFocus={() => {
+                setReferralFocused(true);
+                // Kick the lift off the moment the tap lands — iOS's keyboardWillShow fires
+                // ~tens of ms later, which was the delay the user was feeling.
+                Animated.timing(keyboardLift, {
+                  toValue: Math.max(0, lastKbHeight.current - insets.bottom),
+                  duration: 250,
+                  easing: Easing.out(Easing.cubic),
+                  useNativeDriver: true,
+                }).start();
+              }}
+              onBlur={() => setReferralFocused(false)}
+            />
+            {(() => {
+              const hasCode = !!(a.referralCode ?? '').trim();
+              return (
+                <TouchableOpacity
+                  style={[st.referralSubmit, !hasCode && st.referralSubmitDisabled]}
+                  onPress={() => {
+                    if (!hasCode) return;
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    finish();
+                  }}
+                  activeOpacity={hasCode ? 0.85 : 1}>
+                  <Text style={[st.referralSubmitText, !hasCode && st.referralSubmitTextDisabled]}>
+                    {t('onboarding.referralSubmit')}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })()}
+          </View>
+          </Animated.View>
+        </Q>
       );
 
       default: return null;
@@ -527,9 +644,9 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 11 || step === 16 || step === 17 ? (
+        {step === 1 || step === 11 || step === 17 || step === 18 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
-        ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 ? (
+        ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 || step === 14 || step === 19 ? (
           <View style={{ flex: 1, paddingHorizontal: 24 }}>{renderStep()}</View>
         ) : (
           <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
@@ -538,8 +655,12 @@ export default function OnboardingScreen() {
         )}
       </Animated.View>
 
-      {/* Next button */}
-      {step !== 17 && <View style={[st.bottomBar, { paddingBottom: insets.bottom + 12 }]}>
+      {/* Bottom bar — translated by keyboardLift so only the Skip button rises with the keyboard.
+          The title above stays pinned in place. */}
+      {step !== 18 && <Animated.View style={[st.bottomBar, {
+        paddingBottom: insets.bottom + 12,
+        transform: [{ translateY: Animated.multiply(keyboardLift, -1) }],
+      }]}>
         <TouchableOpacity
           style={[st.nextBtn, !canNext() && st.nextBtnDisabled]}
           onPress={() => {
@@ -557,9 +678,9 @@ export default function OnboardingScreen() {
             isLastStep ? finish() : next();
           }}
           activeOpacity={canNext() ? 0.85 : 1}>
-          <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? t('onboarding.letsGo') : t('onboarding.next')}</Text>
+          <Text style={[st.nextBtnText, !canNext() && st.nextBtnTextDisabled]}>{isLastStep ? t('onboarding.skip') : t('onboarding.next')}</Text>
         </TouchableOpacity>
-      </View>}
+      </Animated.View>}
 
       {/* Age gate modal */}
       <Modal visible={ageGateVisible} transparent animationType="none" statusBarTranslucent>
@@ -736,6 +857,30 @@ const st = StyleSheet.create({
   modalBody: { fontFamily: Fonts.regular, fontSize: 16, color: '#555', lineHeight: 23, marginBottom: 20 },
   modalBtn: { backgroundColor: '#111', borderRadius: 14, height: 54, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#FFF' },
+
+  // Referral code screen (dark-theme inversion of the screenshot)
+  referralCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1A1A1E',
+    borderRadius: 18,
+    paddingLeft: 18, paddingRight: 6, paddingVertical: 6,
+    gap: 8,
+    borderWidth: 1.5, borderColor: 'transparent',
+  },
+  referralCardFocused: { borderColor: 'rgba(255,255,255,0.3)' },
+  referralInput: {
+    flex: 1,
+    fontFamily: Fonts.medium, fontSize: 16, color: '#FFFFFF',
+    paddingVertical: 14,
+  },
+  referralSubmit: {
+    paddingHorizontal: 22, paddingVertical: 12,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  referralSubmitDisabled: { backgroundColor: 'rgba(255,255,255,0.08)' },
+  referralSubmitText: { fontFamily: Fonts.semibold, fontSize: 15, color: '#FFFFFF' },
+  referralSubmitTextDisabled: { color: 'rgba(255,255,255,0.4)' },
 
   // Push notifications screen
   notifWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, gap: 24, paddingBottom: 100 },

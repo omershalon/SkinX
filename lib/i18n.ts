@@ -409,6 +409,28 @@ const resources = {
 
         routine: 'Do you follow a skincare routine?',
 
+        hormonalTitle: 'Are you using any hormonal treatment?',
+        hormonalCombinedPillTitle: 'Birth control pill',
+        hormonalCombinedPillSub: 'The standard pill.',
+        hormonalProgestinPillTitle: 'Progestin-only pill',
+        hormonalProgestinPillSub: 'Also called the mini-pill.',
+        hormonalIudTitle: 'Hormonal IUD',
+        hormonalIudSub: 'Mirena, Kyleena, Liletta.',
+        hormonalImplantTitle: 'Implant or injection',
+        hormonalImplantSub: 'Nexplanon, Depo-Provera.',
+        hormonalHrtTitle: 'Hormone replacement therapy',
+        hormonalHrtSub: 'HRT or menopause treatment.',
+        hormonalOtherTitle: 'Other hormonal medication',
+        hormonalOtherSub: 'E.g. spironolactone or similar.',
+        hormonalNoneTitle: 'None of these',
+        hormonalNoneSub: "I'm not on any hormonal treatment.",
+
+        referralTitle: 'Enter referral code (optional)',
+        referralSub: 'You can skip this step',
+        referralPlaceholder: 'Referral Code',
+        referralSubmit: 'Submit',
+        skip: 'Skip',
+
         holistic: 'Are you open to natural approaches?',
         holisticSub: 'Things like herbal remedies, diet changes, and natural products',
         holisticYes: 'Yes, I prefer natural',
