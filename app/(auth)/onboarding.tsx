@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Animated, Modal, TextInput, Platform, Keyboard, Easing,
+  Animated, Modal, TextInput, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import * as StoreReview from 'expo-store-review';
 import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
 import AnimatedGraph from '@/components/onboarding/AnimatedGraph';
@@ -31,8 +32,8 @@ const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
 const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', tried: [], concerns: [], breakoutZones: [], goal: [], holistic: '', barriers: [], skincareRoutine: '', hormonalTreatment: [], hearAbout: '', triedApps: '', referralCode: '' };
 
 // Step 14 (hormonal treatment) only renders for female users, so total screens is gender-dependent.
-const TOTAL_FEMALE = 20;
-const TOTAL_OTHER = 19;
+const TOTAL_FEMALE = 21;
+const TOTAL_OTHER = 20;
 const HORMONAL_STEP = 14;
 
 const HEAR_SOURCES = [
@@ -142,41 +143,27 @@ export default function OnboardingScreen() {
   const [a, setA] = useState<Ans>(EMPTY);
   const [ageGateVisible, setAgeGateVisible] = useState(false);
   const [referralFocused, setReferralFocused] = useState(false);
+  const [selectedStar, setSelectedStar] = useState(0);
   const prog = useRef(new Animated.Value(1 / TOTAL_FEMALE)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
-  const keyboardLift = useRef(new Animated.Value(0)).current;
-  // Cache last-measured keyboard height so we can start lifting the moment the user taps the
-  // input (onFocus) rather than waiting for keyboardWillShow — otherwise there's a noticeable
-  // lag before the Skip button begins rising. 291 is the iPhone portrait default.
-  const lastKbHeight = useRef(291);
+  const navigating = useRef(false);
+  const fingerBounce = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (step === 18) setSelectedStar(0);
+    if (step !== 19) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(fingerBounce, { toValue: -8, duration: 600, useNativeDriver: true }),
+        Animated.timing(fingerBounce, { toValue: 0,  duration: 600, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => { anim.stop(); fingerBounce.setValue(0); };
+  }, [step]);
+
   const trustLottieRef = useRef<any>(null);
 
-  // Animate body + bottom bar up in lockstep with the iOS keyboard. The Skip button's original
-  // paddingBottom already includes the home-indicator inset, so we subtract insets.bottom from
-  // the keyboard height — otherwise the lift overshoots and the button hovers above where the
-  // keyboard actually sits. Matching iOS's own duration/easing keeps the motion native-feeling.
-  useEffect(() => {
-    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvt, (e) => {
-      lastKbHeight.current = e.endCoordinates.height;
-      Animated.timing(keyboardLift, {
-        toValue: Math.max(0, e.endCoordinates.height - insets.bottom),
-        duration: e.duration || 250,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-    });
-    const hideSub = Keyboard.addListener(hideEvt, (e) => {
-      Animated.timing(keyboardLift, {
-        toValue: 0,
-        duration: e?.duration || 250,
-        easing: Easing.in(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-    });
-    return () => { showSub.remove(); hideSub.remove(); };
-  }, [insets.bottom]);
 
   const isFemale = a.gender === 'Female';
   const total = isFemale ? TOTAL_FEMALE : TOTAL_OTHER;
@@ -189,10 +176,13 @@ export default function OnboardingScreen() {
   };
 
   const goTo = (s: number) => {
+    if (navigating.current) return;
+    navigating.current = true;
     Animated.timing(enterAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
       setStep(s);
       Animated.spring(prog, { toValue: (effectiveStep(s) + 1) / total, friction: 10, tension: 40, useNativeDriver: false }).start();
       animateIn();
+      navigating.current = false;
     });
   };
 
@@ -208,6 +198,8 @@ export default function OnboardingScreen() {
   useEffect(() => { animateIn(); }, []);
 
   const finish = () => {
+    if (navigating.current) return;
+    navigating.current = true;
     const age = new Date().getFullYear() - a.birthDate.year;
     router.push({ pathname: '/(auth)/photo-capture', params: { onboardingData: JSON.stringify({ ...a, age: String(age) }) } });
   };
@@ -237,13 +229,14 @@ export default function OnboardingScreen() {
       case 15: return !!a.holistic;
       case 16: return true; // affirmation
       case 17: return true; // trust screen
-      case 18: return true; // notifications
-      case 19: return true; // referral code (optional — skip always allowed)
+      case 18: return true; // rate the app
+      case 19: return true; // notifications
+      case 20: return true; // referral code (optional — skip always allowed)
       default: return false;
     }
   };
 
-  const isLastStep = step === 19;
+  const isLastStep = step === 20;
 
   const Q = ({ title, subtitle, children, sticky }: { title: string; subtitle?: string; children: React.ReactNode; sticky?: boolean }) => {
     if (sticky) {
@@ -545,8 +538,39 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 18: Push notifications ──
+      // ── 18: Rate the app ──
       case 18: return (
+        <View style={st.rateWrap}>
+<Text style={st.rateTitle}>Enjoying Glow so far?</Text>
+          <Text style={st.rateSub}>Tap a star to rate us on the App Store.</Text>
+          <View style={st.rateStars}>
+            {[1, 2, 3, 4, 5].map((star) => (
+              <TouchableOpacity
+                key={star}
+                activeOpacity={0.7}
+                onPress={async () => {
+                  if (selectedStar > 0) return;
+                  setSelectedStar(star);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  const isAvailable = await StoreReview.isAvailableAsync();
+                  if (isAvailable) await StoreReview.requestReview();
+                  setTimeout(() => next(), 800);
+                }}
+              >
+                <Text style={[st.rateStar, star <= selectedStar ? st.rateStarDone : st.rateStarEmpty]}>
+                  {star <= selectedStar ? '★' : '☆'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {selectedStar > 0 && (
+            <Text style={st.rateThanks}>Thank you!</Text>
+          )}
+        </View>
+      );
+
+      // ── 19: Push notifications ──
+      case 19: return (
         <View style={st.notifWrap}>
           <Text style={st.notifTitle}>Get reminded to{'\n'}log scans.</Text>
           <View style={st.notifCard}>
@@ -565,15 +589,22 @@ export default function OnboardingScreen() {
               </TouchableOpacity>
             </View>
           </View>
+          {/* Pointing finger — aligned under the Allow button (right half) */}
+          <View style={st.notifFingerRow}>
+            <View style={{ flex: 1 }} />
+            <Animated.View style={[st.notifFingerRight, { transform: [{ translateY: fingerBounce }] }]}>
+              <Text style={st.notifFingerEmoji}>👆</Text>
+            </Animated.View>
+          </View>
         </View>
       );
 
-      // ── 19: Referral code (optional) ──
-      case 19: return (
+      // ── 20: Referral code (optional) ──
+      case 20: return (
         <Q title={t('onboarding.referralTitle')} subtitle={t('onboarding.referralSub')}>
           {/* Input lifts by half the Skip button's lift so it remains centered between the
               title (fixed) and the Skip button (lifted) when the keyboard is open. */}
-          <Animated.View style={{ transform: [{ translateY: Animated.multiply(keyboardLift, -0.5) }] }}>
+          <View>
           <View style={[st.referralCard, referralFocused && st.referralCardFocused]}>
             <TextInput
               style={st.referralInput}
@@ -584,17 +615,7 @@ export default function OnboardingScreen() {
               autoCapitalize="characters"
               autoCorrect={false}
               returnKeyType="done"
-              onFocus={() => {
-                setReferralFocused(true);
-                // Kick the lift off the moment the tap lands — iOS's keyboardWillShow fires
-                // ~tens of ms later, which was the delay the user was feeling.
-                Animated.timing(keyboardLift, {
-                  toValue: Math.max(0, lastKbHeight.current - insets.bottom),
-                  duration: 250,
-                  easing: Easing.out(Easing.cubic),
-                  useNativeDriver: true,
-                }).start();
-              }}
+              onFocus={() => setReferralFocused(true)}
               onBlur={() => setReferralFocused(false)}
             />
             {(() => {
@@ -615,7 +636,7 @@ export default function OnboardingScreen() {
               );
             })()}
           </View>
-          </Animated.View>
+          </View>
         </Q>
       );
 
@@ -624,7 +645,11 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View style={[st.root, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[st.root, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={insets.top}
+    >
       <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
 
       {/* Header */}
@@ -644,9 +669,9 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 11 || step === 17 || step === 18 ? (
+        {step === 1 || step === 11 || step === 17 || step === 18 || step === 19 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
-        ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 || step === 14 || step === 19 ? (
+        ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 || step === 14 || step === 20 ? (
           <View style={{ flex: 1, paddingHorizontal: 24 }}>{renderStep()}</View>
         ) : (
           <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
@@ -657,9 +682,8 @@ export default function OnboardingScreen() {
 
       {/* Bottom bar — translated by keyboardLift so only the Skip button rises with the keyboard.
           The title above stays pinned in place. */}
-      {step !== 18 && <Animated.View style={[st.bottomBar, {
+      {step !== 19 && <Animated.View style={[st.bottomBar, {
         paddingBottom: insets.bottom + 12,
-        transform: [{ translateY: Animated.multiply(keyboardLift, -1) }],
       }]}>
         <TouchableOpacity
           style={[st.nextBtn, !canNext() && st.nextBtnDisabled]}
@@ -699,7 +723,7 @@ export default function OnboardingScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -899,8 +923,18 @@ const st = StyleSheet.create({
   notifDividerV: { width: 1, backgroundColor: 'rgba(0,0,0,0.15)' },
   notifBtnRight: { flex: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   notifBtnRightText: { fontFamily: Fonts.semibold, fontSize: 17, color: '#000' },
-  notifFinger: { fontSize: 40 },
-  notifFingerEmoji: { fontSize: 40 },
-  notifFingerRow: { flexDirection: 'row', width: '100%' },
+  notifFingerRow: { flexDirection: 'row', width: '100%', marginTop: 2 },
   notifFingerRight: { flex: 1, alignItems: 'center', paddingTop: 4 },
+  notifFingerEmoji: { fontSize: 34 },
+
+  // Rate the app screen
+  rateWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 16 },
+  rateEmoji: { fontSize: 52, marginBottom: 4 },
+  rateTitle: { fontFamily: Fonts.bold, fontSize: 28, color: '#FFFFFF', textAlign: 'center', letterSpacing: -0.5 },
+  rateSub: { fontFamily: Fonts.regular, fontSize: 15, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 22 },
+  rateStars: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  rateStar: { fontSize: 44 },
+  rateStarEmpty: { color: '#7C5CFC' },
+  rateStarDone: { color: '#7C5CFC' },
+  rateThanks: { fontFamily: Fonts.medium, fontSize: 15, color: 'rgba(255,255,255,0.6)', marginTop: 4 },
 });

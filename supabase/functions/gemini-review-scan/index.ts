@@ -645,12 +645,11 @@ serve(async (req) => {
       `Average confidence: ${avgConfidence(current).toFixed(2)}`,
       ``,
       `### FRONT VIEW (${current.front.length} detections)`,
-      `Each line shows: type — facial zone (center position as % of image) — confidence`,
+      `Each line shows: [index] type — position in image — confidence`,
       ...current.front.map((d, i) => {
         const cx = ((d.bbox[0] + d.bbox[2]) / 2) / frontImgWCtx;
         const cy = ((d.bbox[1] + d.bbox[3]) / 2) / frontImgHCtx;
-        const zone = classifyDetectionZone(cx, cy);
-        return `  [${i + 1}] ${d.className} — ${zone} (${Math.round(cx * 100)}% left, ${Math.round(cy * 100)}% top) — conf ${d.confidence.toFixed(3)}`;
+        return `  [${i + 1}] ${d.className} — ${Math.round(cx * 100)}% from left, ${Math.round(cy * 100)}% from top — conf ${d.confidence.toFixed(3)}`;
       }),
       ``,
       `### LEFT SIDE (${current.left.length} detections)`,
