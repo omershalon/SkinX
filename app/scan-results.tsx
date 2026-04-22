@@ -9,7 +9,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Fonts } from '@/lib/theme';
-import { loadScanSession } from '@/lib/scan-api';
+import { loadScanSession, loadScanHistory } from '@/lib/scan-api';
+import type { ScanHistoryEntry } from '@/lib/scan-api';
 import type { ScanSession, ReviewedDetection } from '@/lib/scan-types';
 import { getSkinHeadline } from '@/lib/snapshot-utils';
 import GlowAnalysisDashboard from '@/components/GlowAnalysisDashboard';
@@ -21,12 +22,19 @@ export default function ScanResultsScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
 
   const [session, setSession] = useState<ScanSession | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (sessionId) {
-      loadScanSession(sessionId).then((d) => { setSession(d); setLoading(false); });
-    }
+    if (!sessionId) return;
+    loadScanSession(sessionId).then(async (d) => {
+      setSession(d);
+      if (d?.user_id) {
+        const history = await loadScanHistory(d.user_id);
+        setScanHistory(history);
+      }
+      setLoading(false);
+    });
   }, [sessionId]);
 
   // ── Loading ────────────────────────────────────────────────────────────────
@@ -91,8 +99,11 @@ export default function ScanResultsScreen() {
       imageNativeHeight={imgH}
       zoneScores={session.zone_scores ?? undefined}
       skinAssessment={session.skin_assessment ?? undefined}
+      onBack={() => router.back()}
       onStartPlan={() => router.push('/(tabs)/plan')}
       onViewFullScan={() => router.back()}
+      scanHistory={scanHistory}
+      currentSessionId={sessionId}
     />
   );
 }

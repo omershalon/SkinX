@@ -23,7 +23,8 @@ import { LoadingOverlay } from '@/components/LoadingOverlay';
 import type { ViewAngle, CapturedImage, ScanSession } from '@/lib/scan-types';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { runDetectionOnAll, countDetections } from '@/lib/yolo';
-import { runScanPipeline, loadScanSession } from '@/lib/scan-api';
+import { runScanPipeline, loadScanSession, loadScanHistory } from '@/lib/scan-api';
+import type { ScanHistoryEntry } from '@/lib/scan-api';
 import {
   getSkinHeadline,
 } from '@/lib/snapshot-utils';
@@ -99,6 +100,7 @@ export default function ScanScreen() {
 
   // Completed scan — when set, show results inline inside this tab
   const [completedSession, setCompletedSession] = useState<ScanSession | null>(null);
+  const [scanHistory, setScanHistory] = useState<ScanHistoryEntry[]>([]);
   const [skinProfileId, setSkinProfileId] = useState<string | null>(null);
   const [frontImageDims, setFrontImageDims] = useState<{ width: number; height: number } | null>(null);
   const [planGenerating, setPlanGenerating] = useState(false);
@@ -260,6 +262,10 @@ export default function ScanScreen() {
       const session = await loadScanSession(sessionId);
       setCompletedSession(session);
       setSkinProfileId(newSkinProfileId);
+      if (session?.user_id) {
+        const history = await loadScanHistory(session.user_id);
+        setScanHistory(history);
+      }
     } catch (err: any) {
       console.error('Analysis error:', err);
       const message = err?.message || String(err);
@@ -402,6 +408,8 @@ export default function ScanScreen() {
           detections={completedSession.model_detections?.front ?? []}
           imageNativeWidth={frontImageDims?.width ?? 0}
           imageNativeHeight={frontImageDims?.height ?? 0}
+          scanHistory={scanHistory}
+          currentSessionId={completedSession.id}
         />
       </View>
     );

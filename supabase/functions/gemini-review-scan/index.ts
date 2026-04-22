@@ -376,8 +376,8 @@ function buildCachedResponse(prev: PreviousSession, current: AllDetections): obj
     },
     zone_breakdown: prev.zone_breakdown ?? [],
     skin_insights: prev.skin_insights ?? {},
-    recommendations: prev.recommendations ?? [],
-    skin_plan: prev.skin_plan ?? { morning_routine: [], evening_routine: [], weekly_treatments: [] },
+    recommendations: [],
+    skin_plan: { morning_routine: [], evening_routine: [], weekly_treatments: [] },
     matched_products: prev.matched_products ?? null,
     skin_assessment: prev.skin_assessment ?? undefined,
     zone_scores: prev.zone_scores ?? undefined,
@@ -781,11 +781,14 @@ Return ONLY valid JSON:
   "skin_plan": {"morning_routine": [], "evening_routine": [], "weekly_treatments": []}
 }
 
+NOTE: Return empty arrays for recommendations and skin_plan — those are generated separately in the plan step.
+
 CRITICAL:
 - severity must be exactly "mild", "moderate", or "severe"
 - zone_assignments must have exactly ${current.front.length} entries (one per front detection, in order)
 - confirmed YOLO detections: source="model" status="confirmed"; missed: source="ai" status="added"; false positive: status="removed"
-- Keep all text values short. Empty arrays are valid.`;
+- Keep ALL text values short (one sentence max per field)
+- Empty arrays are valid`;
 
     // Build Gemini content parts — annotated image first (if available), then originals
     const geminiParts: any[] = [];
@@ -813,7 +816,7 @@ CRITICAL:
     console.log('[gemini-review-scan] step 6: calling Gemini API (with retry support)');
     const geminiResult = await callGeminiWithRetry(anthropicKey, geminiContents, {
       temperature: 0.3,
-      maxOutputTokens: 8192,
+      maxOutputTokens: 32768,
       responseMimeType: 'application/json',
       thinkingConfig: { thinkingBudget: 0 },
     });
@@ -919,8 +922,6 @@ CRITICAL:
     if (!result.summary) missing.push('summary');
     if (!Array.isArray(result.zone_breakdown)) missing.push('zone_breakdown');
     if (!result.skin_insights) missing.push('skin_insights');
-    if (!Array.isArray(result.recommendations)) missing.push('recommendations');
-    if (!result.skin_plan) missing.push('skin_plan');
 
     if (missing.length > 0) {
       console.error('[gemini-review-scan] response missing fields:', missing);

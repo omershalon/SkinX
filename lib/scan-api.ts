@@ -366,3 +366,45 @@ export async function loadScanSession(sessionId: string): Promise<ScanSession | 
   if (error || !data) return null;
   return data as unknown as ScanSession;
 }
+
+export interface ScanHistoryEntry {
+  id: string;
+  created_at: string;
+  severity: 'mild' | 'moderate' | 'severe' | null;
+  /** Count of confirmed/added front-view detections — matches the acne map */
+  spot_count: number;
+}
+
+/**
+ * Load scan history for the last `days` days, one entry per calendar day
+ * (latest scan of that day wins). Computes spot_count from reviewed_detections.front
+ * (non-removed) to match what the acne map shows.
+ */
+export async function loadScanHistory(userId: string, days = 30): Promise<ScanHistoryEntry[]> {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const { data, error } = await supabase
+    .from('scan_sessions')
+    .select('id, created_at, severity, total_spots, reviewed_detections')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gte('created_at', since.toISOString())
+    .order('created_at', { ascending: true });
+
+  if (error || !data) return [];
+
+  // One entry per calendar day — last scan of the day wins
+  const byDay: Record<string, any> = {};
+  for (const row of data) {
+    byDay[row.created_at.slice(0, 10)] = row;
+  }
+
+  return Object.values(byDay).map((row: any) => {
+    const front: any[] = row.reviewed_detections?.front ?? [];
+    const spot_count = front.length > 0
+      ? front.filter((d: any) => d.status !== 'removed').length
+      : (row.total_spots ?? 0);
+    return { id: row.id, created_at: row.created_at, severity: row.severity, spot_count };
+  });
+}

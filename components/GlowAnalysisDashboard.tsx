@@ -9,13 +9,15 @@ import {
   Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Polyline } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts } from '@/lib/theme';
 import AcneMapHero from '@/components/AcneMapHero';
 import type { Detection, ZoneScore, SkinAssessmentItem } from '@/lib/scan-types';
 import FaceZoneSummary from './FaceZoneSummary';
 import SkinStrengthsWeaknesses from './SkinStrengthsWeaknesses';
+import ScanProgressCard from './ScanProgressCard';
+import type { ScanHistoryEntry } from '@/lib/scan-api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -36,6 +38,9 @@ export interface GlowAnalysisDashboardProps {
   onScanAgain?: () => void;
   onStartPlan?: () => void;
   onViewFullScan?: () => void;
+  onBack?: () => void;
+  scanHistory?: ScanHistoryEntry[];
+  currentSessionId?: string;
 }
 
 // ─── SVG Icon Components ────────────────────────────────────────────────────
@@ -66,6 +71,9 @@ export default function GlowAnalysisDashboard({
   onStartPlan,
   onScanAgain,
   onViewFullScan,
+  onBack,
+  scanHistory,
+  currentSessionId,
 }: GlowAnalysisDashboardProps) {
   const insets = useSafeAreaInsets();
 
@@ -86,6 +94,13 @@ export default function GlowAnalysisDashboard({
 
       {/* ── Sticky "Scan Results" header ─────────────────────────────────── */}
       <View style={[styles.scanResultsHeader, { paddingTop: insets.top + 10 }]}>
+        {onBack && (
+          <TouchableOpacity onPress={onBack} style={styles.backButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Polyline points="15,18 9,12 15,6" stroke="rgba(255,255,255,0.7)" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </TouchableOpacity>
+        )}
         <Text style={styles.scanResultsLabel}>Scan Results</Text>
       </View>
 
@@ -153,6 +168,11 @@ export default function GlowAnalysisDashboard({
 
         {/* ── Strengths & Weaknesses ─────────────────────────────────────── */}
         <SkinStrengthsWeaknesses assessment={skinAssessment ?? []} />
+
+        {/* ── Change Over Time ───────────────────────────────────────────── */}
+        {scanHistory && currentSessionId && (
+          <ScanProgressCard history={scanHistory} currentSessionId={currentSessionId} />
+        )}
       </ScrollView>
 
       {/* ── Fixed Bottom Button Area ─────────────────────────────────────── */}
@@ -204,6 +224,12 @@ const styles = StyleSheet.create({
   scanResultsHeader: {
     paddingHorizontal: 20,
     paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backButton: {
+    marginRight: 4,
   },
   scanResultsLabel: {
     fontSize: 13,

@@ -322,8 +322,9 @@ function getKeywordsForConcern(id: string): string[] {
 export function getSkinHeadline(session: ScanSession): string {
   const severity = session.severity ?? 'mild';
   const totalSpots = session.total_spots ?? 0;
-  if (severity === 'mild' && totalSpots <= 8) return 'Mostly Clear Skin';
-  if (severity === 'mild') return 'Mostly Clear Skin';
+  if (severity === 'mild' && totalSpots <= 3) return 'Mostly Clear Skin';
+  if (severity === 'mild' && totalSpots <= 8) return 'A Few Spots';
+  if (severity === 'mild') return 'Light Breakout';
   if (severity === 'moderate') return 'Some Concerns Found';
   return 'Needs Attention';
 }

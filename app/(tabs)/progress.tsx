@@ -84,7 +84,7 @@ const ChevronRightIcon = ({ size = 28, color = Colors.primary }: { size?: number
   </Svg>
 );
 
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, addMonths, differenceInMonths, differenceInWeeks } from 'date-fns';
 
 type ProgressPhoto = {
@@ -97,6 +97,12 @@ type ProgressPhoto = {
   analysis_notes: string;
   notes: string;
   annotations?: Record<string, string>;
+  created_at: string;
+};
+
+type CalendarScan = {
+  id: string;
+  front_image_url: string;
   created_at: string;
 };
 
@@ -117,8 +123,10 @@ const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 export default function ProgressScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { animatedStyle } = useTabTransition();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [scans, setScans] = useState<CalendarScan[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
 
@@ -191,14 +199,22 @@ export default function ProgressScreen() {
       setAccountCreatedAt(startOfMonth(new Date(user.created_at)));
     }
 
-    const { data } = await supabase
-      .from('progress_photos')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+    const [{ data: photoData }, { data: scanData }] = await Promise.all([
+      supabase
+        .from('progress_photos')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('scan_sessions')
+        .select('id, front_image_url, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false }),
+    ]);
 
-    const fetched = (data as ProgressPhoto[]) || [];
-    setPhotos(fetched);
+    setPhotos((photoData as ProgressPhoto[]) || []);
+    setScans((scanData as CalendarScan[]) || []);
 
     if (!silent) setLoading(false);
   }, []);
@@ -422,6 +438,13 @@ export default function ProgressScreen() {
     return acc;
   }, {});
 
+  // Group scans by date (latest per day)
+  const scansByDate = scans.reduce<Record<string, CalendarScan>>((acc, s) => {
+    const key = format(new Date(s.created_at), 'yyyy-MM-dd');
+    if (!acc[key]) acc[key] = s;
+    return acc;
+  }, {});
+
 
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -509,32 +532,44 @@ export default function ProgressScreen() {
                         const key        = format(day, 'yyyy-MM-dd');
                         const dayPhotos  = photosByDate[key] ?? [];
                         const latestDayPhoto = dayPhotos[0] ?? null;
+                        const dayScan    = scansByDate[key] ?? null;
                         const hasPhotos  = dayPhotos.length > 0;
+                        const hasScan    = !!dayScan;
+                        const hasAny     = hasPhotos || hasScan;
                         const isToday    = isSameDay(day, new Date());
+                        const thumbUri   = hasScan ? dayScan.front_image_url : latestDayPhoto?.photo_url;
                         return (
                           <TouchableOpacity
                             key={key}
                             style={styles.dayCell}
-                            onPress={() => { if (!latestDayPhoto) return; setSelectedDay(day); expandFromCell(key, latestDayPhoto); }}
-                            activeOpacity={hasPhotos ? 0.7 : 1}
+                            onPress={() => {
+                              if (hasScan) {
+                                router.push({ pathname: '/scan-results', params: { sessionId: dayScan.id } });
+                              } else if (latestDayPhoto) {
+                                setSelectedDay(day);
+                                expandFromCell(key, latestDayPhoto);
+                              }
+                            }}
+                            activeOpacity={hasAny ? 0.7 : 1}
                           >
                             <View
                               style={[
                                 styles.dayCellRect,
-                                hasPhotos && styles.dayCellLogged,
+                                hasAny && styles.dayCellLogged,
+                                hasScan && styles.dayCellScanned,
                                 isToday && styles.dayCellTodayLogged,
                               ]}
                             >
-                              {hasPhotos && (
+                              {hasAny && (
                                 <View style={styles.dayCellInner}>
-                                  {latestDayPhoto?.photo_url ? (
-                                    <Image source={{ uri: latestDayPhoto.photo_url }} style={styles.dayCellThumb} />
+                                  {thumbUri ? (
+                                    <Image source={{ uri: thumbUri }} style={styles.dayCellThumb} />
                                   ) : null}
                                 </View>
                               )}
                               <Text style={[
                                 styles.dayCellNumber,
-                                hasPhotos && styles.dayCellNumberLogged,
+                                hasAny && styles.dayCellNumberLogged,
                               ]}>
                                 {format(day, 'd')}
                               </Text>
@@ -950,6 +985,10 @@ const styles = StyleSheet.create({
   dayCellTodayLogged: {
     borderWidth: 2,
     borderColor: Colors.primary,
+  },
+  dayCellScanned: {
+    borderWidth: 2,
+    borderColor: '#8B5CFF',
   },
   dayCellInner: {
     ...StyleSheet.absoluteFillObject,
