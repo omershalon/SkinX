@@ -184,7 +184,9 @@ async function loadStreakState(): Promise<StreakState> {
     if (raw) {
       const parsed: StreakState = JSON.parse(raw);
       const today     = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      const yd = new Date();
+      yd.setDate(yd.getDate() - 1);
+      const yesterday = yd.toDateString();
       // Break streak if last completed date is older than yesterday
       if (parsed.lastDate !== today && parsed.lastDate !== yesterday) {
         return { count: 0, lastDate: '' };
