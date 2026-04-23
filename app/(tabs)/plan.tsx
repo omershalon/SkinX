@@ -231,8 +231,13 @@ export default function PlanScreen() {
   const [acneType,     setAcneType]     = useState<AcneType | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [generating,   setGenerating]   = useState(false);
-  const [doneToday,    setDoneToday]    = useState<Set<number>>(new Set());
   const [selectedPick, setSelectedPick] = useState<RankedItem | null>(null);
+
+  const [doneToday,    setDoneToday]    = useState<Set<number>>(new Set());
+  const [xpState,      setXpState]      = useState<XpState>({ level: 1, totalXp: 0 });
+  const [streak,       setStreak]       = useState<StreakState>({ count: 0, lastDate: '' });
+  const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
+  const [allDone,      setAllDone]      = useState(false);
 
   const cardScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const shimmerAnim    = useRef(new Animated.Value(0)).current;
@@ -268,37 +273,6 @@ export default function PlanScreen() {
     ).start(() => setShowConfetti(false));
   };
 
-  /* ── checklist persistence ── */
-  const CHECKLIST_KEY = 'plan_checklist_v1';
-
-  const loadChecklist = useCallback(async () => {
-    try {
-      const stored = await AsyncStorage.getItem(CHECKLIST_KEY);
-      if (stored) {
-        const { date, ranks } = JSON.parse(stored);
-        const today = new Date().toDateString();
-        if (date === today) {
-          setDoneToday(new Set(ranks as number[]));
-        } else {
-          // New day — reset
-          setDoneToday(new Set());
-          await AsyncStorage.removeItem(CHECKLIST_KEY);
-        }
-      } else {
-        setDoneToday(new Set());
-      }
-    } catch {}
-  }, []);
-
-  const saveChecklist = useCallback(async (ranks: Set<number>) => {
-    try {
-      await AsyncStorage.setItem(CHECKLIST_KEY, JSON.stringify({
-        date: new Date().toDateString(),
-        ranks: Array.from(ranks),
-      }));
-    } catch {}
-  }, []);
-
   /* ── data loading ── */
   const fetchPlan = useCallback(async () => {
     setLoading(true);
@@ -317,12 +291,20 @@ export default function PlanScreen() {
     setLoading(false);
   }, []);
 
-  // Refresh plan + checklist every time this tab comes into focus
+  // Refresh plan + gamification state every time this tab comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchPlan();
-      loadChecklist();
-    }, [fetchPlan, loadChecklist])
+      Promise.all([
+        loadMissionsState(),
+        loadXpState(),
+        loadStreakState(),
+      ]).then(([missions, xp, str]) => {
+        setDoneToday(missions.doneRanks);
+        setXpState(xp);
+        setStreak(str);
+      });
+    }, [fetchPlan])
   );
 
   /* ── shimmer on load ── */
@@ -339,7 +321,7 @@ export default function PlanScreen() {
     setDoneToday(prev => {
       const s = new Set(prev);
       if (s.has(rank)) s.delete(rank); else s.add(rank);
-      saveChecklist(s);
+      saveMissionsState(s);
       return s;
     });
     if (!wasDone) triggerConfetti();
@@ -381,21 +363,20 @@ export default function PlanScreen() {
   /* ── derived data ── */
   const rankedItems: RankedItem[] = (plan?.ranked_items as unknown as RankedItem[]) ?? [];
 
-  const groupByPillar = (items: RankedItem[]) => {
-    const grouped: Record<string, RankedItem[]> = {};
-    items.forEach(item => {
-      if (!grouped[item.pillar]) grouped[item.pillar] = [];
-      grouped[item.pillar].push(item);
-    });
-    const sorted: [string, RankedItem[]][] = [];
-    PILLAR_ORDER.forEach(p => { if (grouped[p]) sorted.push([p, grouped[p]]); });
-    return sorted;
-  };
+  // Sort by impact_rank ascending (rank 1 = highest impact, shown first)
+  const sortedItems = [...rankedItems].sort((a, b) => a.impact_rank - b.impact_rank);
 
-  const grouped   = groupByPillar(rankedItems);
-  const doneCount = rankedItems.filter(i => doneToday.has(i.impact_rank)).length;
-  const total     = rankedItems.length;
-  const progress  = total > 0 ? doneCount / total : 0;
+  const filteredItems = activeFilter === 'all'
+    ? sortedItems
+    : sortedItems.filter(item => item.pillar === activeFilter);
+
+  const totalItems   = rankedItems.length;
+  const doneCount    = rankedItems.filter(i => doneToday.has(i.impact_rank)).length;
+  const xpToday      = rankedItems
+    .filter(i => doneToday.has(i.impact_rank))
+    .reduce((sum, i) => sum + (PILLAR_XP[i.pillar] ?? 40), 0);
+  const xpInLevel    = xpState.totalXp % XP_PER_LEVEL;
+  const xpProgress   = xpInLevel / XP_PER_LEVEL; // 0–1
 
   /* ── loading ── */
   if (loading) {
