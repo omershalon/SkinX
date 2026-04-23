@@ -103,5 +103,5 @@ const s = StyleSheet.create({
   barStat: { fontFamily: Fonts.bold, fontSize: 20, color: 'rgba(255,255,255,0.5)', letterSpacing: -0.5 },
   barStatWith: { color: '#FFFFFF' },
 
-  caption: { fontFamily: Fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 21 },
+  caption: { fontFamily: Fonts.regular, fontSize: 14, color: '#FFFFFF', textAlign: 'center', lineHeight: 21 },
 });

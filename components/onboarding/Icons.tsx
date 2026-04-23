@@ -128,9 +128,20 @@ export function ShieldIcon({ size = S, color = C }: { size?: number; color?: str
 export function LockIcon({ size = S, color = C }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={color} strokeWidth={W} strokeLinejoin="round" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth={W} strokeLinecap="round" />
-      <Circle cx="12" cy="16" r="1.2" fill={color} />
+      {/* Shackle — chunky rounded arc, drawn first so body covers the bottom ends */}
+      <Path
+        d="M7 11 V8 A5 5 0 0 1 17 8 V11"
+        stroke={color}
+        strokeWidth={2.5}
+        fill="none"
+        strokeLinecap="round"
+      />
+      {/* Body with keyhole cut out via evenodd — keeps the whole icon a single color */}
+      <Path
+        d="M6 10 H18 A2.2 2.2 0 0 1 20.2 12.2 V19.8 A2.2 2.2 0 0 1 18 22 H6 A2.2 2.2 0 0 1 3.8 19.8 V12.2 A2.2 2.2 0 0 1 6 10 Z"
+        fill={color}
+        fillRule="evenodd"
+      />
     </Svg>
   );
 }

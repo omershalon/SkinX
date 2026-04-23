@@ -168,7 +168,7 @@ export default function AnimatedGraph() {
 
   return (
     <View style={s.outer}>
-      <Text style={s.title}>Your skin can improve{'\n'}by using <Text style={s.titleSkin}>Skin</Text><Text style={s.titleX}>X</Text></Text>
+      <Text style={s.title}><Text style={s.titleSkin}>Skin</Text><Text style={s.titleX}>X</Text> creates visible results</Text>
 
       <View style={s.cardWrap}>
       <View style={s.card}>
@@ -250,7 +250,7 @@ const CARD_BG = '#1C1C1E';
 const s = StyleSheet.create({
   outer: { flex: 1, paddingTop: 28, gap: 20 },
   cardWrap: { flex: 1, justifyContent: 'center' },
-  title: { fontFamily: Fonts.bold, fontSize: 28, color: '#FFF', lineHeight: 36, letterSpacing: -0.5 },
+  title: { fontFamily: Fonts.bold, fontSize: 30, color: '#FFF', lineHeight: 38, letterSpacing: -0.6 },
   titleSkin: { color: '#FFFFFF' },
   titleX: { color: '#7C5CFC' },
 
@@ -278,5 +278,5 @@ const s = StyleSheet.create({
   xLabel: { fontFamily: Fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.35)' },
 
   statRow: { alignItems: 'center', marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
-  statText: { fontFamily: Fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 20 },
+  statText: { fontFamily: Fonts.medium, fontSize: 14, color: '#FFFFFF', textAlign: 'center', lineHeight: 20 },
 });

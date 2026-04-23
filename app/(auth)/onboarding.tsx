@@ -12,6 +12,7 @@ import { Colors, Fonts } from '@/lib/theme';
 import DatePicker, { BirthDate } from '@/components/onboarding/DatePicker';
 import AnimatedGraph from '@/components/onboarding/AnimatedGraph';
 import BarComparison from '@/components/onboarding/BarComparison';
+import SkinTransitionGraph from '@/components/onboarding/SkinTransitionGraph';
 import LottieView from 'lottie-react-native';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -24,17 +25,17 @@ import {
 
 type Ans = {
   gender: string; birthDate: BirthDate; skinType: string; sensitivity: string; duration: string;
-  tried: string[]; concerns: string[]; breakoutZones: string[]; goal: string[]; holistic: string;
+  concerns: string[]; breakoutZones: string[]; goal: string[];
   barriers: string[]; skincareRoutine: string; hormonalTreatment: string[]; hearAbout: string; triedApps: string;
   referralCode: string;
 };
 const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
-const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', tried: [], concerns: [], breakoutZones: [], goal: [], holistic: '', barriers: [], skincareRoutine: '', hormonalTreatment: [], hearAbout: '', triedApps: '', referralCode: '' };
+const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', concerns: [], breakoutZones: [], goal: [], barriers: [], skincareRoutine: '', hormonalTreatment: [], hearAbout: '', triedApps: '', referralCode: '' };
 
-// Step 14 (hormonal treatment) only renders for female users, so total screens is gender-dependent.
-const TOTAL_FEMALE = 21;
-const TOTAL_OTHER = 20;
-const HORMONAL_STEP = 14;
+// Step 12 (hormonal treatment) only renders for female users, so total screens is gender-dependent.
+const TOTAL_FEMALE = 19;
+const TOTAL_OTHER = 18;
+const HORMONAL_STEP = 12;
 
 const HEAR_SOURCES = [
   { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
@@ -106,6 +107,31 @@ function CheckOption({ title, subtitle, selected, onPress }: { title: string; su
   );
 }
 
+function Q({ title, subtitle, children, sticky }: { title: string; subtitle?: string; children: React.ReactNode; sticky?: boolean }) {
+  if (sticky) {
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={[st.qTop, { paddingTop: 28, paddingBottom: 20 }]}>
+          <Text style={st.title}>{title}</Text>
+          {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
+        </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false} bounces>
+          {children}
+        </ScrollView>
+      </View>
+    );
+  }
+  return (
+    <View style={st.qWrap}>
+      <View style={st.qTop}>
+        <Text style={st.title}>{title}</Text>
+        {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
+      </View>
+      <View style={st.qMid}>{children}</View>
+    </View>
+  );
+}
+
 function RowOption({ label, icon, selected, onPress }: { label: string; icon: (selected: boolean) => React.ReactNode; selected: boolean; onPress: () => void }) {
   const fade = useRef(new Animated.Value(0)).current;
 
@@ -148,10 +174,21 @@ export default function OnboardingScreen() {
   const enterAnim = useRef(new Animated.Value(0)).current;
   const navigating = useRef(false);
   const fingerBounce = useRef(new Animated.Value(0)).current;
+  const rateAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (step === 18) setSelectedStar(0);
-    if (step !== 19) return;
+    if (step === 15) {
+      trustLottieRef.current?.reset();
+      trustLottieRef.current?.play();
+    }
+    if (step === 16) setSelectedStar(0);
+    // Leaving the Rate screen: cancel any pending auto-advance so a manual
+    // Continue tap can't collide with the 800ms setTimeout firing a second next().
+    if (step !== 16 && rateAdvanceTimer.current) {
+      clearTimeout(rateAdvanceTimer.current);
+      rateAdvanceTimer.current = null;
+    }
+    if (step !== 17) return;
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(fingerBounce, { toValue: -8, duration: 600, useNativeDriver: true }),
@@ -204,7 +241,7 @@ export default function OnboardingScreen() {
     router.push({ pathname: '/(auth)/photo-capture', params: { onboardingData: JSON.stringify({ ...a, age: String(age) }) } });
   };
 
-  const toggleMulti = (key: 'tried' | 'concerns' | 'barriers' | 'breakoutZones' | 'goal' | 'hormonalTreatment', val: string) => {
+  const toggleMulti = (key: 'concerns' | 'barriers' | 'breakoutZones' | 'goal' | 'hormonalTreatment', val: string) => {
     setA(p => ({ ...p, [key]: p[key].includes(val) ? p[key].filter((v: string) => v !== val) : [...p[key], val] }));
   };
 
@@ -218,50 +255,23 @@ export default function OnboardingScreen() {
       case 4:  return true; // graph (always can proceed)
       case 5:  return !!a.skinType;
       case 6:  return !!a.sensitivity;
-      case 7:  return a.tried.length > 0;
-      case 8:  return a.breakoutZones.length > 0;
-      case 9:  return !!a.duration;
-      case 10: return a.goal.length > 0;
-      case 11: return true; // bar comparison
-      case 12: return a.barriers.length > 0;
-      case 13: return !!a.skincareRoutine;
-      case 14: return a.hormonalTreatment.length > 0; // female-only
-      case 15: return !!a.holistic;
-      case 16: return true; // affirmation
-      case 17: return true; // trust screen
-      case 18: return true; // rate the app
-      case 19: return true; // notifications
-      case 20: return true; // referral code (optional — skip always allowed)
+      case 7:  return a.breakoutZones.length > 0;
+      case 8:  return !!a.duration;
+      case 9:  return true; // bar comparison
+      case 10: return a.barriers.length > 0;
+      case 11: return !!a.skincareRoutine;
+      case 12: return a.hormonalTreatment.length > 0; // female-only
+      case 13: return a.goal.length > 0;
+      case 14: return true; // affirmation
+      case 15: return true; // trust screen
+      case 16: return selectedStar > 0; // rate the app — must tap a star
+      case 17: return true; // notifications
+      case 18: return true; // referral code (optional — skip always allowed)
       default: return false;
     }
   };
 
-  const isLastStep = step === 20;
-
-  const Q = ({ title, subtitle, children, sticky }: { title: string; subtitle?: string; children: React.ReactNode; sticky?: boolean }) => {
-    if (sticky) {
-      return (
-        <View style={{ flex: 1 }}>
-          <View style={[st.qTop, { paddingTop: 28, paddingBottom: 20 }]}>
-            <Text style={st.title}>{title}</Text>
-            {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
-          </View>
-          <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false} bounces>
-            {children}
-          </ScrollView>
-        </View>
-      );
-    }
-    return (
-      <View style={st.qWrap}>
-        <View style={st.qTop}>
-          <Text style={st.title}>{title}</Text>
-          {subtitle ? <Text style={st.subtitle}>{subtitle}</Text> : null}
-        </View>
-        <View style={st.qMid}>{children}</View>
-      </View>
-    );
-  };
+  const isLastStep = step === 18;
 
   const renderStep = () => {
     switch (step) {
@@ -342,29 +352,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 7: Skin concerns ──
+      // ── 7: Breakout zones ──
       case 7: return (
-        <Q title={t('onboarding.concerns')} subtitle={t('onboarding.selectAll')} sticky>
-          <View style={st.optionList}>
-            {[
-              { id: 'acne',         title: t('onboarding.concernAcneTitle'),        sub: t('onboarding.concernAcneSub') },
-              { id: 'redness',      title: t('onboarding.concernRednessTitle'),     sub: t('onboarding.concernRednessSub') },
-              { id: 'oiliness',     title: t('onboarding.concernOilinessTitle'),    sub: t('onboarding.concernOilinessSub') },
-              { id: 'dryness',      title: t('onboarding.concernDrynessTitle'),     sub: t('onboarding.concernDrynessSub') },
-              { id: 'tone',         title: t('onboarding.concernToneTitle'),        sub: t('onboarding.concernToneSub') },
-              { id: 'aging',        title: t('onboarding.concernAgingTitle'),       sub: t('onboarding.concernAgingSub') },
-              { id: 'pores',        title: t('onboarding.concernPoresTitle'),       sub: t('onboarding.concernPoresSub') },
-              { id: 'dark_circles', title: t('onboarding.concernDarkCirclesTitle'), sub: t('onboarding.concernDarkCirclesSub') },
-              { id: 'no_concerns',  title: t('onboarding.concernNoneTitle'),        sub: t('onboarding.concernNoneSub') },
-            ].map(o => (
-              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.tried.includes(o.id)} onPress={() => toggleMulti('tried', o.id)} />
-            ))}
-          </View>
-        </Q>
-      );
-
-      // ── 8: Breakout zones ──
-      case 8: return (
         <Q title={t('onboarding.breakoutZones')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -388,8 +377,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 9: Duration ──
-      case 9: return (
+      // ── 8: Duration ──
+      case 8: return (
         <Q title={t('onboarding.duration')}>
           <View style={st.optionList}>
             {([
@@ -405,33 +394,11 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 10: Goal ──
+      // ── 9: Bar comparison ──
+      case 9: return <BarComparison />;
+
+      // ── 10: Barriers ──
       case 10: return (
-        <Q title={t('onboarding.goals')} subtitle={t('onboarding.selectAll')} sticky>
-          <View style={st.optionList}>
-            {[
-              { id: 'clear_acne',  title: t('onboarding.goalClearAcneTitle'),  sub: t('onboarding.goalClearAcneSub') },
-              { id: 'fade_spots',  title: t('onboarding.goalFadeSpotsTitle'),  sub: t('onboarding.goalFadeSpotsSub') },
-              { id: 'even_tone',   title: t('onboarding.goalEvenToneTitle'),   sub: t('onboarding.goalEvenToneSub') },
-              { id: 'hydrate',     title: t('onboarding.goalHydrateTitle'),    sub: t('onboarding.goalHydrateSub') },
-              { id: 'irritation',  title: t('onboarding.goalIrritationTitle'), sub: t('onboarding.goalIrritationSub') },
-              { id: 'texture',     title: t('onboarding.goalTextureTitle'),    sub: t('onboarding.goalTextureSub') },
-              { id: 'control_oil', title: t('onboarding.goalControlOilTitle'), sub: t('onboarding.goalControlOilSub') },
-              { id: 'anti_aging',  title: t('onboarding.goalAntiAgingTitle'),  sub: t('onboarding.goalAntiAgingSub') },
-              { id: 'brighten',    title: t('onboarding.goalBrightenTitle'),   sub: t('onboarding.goalBrightenSub') },
-              { id: 'maintain',    title: t('onboarding.goalMaintainTitle'),   sub: t('onboarding.goalMaintainSub') },
-            ].map(o => (
-              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.goal.includes(o.id)} onPress={() => toggleMulti('goal', o.id)} />
-            ))}
-          </View>
-        </Q>
-      );
-
-      // ── 11: Bar comparison ──
-      case 11: return <BarComparison />;
-
-      // ── 12: Barriers ──
-      case 12: return (
         <Q title={t('onboarding.barriers')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -448,8 +415,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 13: Skincare routine ──
-      case 13: return (
+      // ── 11: Skincare routine ──
+      case 11: return (
         <Q title={t('onboarding.routine')}>
           <View style={st.optionList}>
             <TouchableOpacity
@@ -474,8 +441,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 14: Hormonal treatment (female-only) ──
-      case 14: return (
+      // ── 12: Hormonal treatment (female-only) ──
+      case 12: return (
         <Q title={t('onboarding.hormonalTitle')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -493,36 +460,50 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 15: Holistic ──
-      case 15: return (
-        <Q title={t('onboarding.holistic')} subtitle={t('onboarding.holisticSub')}>
+      // ── 13: Goal ──
+      case 13: return (
+        <Q title={t('onboarding.goals')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
-            {([
-              { value: 'Yes, I prefer natural', label: t('onboarding.holisticYes') },
-              { value: 'Open to trying',         label: t('onboarding.holisticOpen') },
-              { value: 'No',                     label: t('onboarding.holisticNo') },
-            ] as const).map(o => (
-              <Option key={o.value} label={o.label} selected={a.holistic === o.value} onPress={() => setA(p => ({ ...p, holistic: o.value }))} />
+            {[
+              { id: 'clear_acne',  title: t('onboarding.goalClearAcneTitle'),  sub: t('onboarding.goalClearAcneSub') },
+              { id: 'fade_spots',  title: t('onboarding.goalFadeSpotsTitle'),  sub: t('onboarding.goalFadeSpotsSub') },
+              { id: 'even_tone',   title: t('onboarding.goalEvenToneTitle'),   sub: t('onboarding.goalEvenToneSub') },
+              { id: 'hydrate',     title: t('onboarding.goalHydrateTitle'),    sub: t('onboarding.goalHydrateSub') },
+              { id: 'irritation',  title: t('onboarding.goalIrritationTitle'), sub: t('onboarding.goalIrritationSub') },
+              { id: 'texture',     title: t('onboarding.goalTextureTitle'),    sub: t('onboarding.goalTextureSub') },
+              { id: 'control_oil', title: t('onboarding.goalControlOilTitle'), sub: t('onboarding.goalControlOilSub') },
+              { id: 'anti_aging',  title: t('onboarding.goalAntiAgingTitle'),  sub: t('onboarding.goalAntiAgingSub') },
+              { id: 'brighten',    title: t('onboarding.goalBrightenTitle'),   sub: t('onboarding.goalBrightenSub') },
+              { id: 'maintain',    title: t('onboarding.goalMaintainTitle'),   sub: t('onboarding.goalMaintainSub') },
+            ].map(o => (
+              <CheckOption key={o.id} title={o.title} subtitle={o.sub} selected={a.goal.includes(o.id)} onPress={() => toggleMulti('goal', o.id)} />
             ))}
           </View>
         </Q>
       );
 
-      // ── 16: Affirmation ──
-      case 16: return (
-        <View style={st.affirmCenter}>
-          <Text style={st.affirmBig}>{t('onboarding.affirmTitle')}</Text>
-          <Text style={st.affirmBody}>{t('onboarding.affirmBody')}</Text>
+      // ── 14: Skin transition graph ──
+      case 14: return (
+        <View style={{ flex: 1 }}>
+          <View style={{ paddingTop: 28, paddingBottom: 20 }}>
+            <Text style={st.title}>
+              {a.goal.length > 1
+                ? 'You have great potential to achieve your skincare goals'
+                : 'You have great potential to achieve your skincare goal'}
+            </Text>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <SkinTransitionGraph />
+          </View>
         </View>
       );
 
-      // ── 17: Trust / Privacy ──
-      case 17: return (
+      // ── 15: Trust / Privacy ──
+      case 15: return (
         <View style={st.trustWrap}>
           <LottieView
             ref={trustLottieRef}
             source={require('@/assets/trust-animation.json')}
-            autoPlay
             loop={false}
             speed={0.5}
             style={{ width: 180, height: 180 }}
@@ -538,10 +519,10 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 18: Rate the app ──
-      case 18: return (
+      // ── 16: Rate the app ──
+      case 16: return (
         <View style={st.rateWrap}>
-<Text style={st.rateTitle}>Enjoying Glow so far?</Text>
+<Text style={st.rateTitle}>Enjoying Skin<Text style={{ color: '#7C5CFC' }}>X</Text> so far?</Text>
           <Text style={st.rateSub}>Tap a star to rate us on the App Store.</Text>
           <View style={st.rateStars}>
             {[1, 2, 3, 4, 5].map((star) => (
@@ -554,7 +535,10 @@ export default function OnboardingScreen() {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                   const isAvailable = await StoreReview.isAvailableAsync();
                   if (isAvailable) await StoreReview.requestReview();
-                  setTimeout(() => next(), 800);
+                  rateAdvanceTimer.current = setTimeout(() => {
+                    rateAdvanceTimer.current = null;
+                    next();
+                  }, 800);
                 }}
               >
                 <Text style={[st.rateStar, star <= selectedStar ? st.rateStarDone : st.rateStarEmpty]}>
@@ -569,8 +553,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 19: Push notifications ──
-      case 19: return (
+      // ── 17: Push notifications ──
+      case 17: return (
         <View style={st.notifWrap}>
           <Text style={st.notifTitle}>Get reminded to{'\n'}log scans.</Text>
           <View style={st.notifCard}>
@@ -599,8 +583,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 20: Referral code (optional) ──
-      case 20: return (
+      // ── 18: Referral code (optional) ──
+      case 18: return (
         <Q title={t('onboarding.referralTitle')} subtitle={t('onboarding.referralSub')}>
           {/* Input lifts by half the Skip button's lift so it remains centered between the
               title (fixed) and the Skip button (lifted) when the keyboard is open. */}
@@ -669,9 +653,9 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 11 || step === 17 || step === 18 || step === 19 ? (
+        {step === 1 || step === 9 || step === 15 || step === 16 || step === 17 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
-        ) : step === 2 || step === 7 || step === 8 || step === 10 || step === 12 || step === 14 || step === 20 ? (
+        ) : step === 2 || step === 7 || step === 10 || step === 12 || step === 13 || step === 18 ? (
           <View style={{ flex: 1, paddingHorizontal: 24 }}>{renderStep()}</View>
         ) : (
           <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
@@ -682,7 +666,7 @@ export default function OnboardingScreen() {
 
       {/* Bottom bar — translated by keyboardLift so only the Skip button rises with the keyboard.
           The title above stays pinned in place. */}
-      {step !== 19 && <Animated.View style={[st.bottomBar, {
+      {step !== 17 && <Animated.View style={[st.bottomBar, {
         paddingBottom: insets.bottom + 12,
       }]}>
         <TouchableOpacity
@@ -836,12 +820,6 @@ const st = StyleSheet.create({
   trustCardTitle: { fontFamily: Fonts.bold, fontSize: 16, color: '#FFF', textAlign: 'center', lineHeight: 22 },
   trustCardBody: { fontFamily: Fonts.regular, fontSize: 14, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 21 },
 
-  // Affirmations — lots of space, calm
-  affirmCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 60, minHeight: 420 },
-  affirmBig: { fontFamily: Fonts.bold, fontSize: 32, color: '#FFF', textAlign: 'center', letterSpacing: -0.5, lineHeight: 40 },
-  affirmHuge: { fontFamily: Fonts.bold, fontSize: 72, color: Colors.primary, letterSpacing: -3 },
-  affirmBody: { fontFamily: Fonts.regular, fontSize: 16, color: 'rgba(255,255,255,0.38)', textAlign: 'center', lineHeight: 25, marginTop: 20 },
-
   // Or divider (breakout zones screen)
   orDivider: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
   orLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
@@ -923,7 +901,7 @@ const st = StyleSheet.create({
   notifDividerV: { width: 1, backgroundColor: 'rgba(0,0,0,0.15)' },
   notifBtnRight: { flex: 1, paddingVertical: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
   notifBtnRightText: { fontFamily: Fonts.semibold, fontSize: 17, color: '#000' },
-  notifFingerRow: { flexDirection: 'row', width: '100%', marginTop: 2 },
+  notifFingerRow: { flexDirection: 'row', width: '100%', marginTop: -7 },
   notifFingerRight: { flex: 1, alignItems: 'center', paddingTop: 4 },
   notifFingerEmoji: { fontSize: 34 },
 
