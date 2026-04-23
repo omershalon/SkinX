@@ -221,6 +221,146 @@ function ProgressRing({ progress, size = 56, strokeWidth = 4 }: { progress: numb
   );
 }
 
+/* ── MissionCard Component ── */
+interface MissionCardProps {
+  item:      RankedItem;
+  done:      boolean;
+  onToggle:  () => void;
+  onPress:   () => void;
+}
+
+function MissionCard({ item, done, onToggle, onPress }: MissionCardProps) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const xp        = PILLAR_XP[item.pillar] ?? 40;
+  const Icon      = PILLAR_ICONS[item.pillar];
+
+  const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 5 }).start();
+
+  const handlePress = () => {
+    onToggle();
+    onPress();
+  };
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        onPress={handlePress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        style={[cardStyles.card, done && cardStyles.cardDone]}
+      >
+        {/* Icon block */}
+        <View style={[cardStyles.iconWrap, done && cardStyles.iconWrapDone]}>
+          {Icon
+            ? <Icon size={18} color={done ? Colors.primaryLight : Colors.textMuted} />
+            : <View style={{ width: 18, height: 18, backgroundColor: Colors.border, borderRadius: 4 }} />
+          }
+        </View>
+
+        {/* Pillar label */}
+        <Text style={cardStyles.pillarLabel}>
+          {PILLAR_LABELS[item.pillar] ?? item.pillar.toUpperCase()}
+        </Text>
+
+        {/* Title */}
+        <Text
+          style={[cardStyles.title, done && cardStyles.titleDone]}
+          numberOfLines={2}
+        >
+          {item.title}
+        </Text>
+
+        {/* XP */}
+        <Text style={[cardStyles.xp, done && cardStyles.xpDone]}>
+          +{xp} XP
+        </Text>
+
+        {/* Checkmark badge */}
+        {done && (
+          <View style={cardStyles.checkBadge}>
+            <Svg width={12} height={12} viewBox="0 0 12 12">
+              <Path
+                d="M2 6l3 3 5-5"
+                stroke="#FFFFFF"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+              />
+            </Svg>
+          </View>
+        )}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+const cardStyles = StyleSheet.create({
+  card: {
+    backgroundColor: Colors.card,
+    borderWidth:     1,
+    borderColor:     Colors.border,
+    borderRadius:    16,
+    padding:         12,
+    gap:             4,
+  },
+  cardDone: {
+    backgroundColor: 'rgba(124,92,252,0.12)',
+    borderColor:     'rgba(124,92,252,0.45)',
+  },
+  iconWrap: {
+    width:           32,
+    height:          32,
+    borderRadius:    10,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    4,
+  },
+  iconWrapDone: {
+    backgroundColor: 'rgba(124,92,252,0.25)',
+  },
+  pillarLabel: {
+    fontSize:        8,
+    fontWeight:      '700',
+    color:           Colors.textMuted,
+    letterSpacing:   0.8,
+    textTransform:   'uppercase',
+  },
+  title: {
+    fontSize:   11,
+    fontWeight: '600',
+    color:      Colors.text,
+    lineHeight: 15,
+  },
+  titleDone: {
+    textDecorationLine: 'line-through',
+    color:              Colors.textMuted,
+  },
+  xp: {
+    fontSize:   9,
+    fontWeight: '600',
+    color:      Colors.textMuted,
+    marginTop:  2,
+  },
+  xpDone: {
+    color: Colors.primaryLight,
+  },
+  checkBadge: {
+    position:        'absolute',
+    top:             10,
+    right:           10,
+    width:           20,
+    height:          20,
+    borderRadius:    10,
+    backgroundColor: Colors.primary,
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+});
+
 export default function PlanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
