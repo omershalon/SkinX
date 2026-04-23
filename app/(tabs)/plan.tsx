@@ -242,6 +242,8 @@ export default function PlanScreen() {
   const cardScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const shimmerAnim    = useRef(new Animated.Value(0)).current;
   const shimmerRanRef  = useRef(false);
+  const xpBarAnim       = useRef(new Animated.Value(0)).current;
+  const streakScaleAnim = useRef(new Animated.Value(1)).current;
 
   /* ── confetti ── */
   const CONFETTI_COUNT  = 30;
@@ -272,6 +274,15 @@ export default function PlanScreen() {
       )
     ).start(() => setShowConfetti(false));
   };
+
+  // Sync xpBarAnim when xpState changes
+  useEffect(() => {
+    Animated.timing(xpBarAnim, {
+      toValue:         (xpState.totalXp % XP_PER_LEVEL) / XP_PER_LEVEL,
+      duration:        600,
+      useNativeDriver: false, // width animation requires false
+    }).start();
+  }, [xpState.totalXp]);
 
   /* ── data loading ── */
   const fetchPlan = useCallback(async () => {
@@ -357,6 +368,63 @@ export default function PlanScreen() {
       Alert.alert('Error', 'Could not generate your plan. Please try again.');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  /* ── toggle mission done ── */
+  const toggleMission = async (item: RankedItem) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    const wasDone  = doneToday.has(item.impact_rank);
+    const xpDelta  = PILLAR_XP[item.pillar] ?? 40;
+
+    // Update done set
+    const nextDone = new Set(doneToday);
+    if (wasDone) nextDone.delete(item.impact_rank); else nextDone.add(item.impact_rank);
+    setDoneToday(nextDone);
+    saveMissionsState(nextDone);
+
+    // Update XP
+    const newTotalXp = Math.max(0, xpState.totalXp + (wasDone ? -xpDelta : xpDelta));
+    const oldLevel   = Math.floor(xpState.totalXp / XP_PER_LEVEL) + 1;
+    const newLevel   = Math.floor(newTotalXp      / XP_PER_LEVEL) + 1;
+    const didLevelUp = newLevel > oldLevel && !wasDone;
+    const nextXp: XpState = { level: newLevel, totalXp: newTotalXp };
+    setXpState(nextXp);
+    saveXpState(nextXp);
+
+    if (didLevelUp) {
+      // Fill bar to 100%, pause, then reset to 0
+      Animated.sequence([
+        Animated.timing(xpBarAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
+        Animated.delay(300),
+        Animated.timing(xpBarAnim, { toValue: 0, duration: 200, useNativeDriver: false }),
+      ]).start();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+
+    // Check all-done
+    const nowAllDone = rankedItems.length > 0 &&
+      rankedItems.every(i => nextDone.has(i.impact_rank));
+
+    if (nowAllDone && !wasDone) {
+      // Update streak
+      const today = new Date().toDateString();
+      const newStreak: StreakState = { count: streak.count + 1, lastDate: today };
+      setStreak(newStreak);
+      saveStreakState(newStreak);
+
+      // Pulse streak pill
+      Animated.sequence([
+        Animated.spring(streakScaleAnim, { toValue: 1.2, useNativeDriver: true, speed: 50, bounciness: 6 }),
+        Animated.spring(streakScaleAnim, { toValue: 1,   useNativeDriver: true, speed: 30, bounciness: 4 }),
+      ]).start();
+
+      setAllDone(true);
+      triggerConfetti();
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (!nowAllDone) {
+      setAllDone(false);
     }
   };
 
