@@ -376,7 +376,6 @@ export default function PlanScreen() {
   const [allDone,      setAllDone]      = useState(false);
   const allDoneRef = useRef(false);
 
-  const cardScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const shimmerAnim    = useRef(new Animated.Value(0)).current;
   const shimmerRanRef  = useRef(false);
   const xpBarAnim       = useRef(new Animated.Value(0)).current;
@@ -688,7 +687,7 @@ export default function PlanScreen() {
         </ScrollView>
 
         {/* ── All-done banner ── */}
-        {allDone && (
+        {allDone && activeFilter === 'all' && (
           <View style={styles.allDoneBanner}>
             <Text style={styles.allDoneTitle}>All missions complete</Text>
             <Text style={styles.allDoneSub}>
