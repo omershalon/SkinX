@@ -111,6 +111,96 @@ const ACNE_LABELS: Record<AcneType, string> = {
   inflammatory: 'INFLAMMATORY',
 };
 
+/* ── Storage keys ── */
+const MISSIONS_KEY   = 'missions_v1';      // { date, doneRanks: number[] }
+const XP_KEY         = 'xp_v1';           // { level: number, totalXp: number }
+const STREAK_KEY     = 'streak_v1';       // { count: number, lastDate: string }
+
+/* ── XP per pillar ── */
+const PILLAR_XP: Record<string, number> = {
+  lifestyle: 60,
+  herbal:    50,
+  product:   40,  // 'product' pillar = Skincare
+  diet:      30,
+};
+const XP_PER_LEVEL = 500;
+
+/* ── Pillar filter tabs ── */
+const FILTER_TABS = [
+  { key: 'all',       label: 'ALL' },
+  { key: 'product',   label: 'SKIN' },
+  { key: 'diet',      label: 'DIET' },
+  { key: 'herbal',    label: 'HERBAL' },
+  { key: 'lifestyle', label: 'LIFE' },
+] as const;
+type FilterKey = typeof FILTER_TABS[number]['key'];
+
+/* ── Missions helpers ── */
+async function loadMissionsState(): Promise<{ doneRanks: Set<number> }> {
+  try {
+    const raw = await AsyncStorage.getItem(MISSIONS_KEY);
+    if (raw) {
+      const { date, doneRanks } = JSON.parse(raw);
+      if (date === new Date().toDateString()) {
+        return { doneRanks: new Set(doneRanks as number[]) };
+      }
+    }
+  } catch {}
+  return { doneRanks: new Set() };
+}
+
+async function saveMissionsState(doneRanks: Set<number>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(MISSIONS_KEY, JSON.stringify({
+      date:      new Date().toDateString(),
+      doneRanks: Array.from(doneRanks),
+    }));
+  } catch {}
+}
+
+/* ── XP helpers ── */
+interface XpState { level: number; totalXp: number; }
+
+async function loadXpState(): Promise<XpState> {
+  try {
+    const raw = await AsyncStorage.getItem(XP_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return { level: 1, totalXp: 0 };
+}
+
+async function saveXpState(state: XpState): Promise<void> {
+  try {
+    await AsyncStorage.setItem(XP_KEY, JSON.stringify(state));
+  } catch {}
+}
+
+/* ── Streak helpers ── */
+interface StreakState { count: number; lastDate: string }
+
+async function loadStreakState(): Promise<StreakState> {
+  try {
+    const raw = await AsyncStorage.getItem(STREAK_KEY);
+    if (raw) {
+      const parsed: StreakState = JSON.parse(raw);
+      const today     = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      // Break streak if last completed date is older than yesterday
+      if (parsed.lastDate !== today && parsed.lastDate !== yesterday) {
+        return { count: 0, lastDate: '' };
+      }
+      return parsed;
+    }
+  } catch {}
+  return { count: 0, lastDate: '' };
+}
+
+async function saveStreakState(state: StreakState): Promise<void> {
+  try {
+    await AsyncStorage.setItem(STREAK_KEY, JSON.stringify(state));
+  } catch {}
+}
+
 /* ── Progress Ring ── */
 function ProgressRing({ progress, size = 56, strokeWidth = 4 }: { progress: number; size?: number; strokeWidth?: number }) {
   const radius = (size - strokeWidth) / 2;
