@@ -237,15 +237,11 @@ function MissionCard({ item, done, onToggle, onPress }: MissionCardProps) {
   const handlePressIn  = () => Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true, speed: 50, bounciness: 0 }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1,    useNativeDriver: true, speed: 30, bounciness: 5 }).start();
 
-  const handlePress = () => {
-    onToggle();
-    onPress();
-  };
-
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
-        onPress={handlePress}
+        onPress={onToggle}
+        onLongPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
