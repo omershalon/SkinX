@@ -407,7 +407,7 @@ export default function PlanScreen() {
     const nowAllDone = rankedItems.length > 0 &&
       rankedItems.every(i => nextDone.has(i.impact_rank));
 
-    if (nowAllDone && !wasDone) {
+    if (nowAllDone && !wasDone && !allDone) {
       // Update streak
       const today = new Date().toDateString();
       const newStreak: StreakState = { count: streak.count + 1, lastDate: today };
