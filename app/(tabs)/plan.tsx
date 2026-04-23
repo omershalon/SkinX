@@ -374,6 +374,7 @@ export default function PlanScreen() {
   const [streak,       setStreak]       = useState<StreakState>({ count: 0, lastDate: '' });
   const [activeFilter, setActiveFilter] = useState<FilterKey>('all');
   const [allDone,      setAllDone]      = useState(false);
+  const allDoneRef = useRef(false);
 
   const cardScaleAnims = useRef<Record<number, Animated.Value>>({}).current;
   const shimmerAnim    = useRef(new Animated.Value(0)).current;
@@ -461,19 +462,6 @@ export default function PlanScreen() {
     Animated.timing(shimmerAnim, { toValue: 1, duration: 900, useNativeDriver: true }).start();
   }, [loading]);
 
-  /* ── toggle done today ── */
-  const toggleDone = (rank: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const wasDone = doneToday.has(rank);
-    setDoneToday(prev => {
-      const s = new Set(prev);
-      if (s.has(rank)) s.delete(rank); else s.add(rank);
-      saveMissionsState(s);
-      return s;
-    });
-    if (!wasDone) triggerConfetti();
-  };
-
   /* ── generate ── */
   const generatePlan = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -543,7 +531,7 @@ export default function PlanScreen() {
     const nowAllDone = rankedItems.length > 0 &&
       rankedItems.every(i => nextDone.has(i.impact_rank));
 
-    if (nowAllDone && !wasDone && !allDone) {
+    if (nowAllDone && !wasDone && !allDoneRef.current) {
       // Update streak
       const today = new Date().toDateString();
       const newStreak: StreakState = { count: streak.count + 1, lastDate: today };
@@ -556,10 +544,12 @@ export default function PlanScreen() {
         Animated.spring(streakScaleAnim, { toValue: 1,   useNativeDriver: true, speed: 30, bounciness: 4 }),
       ]).start();
 
+      allDoneRef.current = true;
       setAllDone(true);
       triggerConfetti();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } else if (!nowAllDone) {
+      allDoneRef.current = false;
       setAllDone(false);
     }
   };
@@ -665,7 +655,7 @@ export default function PlanScreen() {
             />
           </View>
           <Text style={styles.xpText}>
-            {xpToday} / {XP_PER_LEVEL} XP
+            {xpInLevel} / {XP_PER_LEVEL} XP
           </Text>
         </View>
       </View>
@@ -678,6 +668,7 @@ export default function PlanScreen() {
         {/* ── Pillar filter tabs ── */}
         <ScrollView
           horizontal
+          nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabsContent}
           style={styles.tabs}
@@ -803,7 +794,7 @@ const styles = StyleSheet.create({
   scroll:        { flex: 1 },
   scrollContent: { paddingBottom: 100 },
   grid:          { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: Spacing.xl, gap: 8, marginBottom: 12 },
-  gridCell:      { width: '48.5%' },
+  gridCell:      { flexBasis: '48%', flexGrow: 1, maxWidth: '50%' },
 
   // Footer
   footerText:   { textAlign: 'center', fontSize: 10, color: Colors.textMuted, marginBottom: 8 },
