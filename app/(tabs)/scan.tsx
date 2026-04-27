@@ -402,6 +402,9 @@ export default function ScanScreen() {
           skinType={skinType}
           zoneScores={completedSession.zone_scores ?? undefined}
           skinAssessment={completedSession.skin_assessment ?? undefined}
+          severityScore={completedSession.severity_score}
+          totalSpots={completedSession.total_spots}
+          primaryAcneType={completedSession.primary_acne_type}
           onStartPlan={handleStartPlan}
           onScanAgain={resetScan}
           onViewFullScan={resetScan}

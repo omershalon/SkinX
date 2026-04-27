@@ -99,8 +99,12 @@ export default function ScanResultsScreen() {
       imageNativeHeight={imgH}
       zoneScores={session.zone_scores ?? undefined}
       skinAssessment={session.skin_assessment ?? undefined}
+      severityScore={session.severity_score}
+      totalSpots={session.total_spots}
+      primaryAcneType={session.primary_acne_type}
       onBack={() => router.back()}
       onStartPlan={() => router.push('/(tabs)/plan')}
+      onScanAgain={() => router.replace('/(tabs)/scan')}
       onViewFullScan={() => router.back()}
       scanHistory={scanHistory}
       currentSessionId={sessionId}
