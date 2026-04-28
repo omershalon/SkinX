@@ -135,7 +135,7 @@ serve(async (req) => {
 - NATURAL FIRST: Prioritize plant-based, clean, and traditional remedies over synthetic/pharmaceutical products.
 - CLEAN FORMULATIONS: When recommending actives (retinoids, BHA, niacinamide, zinc), suggest them in clean/natural forms — willow bark extract as natural BHA, bakuchiol or rosehip oil as retinol alternatives, food-based zinc. Never recommend CeraVe, Neutrogena, La Roche-Posay, or similar mainstream/corporate brands.
 - ROOT CAUSE: Skin problems reflect internal imbalances — gut health, hormones, inflammation, nutrient deficiencies, toxin load, stress. Address the root cause.
-- ANCESTRAL HEALTH: Draw from Ayurveda (neem, triphala, manjistha, ashwagandha), TCM (gua sha, herbal formulas), and ancestral nutrition (bone broth, fermented foods, wild-caught fish). Grounding, cold exposure, morning sunlight, filtered water.
+- ANCESTRAL HEALTH: Draw from Ayurveda (neem, triphala, manjistha, ashwagandha), TCM (gua sha, herbal formulas), and ancestral nutrition (bone broth, fermented foods, omega-3 rich foods). Grounding, cold exposure, morning sunlight, filtered water.
 
 ═══ PATIENT PROFILE ═══
 ${skinContext}
@@ -146,11 +146,11 @@ ${scanContext ? `═══ RECENT PRODUCT SCANS ═══\n${scanContext}\n` : '
 ${progressContext ? `═══ SKIN PROGRESS OVER TIME ═══\n${progressContext}\n` : ''}
 
 ═══ YOUR TASK ═══
-Generate exactly 8 actionable recommendations across ALL 4 pillars (at least 1 per pillar):
+Generate exactly 10 actionable recommendations — always include 6-7 PRODUCT picks, 1-2 diet, 1 herbal, 1 lifestyle:
 
-PRODUCT picks: Clean/natural skincare only. Recommend specific natural ingredients — tallow balm, rosehip oil (natural vitamin A), willow bark (natural BHA), tea tree oil, bakuchiol, manuka honey, niacinamide in clean formulations, zinc oxide mineral SPF. Favor brands like Santa Cruz Paleo, Cocokind, Herbivore, OSEA, Pai, Badger, Weleda, True Botanicals.
+PRODUCT picks: Clean/natural skincare only. Recommend specific natural ingredients — tallow balm, rosehip oil (natural vitamin A), willow bark (natural BHA), tea tree oil, bakuchiol, manuka honey, niacinamide in clean formulations, zinc oxide mineral SPF. Favor brands like Santa Cruz Paleo, Cocokind, Herbivore, OSEA, Pai, Badger, Weleda, True Botanicals. Prioritize product picks — this is a skincare app and topical interventions are the most actionable for the patient.
 
-DIET picks: Whole-food nutrition that's approachable but real. Be specific — "bone broth daily" not "eat healthy". Recommend: bone broth (collagen + gut healing), wild-caught salmon (omega-3), avocados, blueberries, fermented foods (kombucha, sauerkraut, kefir, kimchi for gut-skin axis), green tea, walnuts, sweet potatoes, raw manuka honey. Recommend eliminating: dairy, refined sugar, seed oils (canola, soybean, sunflower), processed foods, whey protein. No organ meats — keep it approachable.
+DIET picks: Whole-food nutrition categories — be broad and category-level, NOT specific foods. Say "omega-3 rich foods" not "salmon". Say "fermented foods" not "sauerkraut". Say "antioxidant-rich berries" not "blueberries". Use nutrient/category framing: collagen-building foods, anti-inflammatory omega-3 sources, gut-healing fermented foods, antioxidant-rich produce, blood-sugar-stabilising whole grains. Recommend eliminating: dairy, refined sugar, seed oils, processed foods, whey protein. Keep it approachable and non-prescriptive about specific foods.
 
 HERBAL picks: Traditional herbs with real evidence + specific dosages. Spearmint tea (anti-androgen, 2 cups/day), ashwagandha (cortisol reduction), neem (Ayurvedic purification), triphala (digestive cleanse), manjistha (blood purifying), burdock root (liver + skin), holy basil/tulsi (adaptogen), turmeric + black pepper (anti-inflammatory), dandelion root (liver detox).
 
@@ -159,6 +159,7 @@ LIFESTYLE picks: Natural practices — morning sunlight 10-20 min (circadian res
 CRITICAL FORMAT RULES:
 - "title": 1-3 words max
 - "rationale": ultra-short action hint (e.g. "2 cups daily · anti-androgen")
+- "time_of_day": assign based on what makes sense for this specific item — "morning", "midday", or "evening". Spread product picks intelligently across all three times (e.g. morning cleanser + SPF, midday mist, evening serum + moisturiser). Do NOT put all products in morning.
 - "notes": an array of exactly 3 bullet strings. Each bullet MUST (a) name the patient's exact skin type / acne type / severity from the profile above, (b) explain the biological or nutritional mechanism connecting this pick to THAT specific condition, (c) NEVER repeat or paraphrase the rationale field. Be precise, personal, and brief — each bullet is one short punchy sentence, no more than 15 words.
 
 BAD notes (do NOT do this): ["Rosehip oil is great for your skin.", "It helps with acne.", "Use it nightly."] — too vague, repeats rationale, doesn't mention their specific condition.
@@ -169,10 +170,11 @@ Example items:
 {"pillar":"diet","title":"Bone broth","rationale":"1 cup daily · collagen + gut healing","notes":["Your inflammatory acne is linked to intestinal permeability — a leaky gut floods your bloodstream with endotoxins that spike skin inflammation.","Bone broth's glycine and glutamine tighten tight-junction proteins in the intestinal wall, cutting off this inflammatory trigger at source.","Collagen peptides also support your skin's own structural repair, reducing the scarring severity common with your acne type."],"impact_rank":2}
 
 Return ONLY a JSON array. No markdown. No explanation. No backticks.
-[{"pillar":"...","title":"...","rationale":"...","notes":["...","...","..."],"impact_rank":1}, ...8 items]
+[{"pillar":"...","title":"...","rationale":"...","time_of_day":"morning","notes":["...","...","..."],"impact_rank":1}, ...10 items]
 
 pillar values: product | diet | herbal | lifestyle
-Exactly 8 items. At least 1 per pillar. impact_rank 1 = highest priority. notes field is REQUIRED and must be personalised to this patient's exact profile.`;
+time_of_day values: morning | midday | evening
+Exactly 10 items. 6-7 must be product pillar, spread across morning/midday/evening. impact_rank 1 = highest priority. notes field is REQUIRED and must be personalised to this patient's exact profile.`;
 
     const REQUIRED_PILLARS = ['product', 'diet', 'herbal', 'lifestyle'];
 

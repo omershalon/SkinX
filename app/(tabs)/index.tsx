@@ -13,16 +13,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import Svg, { Circle, Path, Rect, Polyline } from 'react-native-svg';
-import * as Haptics from 'expo-haptics';
+import Svg, { Circle, Path, Rect, Polyline, Text as SvgText } from 'react-native-svg';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase';
 import { Colors, BorderRadius, Spacing, Shadows, Fonts } from '@/lib/theme';
 import ScreenBackground from '@/components/ScreenBackground';
 import { HomeSkeleton } from '@/components/SkeletonLoader';
 import { useTabTransition } from '@/hooks/useTabTransition';
 import StreakCounter from '@/components/StreakCounter';
-import type { Database, SkinType, Severity } from '@/lib/database.types';
-import { differenceInDays, startOfDay } from 'date-fns';
+import type { Database, SkinType, Severity, RankedItem } from '@/lib/database.types';
+import { differenceInDays, startOfDay, subDays, format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 
 type Profile          = Database['public']['Tables']['profiles']['Row'];
@@ -30,6 +30,8 @@ type SkinProfile      = Database['public']['Tables']['skin_profiles']['Row'];
 type PersonalizedPlan = Database['public']['Tables']['personalized_plans']['Row'];
 
 const { width: SW } = Dimensions.get('window');
+
+const MISSIONS_KEY = 'missions_v1';
 
 const SKIN_TYPE_LABELS: Record<SkinType, string> = {
   oily: 'Oily', dry: 'Dry', combination: 'Combination', sensitive: 'Sensitive', normal: 'Normal',
@@ -42,8 +44,9 @@ const SKIN_TYPE_DESC: Record<SkinType, string> = {
   normal:      'balanced, minimal concerns',
 };
 
+// ─── Icons ──────────────────────────────────────────────────────────────────
 
-function ChevronRight({ size = 14, color = 'rgba(255,255,255,0.5)' }: { size?: number; color?: string }) {
+function ChevronRight({ size = 14, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -51,12 +54,12 @@ function ChevronRight({ size = 14, color = 'rgba(255,255,255,0.5)' }: { size?: n
   );
 }
 
-function ScanLineIcon({ size = 28, color = '#fff' }: { size?: number; color?: string }) {
+function ScanLineIcon({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x={2} y={5} width={20} height={16} rx={3} stroke={color} strokeWidth={1.8} />
-      <Circle cx={12} cy={13} r={4.5} stroke={color} strokeWidth={1.8} />
-      <Rect x={8.5} y={2} width={7} height={4} rx={1} stroke={color} strokeWidth={1.5} />
+      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+        stroke={color} strokeWidth={1.7} strokeLinejoin="round" fill="none" />
+      <Circle cx={12} cy={13} r={4} stroke={color} strokeWidth={1.7} fill="none" />
     </Svg>
   );
 }
@@ -64,7 +67,8 @@ function ScanLineIcon({ size = 28, color = '#fff' }: { size?: number; color?: st
 function CameraIconLarge({ size = 44, color = 'rgba(255,255,255,0.5)' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" stroke={color} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
+      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
+        stroke={color} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
       <Circle cx={12} cy={13} r={4} stroke={color} strokeWidth={1.6} fill="none" />
     </Svg>
   );
@@ -73,130 +77,222 @@ function CameraIconLarge({ size = 44, color = 'rgba(255,255,255,0.5)' }: { size?
 function ChatBubbleIcon({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z" stroke={color} strokeWidth={1.8} fill="none" />
+      <Path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H8l-4 4V6a2 2 0 0 1 2-2z"
+        stroke={color} strokeWidth={1.8} fill="none" />
     </Svg>
   );
 }
 
-function PlanGridIcon({ size = 20, color = '#fff' }: { size?: number; color?: string }) {
+function PlanGridIcon({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x={3} y={3} width={8} height={8} rx={2} stroke={color} strokeWidth={1.8} fill="none" />
-      <Rect x={13} y={3} width={8} height={8} rx={2} stroke={color} strokeWidth={1.8} fill="none" />
-      <Rect x={3} y={13} width={8} height={8} rx={2} stroke={color} strokeWidth={1.8} fill="none" />
-      <Rect x={13} y={13} width={8} height={8} rx={2} stroke={color} strokeWidth={1.8} fill="none" />
+      <Rect x={3} y={3} width={7} height={8} rx={2} stroke={color} strokeWidth={1.7} fill="none" />
+      <Rect x={14} y={3} width={7} height={8} rx={2} stroke={color} strokeWidth={1.7} fill="none" />
+      <Rect x={3} y={15} width={7} height={6} rx={2} stroke={color} strokeWidth={1.7} fill="none" />
+      <Rect x={14} y={15} width={7} height={6} rx={2} stroke={color} strokeWidth={1.7} fill="none" />
     </Svg>
   );
 }
 
-function MiniWaveChart() {
+function TrendIcon({ size = 14, color = '#4ADE80' }: { size?: number; color?: string }) {
   return (
-    <Svg width={64} height={32} viewBox="0 0 64 32">
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 17l6-6 4 4 8-8" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function DropletIcon({ size = 14, color = 'rgba(255,255,255,0.55)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 4C12 4 6 11 6 15a6 6 0 0 0 12 0c0-4-6-11-6-11z"
+        stroke={color} strokeWidth={1.8} fill="none" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function RadianceIcon({ size = 14, color = 'rgba(255,255,255,0.55)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={4} stroke={color} strokeWidth={1.8} fill="none" />
+      <Path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"
+        stroke={color} strokeWidth={1.6} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function HeartIcon({ size = 28, color = '#7C5CFC' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+        fill={color} fillOpacity={0.25} stroke={color} strokeWidth={1.8} strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CheckDoneIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={10} fill="#4ADE80" fillOpacity={0.18} stroke="#4ADE80" strokeWidth={1.5} />
+      <Path d="M8 12l3 3 5-5" stroke="#4ADE80" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+// ─── Week Chart ──────────────────────────────────────────────────────────────
+
+function WeekChart({ sessions }: { sessions: Array<{ created_at: string; severity_score?: number | null }> }) {
+  const W = SW * 0.38;
+  const H = 44;
+  const padX = 8, padY = 5;
+  const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  const today = new Date();
+  const points = Array.from({ length: 7 }, (_, i) => {
+    const day = subDays(today, 6 - i);
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const session = sessions.find(s => s.created_at?.startsWith(dayStr));
+    return {
+      y: session?.severity_score != null ? session.severity_score / 10 : null,
+      isToday: i === 6,
+    };
+  });
+
+  const xStep = (W - padX * 2) / 6;
+  const coords = points.map((p, i) => ({
+    x: padX + i * xStep,
+    y: p.y != null ? padY + (H - padY * 2) * (1 - p.y) : H / 2,
+    hasData: p.y != null,
+    isToday: p.isToday,
+  }));
+
+  const polylinePoints = coords.map(c => `${c.x},${c.y}`).join(' ');
+
+  return (
+    <Svg width={W} height={H + 18}>
       <Polyline
-        points="2,28 12,20 22,24 34,10 44,16 58,4"
+        points={polylinePoints}
         fill="none"
-        stroke="rgba(167,139,250,0.8)"
-        strokeWidth={2.5}
+        stroke="rgba(124,92,252,0.5)"
+        strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {coords.map((c, i) => (
+        c.hasData ? (
+          <Circle key={i} cx={c.x} cy={c.y} r={c.isToday ? 5 : 3}
+            fill={c.isToday ? '#4ADE80' : '#7C5CFC'}
+            stroke={c.isToday ? '#fff' : 'none'} strokeWidth={1.5}
+          />
+        ) : (
+          <Circle key={i} cx={c.x} cy={c.y} r={2.5}
+            fill="rgba(255,255,255,0.15)"
+          />
+        )
+      ))}
+      {days.map((d, i) => (
+        <SvgText key={i} x={padX + i * xStep} y={H + 15}
+          fontSize={9} fill="rgba(255,255,255,0.38)" textAnchor="middle"
+          fontFamily={Fonts.medium}
+        >
+          {d}
+        </SvgText>
+      ))}
     </Svg>
   );
 }
 
-/* ── Zone dot component ── */
-function ZoneDot({ color, label }: { color: string; label: string }) {
-  return (
-    <View style={s.zoneDotRow}>
-      <View style={[s.zoneDot, { backgroundColor: color }]} />
-      <Text style={s.zoneDotLabel}>{label}</Text>
-    </View>
-  );
-}
-
-/* ── Metric pill ── */
-function MetricPill({ label, value, color }: { label: string; value: string; color: string }) {
-  return (
-    <View style={s.metricPill}>
-      <Text style={s.metricLabel}>{label}</Text>
-      <Text style={[s.metricValue, { color }]}>{value}</Text>
-    </View>
-  );
-}
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getSeverityColor(sev?: Severity | null): string {
-  if (sev === 'mild')     return Colors.severityMild;
-  if (sev === 'moderate') return Colors.severityModerate;
-  if (sev === 'severe')   return Colors.severitySevere;
-  return Colors.textMuted;
+  if (sev === 'mild')     return '#4ADE80';
+  if (sev === 'moderate') return '#FCD34D';
+  if (sev === 'severe')   return '#F87171';
+  return 'rgba(255,255,255,0.6)';
 }
+
+function capitalize(s?: string | null) {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const router  = useRouter();
   const { animatedStyle } = useTabTransition();
   const { t } = useTranslation();
+
   const [profile,        setProfile]        = useState<Profile | null>(null);
   const [skinProfile,    setSkinProfile]    = useState<SkinProfile | null>(null);
   const [plan,           setPlan]           = useState<PersonalizedPlan | null>(null);
   const [todaySessionId, setTodaySessionId] = useState<string | null>(null);
+  const [weekSessions,   setWeekSessions]   = useState<Array<{ created_at: string; severity_score?: number | null }>>([]);
+  const [doneToday,      setDoneToday]      = useState<Set<number>>(new Set());
   const [refreshing,     setRefreshing]     = useState(false);
-  const [loaded,       setLoaded]       = useState(false);
+  const [loaded,         setLoaded]         = useState(false);
 
-  // ── Entrance stagger anims ──
   const cardAnims = useRef(
     Array.from({ length: 5 }, () => ({
-      opacity:     new Animated.Value(0),
-      translateY:  new Animated.Value(18),
+      opacity:    new Animated.Value(0),
+      translateY: new Animated.Value(18),
     }))
   ).current;
 
-  // Hero glow breathing anim
   const heroGlowOpacity = useRef(new Animated.Value(0.4)).current;
   const heroGlowLoop    = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Stat count-up
-  const severityAnim = useRef(new Animated.Value(0)).current;
-  const [displayScore, setDisplayScore] = useState(0);
-
-  // Button spring scales
   const quickScales = useRef([
     new Animated.Value(1),
     new Animated.Value(1),
     new Animated.Value(1),
   ]).current;
 
-  const springPress   = (anim: Animated.Value) => Animated.spring(anim, { toValue: 0.94, tension: 120, friction: 8, useNativeDriver: true }).start();
-  const springRelease = (anim: Animated.Value) => Animated.spring(anim, { toValue: 1,    tension: 120, friction: 8, useNativeDriver: true }).start();
-
-  useEffect(() => {
-    const id = severityAnim.addListener(({ value }) => setDisplayScore(Math.round(value)));
-    return () => severityAnim.removeListener(id);
-  }, [severityAnim]);
+  const springPress   = (a: Animated.Value) => Animated.spring(a, { toValue: 0.94, tension: 120, friction: 8, useNativeDriver: true }).start();
+  const springRelease = (a: Animated.Value) => Animated.spring(a, { toValue: 1,    tension: 120, friction: 8, useNativeDriver: true }).start();
 
   const fetchData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const profileRes = await supabase.from('profiles').select('*').eq('id', user.id).single() as any;
-    const skinRes    = await supabase.from('skin_profiles').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).single() as any;
-    const planRes    = await supabase.from('personalized_plans').select('*').eq('user_id', user.id).eq('is_active', true).single() as any;
 
-    // Check if user has a completed scan today (since 12am)
-    const todayStart = startOfDay(new Date()).toISOString();
-    const sessionRes = await supabase
-      .from('scan_sessions')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'completed')
-      .gte('created_at', todayStart)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single() as any;
-    setTodaySessionId(sessionRes.data?.id ?? null);
+    const todayStart   = startOfDay(new Date()).toISOString();
+    const sevenDaysAgo = subDays(startOfDay(new Date()), 6).toISOString();
 
-    if (profileRes.data) setProfile(profileRes.data);
-    if (skinRes.data)    setSkinProfile(skinRes.data);
-    if (planRes.data)    setPlan(planRes.data);
+    const [profileRes, skinRes, planRes, sessionRes, weekRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('skin_profiles').select('*').eq('user_id', user.id)
+        .order('created_at', { ascending: false }).limit(1).single(),
+      supabase.from('personalized_plans').select('*').eq('user_id', user.id)
+        .eq('is_active', true).single(),
+      supabase.from('scan_sessions').select('id').eq('user_id', user.id)
+        .eq('status', 'completed').gte('created_at', todayStart)
+        .order('created_at', { ascending: false }).limit(1).single(),
+      supabase.from('scan_sessions').select('created_at, severity_score')
+        .eq('user_id', user.id).eq('status', 'completed')
+        .gte('created_at', sevenDaysAgo)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    if ((profileRes as any).data) setProfile((profileRes as any).data as Profile);
+    if ((skinRes as any).data)    setSkinProfile((skinRes as any).data as SkinProfile);
+    if ((planRes as any).data)    setPlan((planRes as any).data as PersonalizedPlan);
+    setTodaySessionId((sessionRes as any).data?.id ?? null);
+    setWeekSessions((weekRes.data ?? []) as Array<{ created_at: string; severity_score?: number | null }>);
+
+    // Load mission completions from AsyncStorage
+    try {
+      const raw = await AsyncStorage.getItem(MISSIONS_KEY);
+      if (raw) {
+        const { doneRanks, date } = JSON.parse(raw);
+        if (date === new Date().toDateString() && Array.isArray(doneRanks)) {
+          setDoneToday(new Set<number>(doneRanks));
+        } else {
+          setDoneToday(new Set());
+        }
+      }
+    } catch {}
+
     setLoaded(true);
   }, []);
 
@@ -210,18 +306,15 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!loaded) return;
-
-    // Stagger cards in
-    Animated.stagger(60,
+    Animated.stagger(55,
       cardAnims.map(a =>
         Animated.parallel([
-          Animated.timing(a.opacity,    { toValue: 1,  duration: 400, useNativeDriver: true }),
-          Animated.spring(a.translateY, { toValue: 0,  tension: 60, friction: 8, useNativeDriver: true }),
+          Animated.timing(a.opacity,    { toValue: 1, duration: 380, useNativeDriver: true }),
+          Animated.spring(a.translateY, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
         ])
       )
     ).start();
 
-    // Hero glow breathing loop
     heroGlowLoop.current = Animated.loop(
       Animated.sequence([
         Animated.timing(heroGlowOpacity, { toValue: 0.8, duration: 1500, useNativeDriver: true }),
@@ -229,48 +322,24 @@ export default function HomeScreen() {
       ])
     );
     heroGlowLoop.current.start();
-
-    // Stat count-up
-    if (skinProfile?.severity) {
-      const target = skinProfile.severity === 'mild' ? 3 : skinProfile.severity === 'moderate' ? 6 : 9;
-      Animated.timing(severityAnim, { toValue: target, duration: 800, useNativeDriver: false }).start();
-    }
-
     return () => { heroGlowLoop.current?.stop(); };
-  }, [loaded, skinProfile]);
+  }, [loaded]);
 
   const initials = profile?.full_name
     ? profile.full_name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : (profile as any)?.email?.[0]?.toUpperCase() ?? '?';
 
-  const daysSinceScan = skinProfile
-    ? differenceInDays(new Date(), new Date(skinProfile.created_at))
-    : null;
-  const scanAgoLabel = daysSinceScan != null
-    ? daysSinceScan === 0 ? 'Today' : daysSinceScan === 1 ? '1d ago' : `${daysSinceScan}d ago`
-    : null;
-
-  /* ── Shared Header ── */
   const Header = (
     <View style={[s.header, { paddingTop: insets.top + 12 }]}>
-      <View style={s.headerBrand}>
-        <Text style={s.headerBrandText}>{t('home.title')}</Text>
-      </View>
-      <View style={s.headerRight}>
-        <TouchableOpacity
-          style={s.avatarBtn}
-          onPress={() => router.push('/profile')}
-          activeOpacity={0.8}
-        >
-          <LinearGradient colors={[Colors.primaryLight, Colors.primary]} style={s.avatarGradient}>
-            <Text style={s.avatarText}>{initials}</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+      <Text style={s.headerBrandText}>{t('home.title')}</Text>
+      <TouchableOpacity style={s.avatarBtn} onPress={() => router.push('/profile')} activeOpacity={0.8}>
+        <LinearGradient colors={[Colors.primaryLight, Colors.primary]} style={s.avatarGradient}>
+          <Text style={s.avatarText}>{initials}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
     </View>
   );
 
-  /* ── Skeleton while loading ── */
   if (!loaded) {
     return (
       <Animated.View style={[s.root, animatedStyle]}>
@@ -281,19 +350,44 @@ export default function HomeScreen() {
     );
   }
 
-  /* ══════════════════════
+  /* ══════════════════════════════
      POST-SCAN DASHBOARD
-     ══════════════════════ */
+  ══════════════════════════════ */
   if (loaded && skinProfile) {
     const skinLabel = SKIN_TYPE_LABELS[skinProfile.skin_type] ?? skinProfile.skin_type;
     const skinDesc  = SKIN_TYPE_DESC[skinProfile.skin_type] ?? '';
 
+    // Derive headline
+    const headline = skinProfile.severity === 'mild'
+      ? 'Mostly Clear Skin'
+      : skinProfile.severity === 'moderate'
+        ? `${skinLabel} Skin`
+        : `Active ${skinLabel} Skin`;
+
+    // Derive oil label
+    const oilLabel = skinProfile.skin_type === 'oily' ? 'High'
+      : skinProfile.skin_type === 'combination' ? 'Mixed'
+      : skinProfile.skin_type === 'dry' ? 'Low' : 'Normal';
+    const oilColor = skinProfile.skin_type === 'oily' ? '#FCD34D'
+      : skinProfile.skin_type === 'combination' ? '#FCD34D' : 'rgba(255,255,255,0.7)';
+
+    // Redness
+    const rednessLabel = skinProfile.skin_type === 'sensitive' || skinProfile.severity === 'severe' ? 'High'
+      : skinProfile.severity === 'moderate' ? 'Moderate' : 'Low';
+    const rednessColor = skinProfile.skin_type === 'sensitive' || skinProfile.severity === 'severe' ? '#F87171'
+      : skinProfile.severity === 'moderate' ? '#FCD34D' : '#4ADE80';
+
+    // Plan items for "What to do today"
+    const rankedItems: RankedItem[] = Array.isArray((plan as any)?.ranked_items)
+      ? ((plan as any).ranked_items as RankedItem[]).slice().sort((a, b) => a.impact_rank - b.impact_rank)
+      : [];
+    const todoItems = rankedItems.slice(0, 3);
 
     return (
       <Animated.View style={[s.root, animatedStyle]}>
         <ScreenBackground preset="home" />
         <ScrollView
-          style={{ flex: 1, backgroundColor: Colors.background }}
+          style={{ flex: 1 }}
           contentContainerStyle={s.scrollContent}
           showsVerticalScrollIndicator={false}
           overScrollMode="never"
@@ -301,10 +395,10 @@ export default function HomeScreen() {
         >
           {Header}
 
-          {/* ── Scan Result Hero Card ── */}
-          <Animated.View style={{ opacity: cardAnims[0].opacity, transform: [{ translateY: cardAnims[0].translateY }] }}>
+          {/* ── Hero scan card ── */}
+          <Animated.View style={{ opacity: cardAnims[0].opacity, transform: [{ translateY: cardAnims[0].translateY }], marginBottom: 12 }}>
             <TouchableOpacity
-              activeOpacity={0.92}
+              activeOpacity={0.93}
               onPress={() => {
                 if (todaySessionId) {
                   router.push({ pathname: '/(tabs)/scan', params: { loadSessionId: todaySessionId, loadTs: Date.now() } });
@@ -313,230 +407,174 @@ export default function HomeScreen() {
                 }
               }}
             >
-              <View style={[s.scanCard, !todaySessionId && s.scanCardEmpty]}>
-                {/* Label + Streak row — only shown when scan exists */}
-                {todaySessionId && (
-                  <View style={s.scanCardTopRow}>
-                    <Text style={s.scanCardLabel}>{"Today's Scan"}</Text>
-                    <StreakCounter compact />
-                  </View>
-                )}
+              <View style={s.heroCard}>
+                {/* Top row */}
+                <View style={s.heroTopRow}>
+                  <Text style={s.heroEyebrow}>TODAY'S SKIN SNAPSHOT</Text>
+                  <StreakCounter compact />
+                </View>
 
-                {todaySessionId ? (
-                  <>
-                    {/* Condition title */}
-                    <Text style={s.scanCardTitle}>
-                      {`${skinLabel}${skinProfile.acne_type ? ` with ${skinProfile.acne_type} acne` : ''}`}
+                {/* Content row: text left, photo right */}
+                <View style={s.heroBody}>
+                  <View style={s.heroTextCol}>
+                    <Text style={s.heroTitle}>
+                      {headline}{' '}
+                      <Text style={s.heroSparkle}>✦</Text>
                     </Text>
-
-                    {/* Analysis notes */}
-                    {skinProfile.analysis_notes ? (
-                      <Text style={s.scanCardDesc} numberOfLines={4}>{skinProfile.analysis_notes}</Text>
-                    ) : (
-                      <Text style={s.scanCardDesc}>{skinDesc}</Text>
-                    )}
-
-                    {/* Photo + Metrics row */}
-                    <View style={s.photoMetricsRow}>
-                      {skinProfile.photo_url ? (
-                        <Image source={{ uri: skinProfile.photo_url }} style={s.scanFacePhoto} resizeMode="cover" />
-                      ) : (
-                        <View style={[s.scanFacePhoto, s.scanFacePhotoPlaceholder]} />
-                      )}
-                      <View style={s.metricsStack}>
-                        <View style={s.metricRow}>
-                          <Text style={s.metricRowLabel}>{t('home.scanCard.breakouts')}</Text>
-                          <Text style={[s.metricRowValue, { color: getSeverityColor(skinProfile.severity) }]}>{capitalize(skinProfile.severity ?? 'mild')}</Text>
-                        </View>
-                        <View style={s.metricRow}>
-                          <Text style={s.metricRowLabel}>{t('home.scanCard.oil')}</Text>
-                          <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'oily' ? '#FCD34D' : skinProfile.skin_type === 'combination' ? '#FCD34D' : Colors.textSecondary }]}>
-                            {skinProfile.skin_type === 'oily' ? t('home.scanCard.high') : skinProfile.skin_type === 'combination' ? t('home.scanCard.medium') : skinProfile.skin_type === 'dry' ? t('home.scanCard.low') : t('home.scanCard.normal')}
-                          </Text>
-                        </View>
-                        <View style={s.metricRow}>
-                          <Text style={s.metricRowLabel}>{t('home.scanCard.redness')}</Text>
-                          <Text style={[s.metricRowValue, { color: skinProfile.skin_type === 'sensitive' ? '#F87171' : Colors.textSecondary }]}>
-                            {skinProfile.skin_type === 'sensitive' ? t('home.scanCard.high') : skinProfile.severity === 'severe' ? t('home.scanCard.high') : skinProfile.severity === 'moderate' ? t('home.scanCard.medium') : t('home.scanCard.low')}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Zone indicators */}
-                    {(() => {
-                      const zones = (skinProfile as any).zones as Record<string, { severity: string; note: string }> | null;
-                      if (!zones || Object.keys(zones).length === 0) return null;
-                      const ZONE_COLOR: Record<string, string> = { clear: '#4ADE80', mild: '#FCD34D', moderate: '#FB923C', severe: '#F87171' };
-                      const ZONE_LABELS: Record<string, string> = { forehead: 'Forehead', left_cheek: 'Left Cheek', right_cheek: 'Right Cheek', nose: 'Nose', chin: 'Chin', jawline: 'Jawline' };
-                      return (
-                        <View style={s.zonesSection}>
-                          <View style={s.zoneChips}>
-                            {Object.entries(zones).filter(([k]) => ZONE_LABELS[k]).map(([key, val]) => (
-                              <View key={key} style={s.zoneChip}>
-                                <View style={[s.zoneChipDot, { backgroundColor: ZONE_COLOR[val.severity] ?? '#A78BFA' }]} />
-                                <Text style={s.zoneChipText}>{ZONE_LABELS[key]}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  /* ── No scan today ── */
-                  <View style={s.scanCardEmptyBody}>
-                    <View style={s.scanEmptyTop}>
-                      <CameraIconLarge size={38} color="rgba(255,255,255,0.35)" />
-                      <View style={s.scanEmptyTextBlock}>
-                        <Text style={s.scanEmptyEyebrow}>Daily Check-in</Text>
-                        <Text style={s.scanCardEmptyText}>Do your scan{'\n'}of the day</Text>
-                      </View>
-                    </View>
-
-                    <View style={s.scanEmptyDivider} />
-
-                    <View style={s.scanEmptyMetrics}>
-                      {[
-                        { label: 'Breakouts', color: '#A78BFA' },
-                        { label: 'Oil level', color: '#FCD34D' },
-                        { label: 'Redness',  color: '#F87171' },
-                      ].map(({ label, color }) => (
-                        <View key={label} style={s.metricRow}>
-                          <Text style={s.metricRowLabel}>{label}</Text>
-                          <Text style={[s.metricRowValue, { color: 'rgba(255,255,255,0.2)' }]}>—</Text>
-                        </View>
-                      ))}
-                    </View>
+                    <Text style={s.heroDesc} numberOfLines={3}>
+                      {skinProfile.analysis_notes ?? skinDesc}
+                    </Text>
                   </View>
-                )}
+                  {skinProfile.photo_url ? (
+                    <Image source={{ uri: skinProfile.photo_url }} style={s.heroPhoto} resizeMode="cover" />
+                  ) : (
+                    <View style={[s.heroPhoto, s.heroPhotoPlaceholder]} />
+                  )}
+                </View>
+
+                {/* Metric chips */}
+                <View style={s.metricChipsRow}>
+                  <View style={s.metricChip}>
+                    <TrendIcon size={13} color={getSeverityColor(skinProfile.severity)} />
+                    <Text style={s.metricChipLabel}>Breakouts</Text>
+                    <Text style={[s.metricChipValue, { color: getSeverityColor(skinProfile.severity) }]}>
+                      {capitalize(skinProfile.severity ?? 'Mild')}
+                    </Text>
+                  </View>
+                  <View style={s.metricChipDivider} />
+                  <View style={s.metricChip}>
+                    <DropletIcon size={13} color={oilColor} />
+                    <Text style={s.metricChipLabel}>Oil</Text>
+                    <Text style={[s.metricChipValue, { color: oilColor }]}>{oilLabel}</Text>
+                  </View>
+                  <View style={s.metricChipDivider} />
+                  <View style={s.metricChip}>
+                    <RadianceIcon size={13} color={rednessColor} />
+                    <Text style={s.metricChipLabel}>Redness</Text>
+                    <Text style={[s.metricChipValue, { color: rednessColor }]}>{rednessLabel}</Text>
+                  </View>
+                </View>
               </View>
             </TouchableOpacity>
           </Animated.View>
 
-          {/* ── Quick Actions Row ── */}
-          <Animated.View style={{ opacity: cardAnims[1].opacity, transform: [{ translateY: cardAnims[1].translateY }] }}>
+          {/* ── Quick actions ── */}
+          <Animated.View style={{ opacity: cardAnims[1].opacity, transform: [{ translateY: cardAnims[1].translateY }], marginBottom: 12 }}>
             <View style={s.quickRow}>
-              <Animated.View style={{ transform: [{ scale: quickScales[0] }] }}>
-                <TouchableOpacity
-                  style={s.quickCard}
-                  activeOpacity={1}
-                  onPressIn={() => springPress(quickScales[0])}
-                  onPressOut={() => springRelease(quickScales[0])}
-                  onPress={() => router.push('/(tabs)/plan')}
-                >
-                  <View style={s.quickIconCircle}>
-                    <PlanGridIcon size={18} color={Colors.primaryLight} />
-                  </View>
-                  <Text style={s.quickCardTitle}>{t('home.quickAction.plan')}</Text>
-                  <Text style={s.quickCardSub}>{t('home.quickAction.planSub')}</Text>
-                </TouchableOpacity>
-              </Animated.View>
-
-              <Animated.View style={{ transform: [{ scale: quickScales[1] }] }}>
-                <TouchableOpacity
-                  style={s.quickCard}
-                  activeOpacity={1}
-                  onPressIn={() => springPress(quickScales[1])}
-                  onPressOut={() => springRelease(quickScales[1])}
-                  onPress={() => router.push('/(tabs)/scan')}
-                >
-                  <View style={s.quickIconCircle}>
-                    <ScanLineIcon size={18} color={Colors.primaryLight} />
-                  </View>
-                  <Text style={s.quickCardTitle}>{t('home.quickAction.rescan')}</Text>
-                  <Text style={s.quickCardSub}>{t('home.quickAction.rescanSub')}</Text>
-                </TouchableOpacity>
-              </Animated.View>
-
-              <Animated.View style={{ transform: [{ scale: quickScales[2] }] }}>
-                <TouchableOpacity
-                  style={s.quickCard}
-                  activeOpacity={1}
-                  onPressIn={() => springPress(quickScales[2])}
-                  onPressOut={() => springRelease(quickScales[2])}
-                  onPress={() => router.push('/coach')}
-                >
-                  <View style={s.quickIconCircle}>
-                    <ChatBubbleIcon size={18} color={Colors.primaryLight} />
-                  </View>
-                  <Text style={s.quickCardTitle}>{t('home.quickAction.coach')}</Text>
-                  <Text style={s.quickCardSub}>{t('home.quickAction.coachSub')}</Text>
-                </TouchableOpacity>
-              </Animated.View>
+              {([
+                { icon: <PlanGridIcon size={20} color={Colors.primaryLight} />, title: t('home.quickAction.plan'), sub: t('home.quickAction.planSub'), route: '/(tabs)/plan' as const },
+                { icon: <ScanLineIcon size={20} color={Colors.primaryLight} />, title: t('home.quickAction.rescan'), sub: t('home.quickAction.rescanSub'), route: '/(tabs)/scan' as const },
+                { icon: <ChatBubbleIcon size={20} color={Colors.primaryLight} />, title: t('home.quickAction.coach'), sub: t('home.quickAction.coachSub'), route: '/coach' as const },
+              ] as const).map((item, i) => (
+                <Animated.View key={i} style={{ flex: 1, transform: [{ scale: quickScales[i] }] }}>
+                  <TouchableOpacity
+                    style={s.quickCard}
+                    activeOpacity={1}
+                    onPressIn={() => springPress(quickScales[i])}
+                    onPressOut={() => springRelease(quickScales[i])}
+                    onPress={() => router.push(item.route as any)}
+                  >
+                    <View style={s.quickIconBox}>{item.icon}</View>
+                    <Text style={s.quickCardTitle}>{item.title}</Text>
+                    <Text style={s.quickCardSub} numberOfLines={2}>{item.sub}</Text>
+                    <View style={s.quickArrowCircle}>
+                      <ChevronRight size={11} color="#fff" />
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
+              ))}
             </View>
           </Animated.View>
 
-
-          {/* ── Progress card ── */}
-          <Animated.View style={{ opacity: cardAnims[3].opacity, transform: [{ translateY: cardAnims[3].translateY }] }}>
-            <TouchableOpacity style={s.progressCard} activeOpacity={0.88} onPress={() => router.push('/(tabs)/progress')}>
-              <View style={s.progressCardHeader}>
-                <Text style={s.progressCardTitle}>{t('home.progress.title')}</Text>
-                <ChevronRight size={16} color="rgba(255,255,255,0.4)" />
+          {/* ── Bottom two-column section ── */}
+          <Animated.View style={{ opacity: cardAnims[2].opacity, transform: [{ translateY: cardAnims[2].translateY }] }}>
+            <View style={s.bottomRow}>
+              {/* What to do today */}
+              <View style={s.todayCard}>
+                <View style={s.todayCardHeader}>
+                  <Text style={s.todayCardTitle}>What to do today{'  ✦'}</Text>
+                  <TouchableOpacity onPress={() => router.push('/(tabs)/plan')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Text style={s.seeAllText}>See all</Text>
+                  </TouchableOpacity>
+                </View>
+                {todoItems.length > 0 ? todoItems.map((item, i) => (
+                  <View key={i} style={[s.todoItem, i < todoItems.length - 1 && s.todoItemBorder]}>
+                    <View style={s.todoNumCircle}>
+                      <Text style={s.todoNumText}>{i + 1}</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={s.todoTitle} numberOfLines={1}>{item.title}</Text>
+                      <Text style={s.todoSub} numberOfLines={1}>{item.rationale}</Text>
+                    </View>
+                    {doneToday.has(item.impact_rank) && <CheckDoneIcon size={18} />}
+                  </View>
+                )) : (
+                  <View style={s.todoEmpty}>
+                    <Text style={s.todoEmptyText}>Generate your plan{'\n'}to see today's steps</Text>
+                    <TouchableOpacity style={s.todoEmptyCta} onPress={() => router.push('/(tabs)/plan')}>
+                      <Text style={s.todoEmptyCtaText}>Go to Plan</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-              <Text style={s.progressCardSub}>
-                {t('home.progress.subtitle')}
-              </Text>
-            </TouchableOpacity>
+
+              {/* Right column: track + keep up */}
+              <View style={s.rightCol}>
+                <TouchableOpacity style={s.trackCard} activeOpacity={0.88} onPress={() => router.push('/(tabs)/progress' as any)}>
+                  <Text style={s.trackTitle}>Track your progress</Text>
+                  <Text style={s.trackSub}>This week</Text>
+                  <View style={{ marginTop: 8 }}>
+                    <WeekChart sessions={weekSessions} />
+                  </View>
+                </TouchableOpacity>
+
+                <View style={s.keepUpCard}>
+                  <View style={s.keepUpIconWrap}>
+                    <HeartIcon size={22} color="#7C5CFC" />
+                  </View>
+                  <Text style={s.keepUpTitle}>Keep it up! ⭐</Text>
+                  <Text style={s.keepUpSub}>Consistency is the key to healthy skin.</Text>
+                </View>
+              </View>
+            </View>
           </Animated.View>
 
-          <View style={{ height: 90 }} />
+          <View style={{ height: 100 }} />
         </ScrollView>
-
-
       </Animated.View>
     );
   }
 
-  /* ══════════════════════
+  /* ══════════════════════════════
      PRE-SCAN HERO
-     ══════════════════════ */
+  ══════════════════════════════ */
   return (
     <Animated.View style={[s.root, { flex: 1 }, animatedStyle]}>
       <ScreenBackground preset="home" />
       {Header}
-
       <ScrollView
         contentContainerStyle={s.heroContent}
         showsVerticalScrollIndicator={false}
-        style={{ backgroundColor: Colors.background }}
+        style={{ flex: 1 }}
         overScrollMode="never"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primaryLight} />}
       >
-        {/* Subtle purple glow behind hero text */}
         <View style={s.heroGlow} pointerEvents="none" />
-
         <View style={s.heroTextBlock}>
-          <Text style={s.heroSubtitle}>
-            Personalized scan results, routine, and progress in one place
-          </Text>
-          <Text style={s.heroTitle}>
-            {t('home.hero.title')}
-          </Text>
-          <Text style={s.heroBody}>
-            {t('home.hero.body')}
-          </Text>
+          <Text style={s.heroPreSubtitle}>Personalized scan results, routine, and progress in one place</Text>
+          <Text style={s.heroPreTitle}>{t('home.hero.title')}</Text>
+          <Text style={s.heroPreBody}>{t('home.hero.body')}</Text>
         </View>
-
-        <TouchableOpacity
-          style={s.heroCta}
-          activeOpacity={0.88}
-          onPress={() => router.push('/(tabs)/scan')}
-        >
+        <TouchableOpacity style={s.heroCta} activeOpacity={0.88} onPress={() => router.push('/(tabs)/scan')}>
           <Text style={s.heroCtaText}>{t('home.hero.cta')}</Text>
         </TouchableOpacity>
-
         <View style={{ height: 80 }} />
       </ScrollView>
     </Animated.View>
   );
 }
 
-function capitalize(s?: string | null) {
-  if (!s) return '';
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
   root: {
@@ -544,33 +582,23 @@ const s = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   scrollContent: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.xl,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
 
-  /* Header */
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.lg,
-  },
-  headerBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    paddingHorizontal: 16,
+    paddingBottom: 14,
   },
   headerBrandText: {
     fontFamily: Fonts.extrabold,
     fontSize: 28,
     color: Colors.white,
-    letterSpacing: 0.5,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
+    letterSpacing: -0.3,
   },
   avatarBtn: {
     borderRadius: 20,
@@ -578,9 +606,9 @@ const s = StyleSheet.create({
     ...Shadows.sm,
   },
   avatarGradient: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -590,295 +618,290 @@ const s = StyleSheet.create({
     color: Colors.white,
   },
 
-  /* Scan card */
-  scanCard: {
-    borderRadius: BorderRadius.xxl,
-    paddingTop: Spacing.lg,
-    paddingHorizontal: Spacing.xxl,
-    paddingBottom: Spacing.md,
-    marginBottom: Spacing.sm,
-    overflow: 'hidden',
-    backgroundColor: '#5B35D5',
+  // Hero scan card
+  heroCard: {
+    backgroundColor: '#12092E',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.35)',
     ...Shadows.xl,
   },
-  heroInnerGlow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    borderRadius: 20,
-    backgroundColor: 'rgba(124,92,252,0.2)',
-  },
-  scanCardTopRow: {
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  scanCardLabel: {
-    fontFamily: Fonts.medium,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  scanCardTitle: {
-    fontFamily: Fonts.extrabold,
-    fontSize: 26,
-    color: Colors.white,
-    lineHeight: 32,
-    letterSpacing: -0.5,
-    marginBottom: 12,
-  },
-  scanCardDesc: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 18,
-    marginBottom: 36,
-  },
-  photoMetricsRow: {
-    flexDirection: 'row',
-    gap: Spacing.md,
-    marginBottom: 36,
-    alignItems: 'stretch',
-  },
-  scanFacePhoto: {
-    width: 130,
-    height: 180,
-    borderRadius: BorderRadius.lg,
-  },
-  scanFacePhotoPlaceholder: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  metricsStack: {
-    flex: 1,
-    gap: Spacing.md,
-    justifyContent: 'space-between',
-  },
-  metricRow: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-  },
-  metricRowLabel: {
-    fontFamily: Fonts.regular,
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  metricRowValue: {
-    fontFamily: Fonts.bold,
-    fontSize: 15,
-    color: Colors.white,
-  },
-  zonesSection: {
-    marginTop: 8,
-  },
-  zonesSectionLabel: {
-    fontFamily: Fonts.bold,
-    fontSize: 10,
+  heroEyebrow: {
+    fontFamily: Fonts.semibold,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.5)',
-    letterSpacing: 1.5,
-    marginBottom: Spacing.sm,
-  },
-  zoneChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.md,
-  },
-  zoneChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: BorderRadius.pill,
-  },
-  zoneChipDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  zoneChipText: {
-    fontFamily: Fonts.medium,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
-  },
-  // Legacy — kept for ZoneDot/MetricPill used elsewhere
-  zoneDotRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  zoneDot: { width: 8, height: 8, borderRadius: 4 },
-  zoneDotLabel: { fontFamily: Fonts.medium, fontSize: 11, color: 'rgba(255,255,255,0.55)' },
-  metricPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 11, paddingVertical: 6, borderRadius: BorderRadius.pill },
-  metricLabel: { fontFamily: Fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.5)' },
-  metricValue: { fontFamily: Fonts.semibold, fontSize: 12, color: Colors.white },
-  metricsRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: Spacing.lg },
-  zoneRow: { flexDirection: 'row', gap: 12, marginBottom: Spacing.xl },
-  scanCardEmpty: {
-    paddingBottom: 72,
-    minHeight: 870,
-  },
-  scanCardEmptyBody: {
-    gap: 48,
-    flex: 1,
-  },
-  scanEmptyTop: {
-    alignItems: 'center',
-    paddingTop: 72,
-    paddingBottom: 32,
-    gap: 28,
-  },
-  scanEmptyTextBlock: {
-    gap: 8,
-    alignItems: 'center',
-  },
-  scanEmptyEyebrow: {
-    fontFamily: Fonts.medium,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.45)',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
-  scanCardEmptyText: {
+  heroBody: {
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 16,
+    alignItems: 'flex-start',
+  },
+  heroTextCol: {
+    flex: 1,
+  },
+  heroTitle: {
     fontFamily: Fonts.extrabold,
-    fontSize: 28,
-    color: Colors.white,
-    letterSpacing: -0.6,
-    lineHeight: 34,
-    textAlign: 'center',
+    fontSize: 24,
+    color: '#fff',
+    lineHeight: 30,
+    letterSpacing: -0.5,
+    marginBottom: 8,
   },
-  scanEmptyDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    marginVertical: 28,
+  heroSparkle: {
+    color: '#4ADE80',
+    fontSize: 20,
   },
-  scanEmptyMetrics: {
-    gap: 20,
+  heroDesc: {
+    fontFamily: Fonts.regular,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.68)',
+    lineHeight: 19,
   },
-  scanCardCta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  scanCardCtaText: { fontFamily: Fonts.semibold, fontSize: 13, color: 'rgba(255,255,255,0.55)' },
-  scanAgoText: { fontFamily: Fonts.medium, fontSize: 12, color: 'rgba(255,255,255,0.5)' },
+  heroPhoto: {
+    width: 110,
+    height: 148,
+    borderRadius: 14,
+  },
+  heroPhotoPlaceholder: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
 
-  /* Quick actions */
+  // Metric chips
+  metricChipsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  metricChip: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+  },
+  metricChipDivider: {
+    width: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    marginVertical: 8,
+  },
+  metricChipLabel: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+    marginTop: 1,
+  },
+  metricChipValue: {
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: '#fff',
+  },
+
+  // Quick actions
   quickRow: {
     flexDirection: 'row',
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    gap: 8,
   },
   quickCard: {
-    width: Math.floor((SW - Spacing.xl * 2 - Spacing.sm * 2) / 3),
     backgroundColor: Colors.card,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.md,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    alignItems: 'flex-start',
-    gap: 6,
+    gap: 5,
+    minHeight: 148,
   },
-  quickIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(124,92,252,0.15)',
+  quickIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(124,92,252,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 2,
   },
   quickCardTitle: {
-    fontFamily: Fonts.semibold,
-    fontSize: 13,
-    color: Colors.white,
+    fontFamily: Fonts.bold,
+    fontSize: 14,
+    color: '#fff',
   },
   quickCardSub: {
     fontFamily: Fonts.regular,
     fontSize: 11,
     color: Colors.textMuted,
+    lineHeight: 15,
+    flex: 1,
   },
-
-  /* Routine card */
-  routineCard: {
-    backgroundColor: Colors.card,
-    borderRadius: BorderRadius.xxl,
-    padding: Spacing.xxl,
-    marginBottom: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    ...Shadows.md,
-  },
-  routineCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  routineCardTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 18,
-    color: Colors.white,
-    letterSpacing: -0.3,
-  },
-  routineCardSub: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: Colors.textMuted,
-    lineHeight: 19,
-  },
-  routineProgress: {
-    marginTop: Spacing.md,
-    opacity: 0.7,
-  },
-
-  /* Progress card */
-  progressCard: {
-    backgroundColor: 'rgba(124,92,252,0.09)',
-    borderRadius: BorderRadius.xxl,
-    padding: Spacing.lg,
-    marginBottom: Spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.2)',
-  },
-  progressCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: Spacing.xs,
-  },
-  progressCardTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 18,
-    color: Colors.white,
-    letterSpacing: -0.3,
-  },
-  progressCardSub: {
-    fontFamily: Fonts.regular,
-    fontSize: 13,
-    color: Colors.textMuted,
-    lineHeight: 19,
-  },
-
-  /* FAB */
-  fab: {
-    position: 'absolute',
-    right: Spacing.xl,
-    borderRadius: 30,
-    overflow: 'hidden',
-    ...Shadows.lg,
-  },
-  fabGradient: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+  quickArrowCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: Colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'flex-end',
+    marginTop: 2,
   },
 
-  /* ── Pre-scan hero ── */
+  // Bottom two-column
+  bottomRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'stretch',
+  },
+
+  // Today card
+  todayCard: {
+    flex: 1.15,
+    backgroundColor: Colors.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  todayCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  todayCardTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: '#fff',
+    flex: 1,
+    marginRight: 4,
+  },
+  seeAllText: {
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+    color: Colors.primaryLight,
+  },
+  todoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 9,
+  },
+  todoItemBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.07)',
+  },
+  todoNumCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(124,92,252,0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  todoNumText: {
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    color: Colors.primaryLight,
+  },
+  todoTitle: {
+    fontFamily: Fonts.semibold,
+    fontSize: 13,
+    color: '#fff',
+  },
+  todoSub: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.42)',
+    marginTop: 1,
+  },
+  todoEmpty: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 12,
+  },
+  todoEmptyText: {
+    fontFamily: Fonts.regular,
+    fontSize: 12,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  todoEmptyCta: {
+    backgroundColor: 'rgba(124,92,252,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+  },
+  todoEmptyCtaText: {
+    fontFamily: Fonts.semibold,
+    fontSize: 12,
+    color: Colors.primaryLight,
+  },
+
+  // Right column
+  rightCol: {
+    flex: 0.85,
+    gap: 8,
+  },
+  trackCard: {
+    backgroundColor: Colors.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  trackTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: '#fff',
+    marginBottom: 2,
+  },
+  trackSub: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.4)',
+  },
+  keepUpCard: {
+    backgroundColor: 'rgba(124,92,252,0.1)',
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.22)',
+    gap: 5,
+  },
+  keepUpIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(124,92,252,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  keepUpTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    color: '#fff',
+  },
+  keepUpSub: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.5)',
+    lineHeight: 16,
+  },
+
+  // Pre-scan hero
   heroContent: {
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: 20,
     flex: 1,
     justifyContent: 'center',
   },
@@ -895,7 +918,7 @@ const s = StyleSheet.create({
     marginTop: Spacing.massive,
     marginBottom: Spacing.xxxl,
   },
-  heroSubtitle: {
+  heroPreSubtitle: {
     fontFamily: Fonts.medium,
     fontSize: 13,
     color: Colors.textMuted,
@@ -903,7 +926,7 @@ const s = StyleSheet.create({
     marginBottom: Spacing.lg,
     textTransform: 'uppercase',
   },
-  heroTitle: {
+  heroPreTitle: {
     fontFamily: Fonts.extrabold,
     fontSize: 42,
     color: Colors.white,
@@ -911,7 +934,7 @@ const s = StyleSheet.create({
     letterSpacing: -1.2,
     marginBottom: Spacing.xl,
   },
-  heroBody: {
+  heroPreBody: {
     fontFamily: Fonts.regular,
     fontSize: 15,
     color: Colors.textSecondary,

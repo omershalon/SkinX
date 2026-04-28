@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { useFonts, DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_800ExtraBold } from '@expo-google-fonts/dm-sans';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -93,7 +94,7 @@ export default function RootLayout() {
   }, [session, segments]);
 
   return (
-    <View style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       {ready && (
         <I18nextProvider i18n={i18n}>
           <Stack screenOptions={{ headerShown: false }} />
@@ -110,7 +111,7 @@ export default function RootLayout() {
           </View>
         </Animated.View>
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 }
 

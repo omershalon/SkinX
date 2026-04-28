@@ -366,6 +366,7 @@ export interface RankedItem {
   rationale: string;
   notes?: string[];
   impact_rank: number;
+  time_of_day?: 'morning' | 'midday' | 'evening';
 }
 
 export interface RoutineItem {
