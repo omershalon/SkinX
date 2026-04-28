@@ -1,9 +1,10 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, FlatList, Linking, Dimensions, Image } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, FlatList, Linking, Dimensions, Image, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Rect, Circle } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius, Typography } from '@/lib/theme';
-import { matchProductsToPick } from '@/lib/match-products-to-pick';
 import { buildAffiliateUrl, buildAmazonSearchUrl } from '@/lib/config';
+import { supabase } from '@/lib/supabase';
 import type { RankedItem } from '@/lib/database.types';
 import type { Product } from '@/lib/products';
 
@@ -111,11 +112,24 @@ interface PickDetailModalProps {
 
 export default function PickDetailModal({ visible, pick, onClose, onToggleRoutine, isInRoutine }: PickDetailModalProps) {
   const insets = useSafeAreaInsets();
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !pick || pick.pillar === 'lifestyle') {
+      setRelatedProducts([]);
+      return;
+    }
+    setLoadingProducts(true);
+    supabase.functions.invoke('search-products', { body: { query: pick.title } })
+      .then(({ data }) => setRelatedProducts(data?.products ?? []))
+      .catch(() => setRelatedProducts([]))
+      .finally(() => setLoadingProducts(false));
+  }, [visible, pick?.title]);
 
   if (!pick) return null;
 
-  const relatedProducts = matchProductsToPick(pick);
-  const hasProducts = relatedProducts.length > 0;
+  const hasProducts = relatedProducts.length > 0 || loadingProducts;
   const palette = PILLAR_COLORS[pick.pillar] ?? PILLAR_COLORS.product;
 
   return (
@@ -176,17 +190,21 @@ export default function PickDetailModal({ visible, pick, onClose, onToggleRoutin
           </View>
 
           {/* Related products carousel */}
-          {hasProducts && (
+          {(pick.pillar !== 'lifestyle') && (
             <View style={styles.carouselSection}>
-              <Text style={styles.carouselTitle}>Related Products</Text>
-              <FlatList
-                data={relatedProducts}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.carouselList}
-                renderItem={({ item }) => <CarouselCard product={item} />}
-              />
+              <Text style={styles.carouselTitle}>Shop on Amazon</Text>
+              {loadingProducts ? (
+                <ActivityIndicator color={palette.accent} style={{ marginVertical: 20 }} />
+              ) : hasProducts ? (
+                <FlatList
+                  data={relatedProducts}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.carouselList}
+                  renderItem={({ item }) => <CarouselCard product={item} />}
+                />
+              ) : null}
             </View>
           )}
         </ScrollView>

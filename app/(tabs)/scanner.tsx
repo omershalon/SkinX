@@ -22,7 +22,6 @@ import { supabase } from '@/lib/supabase';
 import { Colors, Shadows } from '@/lib/theme';
 import ScreenBackground from '@/components/ScreenBackground';
 import type { Product } from '@/lib/products';
-import { matchProductsToPick } from '@/lib/match-products-to-pick';
 import ProductCard from '@/components/ProductCard';
 import { useFavorites } from '@/hooks/useFavorites';
 import { cleanProductName } from '@/lib/clean-product-name';
@@ -122,14 +121,23 @@ export default function ScannerScreen() {
       setHasPlan(true);
       const items = plan.ranked_items as unknown as RankedItem[];
 
-      // Match curated products to each plan item, dedupe
+      // Search Amazon live for each non-lifestyle plan item
+      const searchable = items.filter(item => item.pillar !== 'lifestyle');
+      const results = await Promise.all(
+        searchable.map(item =>
+          supabase.functions.invoke('search-products', { body: { query: item.title } })
+            .then(({ data }) => (data?.products ?? []) as Product[])
+            .catch(() => [] as Product[])
+        )
+      );
+
       const seen = new Set<string>();
       const matched: Product[] = [];
-      for (const item of items) {
-        const picks = matchProductsToPick(item, 4);
-        for (const p of picks) {
-          if (!seen.has(p.id)) {
-            seen.add(p.id);
+      for (const batch of results) {
+        for (const p of batch) {
+          const key = p.asin || p.id;
+          if (!seen.has(key)) {
+            seen.add(key);
             matched.push(p);
           }
         }
