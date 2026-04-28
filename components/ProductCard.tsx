@@ -1,6 +1,7 @@
 import { useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Pressable, Animated, Image, Dimensions, Linking } from 'react-native';
 import { Colors, Shadows } from '@/lib/theme';
+import { buildAffiliateUrl, buildAmazonSearchUrl } from '@/lib/config';
 import type { Product } from '@/lib/products';
 import { cleanProductName } from '@/lib/clean-product-name';
 
@@ -24,13 +25,10 @@ interface ProductCardProps {
   onToggleFavorite?: (product: Product) => void;
 }
 
-const AFFILIATE_TAG = process.env.EXPO_PUBLIC_AMAZON_TAG || 'skinx05-20';
-
 function openAmazon(product: Product) {
-  const tag = `?tag=${AFFILIATE_TAG}`;
   const url = product.asin
-    ? `https://www.amazon.com/dp/${product.asin}${tag}`
-    : `https://www.amazon.com/s?k=${encodeURIComponent(product.brand + ' ' + product.name)}&tag=${AFFILIATE_TAG}`;
+    ? buildAffiliateUrl(product.asin)
+    : buildAmazonSearchUrl(`${product.brand} ${product.name}`);
   Linking.openURL(url);
 }
 

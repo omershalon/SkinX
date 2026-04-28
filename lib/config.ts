@@ -1,4 +1,4 @@
-export const AMAZON_ASSOCIATE_TAG = 'aiskincare05-20';
+export const AMAZON_ASSOCIATE_TAG = process.env.EXPO_PUBLIC_AMAZON_TAG || 'skinx05-20';
 
 export const buildAffiliateUrl = (asin: string) =>
   `https://www.amazon.com/dp/${asin}?tag=${AMAZON_ASSOCIATE_TAG}`;

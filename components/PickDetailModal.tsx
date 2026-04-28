@@ -3,6 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Rect, Circle } from 'react-native-svg';
 import { Colors, Spacing, BorderRadius, Typography } from '@/lib/theme';
 import { matchProductsToPick } from '@/lib/match-products-to-pick';
+import { buildAffiliateUrl, buildAmazonSearchUrl } from '@/lib/config';
 import type { RankedItem } from '@/lib/database.types';
 import type { Product } from '@/lib/products';
 
@@ -61,7 +62,7 @@ function PillarIcon({ pillar, size = 18, color }: { pillar: string; size?: numbe
 }
 
 function openAmazonSearch(query: string) {
-  Linking.openURL(`https://www.amazon.com/s?k=${encodeURIComponent(query)}`);
+  Linking.openURL(buildAmazonSearchUrl(query));
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -70,8 +71,8 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 function CarouselCard({ product }: { product: Product }) {
   const link = product.asin
-    ? `https://www.amazon.com/dp/${product.asin}`
-    : `https://www.amazon.com/s?k=${encodeURIComponent(`${product.brand} ${product.name}`)}`;
+    ? buildAffiliateUrl(product.asin)
+    : buildAmazonSearchUrl(`${product.brand} ${product.name}`);
 
   return (
     <TouchableOpacity

@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Shadows } from '@/lib/theme';
 import { PRODUCTS, CATEGORY_META } from '@/lib/products';
+import { buildAffiliateUrl, buildAmazonSearchUrl } from '@/lib/config';
 import type { Product } from '@/lib/products';
 import { cleanProductName } from '@/lib/clean-product-name';
 
@@ -39,10 +40,9 @@ export default function ProductDetailsScreen() {
     );
   }
 
-  const AFFILIATE_TAG = process.env.EXPO_PUBLIC_AMAZON_TAG || 'skinx05-20';
   const amazonUrl = product.asin
-    ? `https://www.amazon.com/dp/${product.asin}?tag=${AFFILIATE_TAG}`
-    : `https://www.amazon.com/s?k=${encodeURIComponent((product.brand || '') + ' ' + product.name)}&tag=${AFFILIATE_TAG}`;
+    ? buildAffiliateUrl(product.asin)
+    : buildAmazonSearchUrl(`${product.brand || ''} ${product.name}`);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
