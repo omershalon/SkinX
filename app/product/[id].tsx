@@ -39,9 +39,10 @@ export default function ProductDetailsScreen() {
     );
   }
 
+  const AFFILIATE_TAG = process.env.EXPO_PUBLIC_AMAZON_TAG || 'skinx05-20';
   const amazonUrl = product.asin
-    ? `https://www.amazon.com/dp/${product.asin}`
-    : `https://www.amazon.com/s?k=${encodeURIComponent((product.brand || '') + ' ' + product.name)}`;
+    ? `https://www.amazon.com/dp/${product.asin}?tag=${AFFILIATE_TAG}`
+    : `https://www.amazon.com/s?k=${encodeURIComponent((product.brand || '') + ' ' + product.name)}&tag=${AFFILIATE_TAG}`;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -123,6 +124,9 @@ export default function ProductDetailsScreen() {
           </View>
         </View>
 
+        <Text style={styles.disclaimer}>
+          As an Amazon Associate, Glow earns from qualifying purchases.
+        </Text>
 
       </ScrollView>
     </View>
@@ -280,4 +284,8 @@ const styles = StyleSheet.create({
   ingredientName: { flex: 1, fontSize: 15, fontWeight: '500', color: Colors.white },
   ingredientChevron: { fontSize: 16, color: '#C4BDB0' },
   ingredientDetail: { fontSize: 13, color: '#8A8A7A', lineHeight: 20, marginTop: 10, paddingLeft: 22 },
+  disclaimer: {
+    fontSize: 11, color: '#9B9488', textAlign: 'center',
+    marginTop: 8, marginBottom: 4, lineHeight: 16,
+  },
 });
