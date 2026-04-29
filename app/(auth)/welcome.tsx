@@ -257,10 +257,11 @@ export default function WelcomeScreen() {
     try {
       setLoading(true);
       const redirectUrl = ExpoLinking.createURL('/');
+      console.log('[Google OAuth] redirectUrl:', redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://wvejvinngszpsaqqzjqw.supabase.co/auth/v1/callback',
+          redirectTo: redirectUrl,
           queryParams: { prompt: 'select_account' },
         },
       });
@@ -302,7 +303,7 @@ export default function WelcomeScreen() {
     clearErrors();
     if (!email) { setEmailError('Enter your email, then tap Forgot password'); return; }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://wvejvinngszpsaqqzjqw.supabase.co/functions/v1/auth-redirect',
+      redirectTo: `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/auth-redirect`,
     });
     if (error) setFormError(error.message);
     else Alert.alert('Email sent', `We've sent a password reset link to ${email}. Check your inbox.`);

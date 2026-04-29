@@ -136,7 +136,7 @@ export default function CreateAccountScreen() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `https://wvejvinngszpsaqqzjqw.supabase.co/auth/v1/callback`,
+          redirectTo: redirectUrl,
           queryParams: { prompt: 'select_account' },
         },
       });

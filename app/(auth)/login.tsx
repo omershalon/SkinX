@@ -44,7 +44,7 @@ export default function LoginScreen() {
       setEmailError('Enter your email, then tap Forgot Password');
       return;
     }
-    const redirectTo = 'https://wvejvinngszpsaqqzjqw.supabase.co/functions/v1/auth-redirect';
+    const redirectTo = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/auth-redirect`;
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
     if (error) {
       setFormError(error.message);
