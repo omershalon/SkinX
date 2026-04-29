@@ -8,6 +8,7 @@ import {
   Image,
   Modal,
   Pressable,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
@@ -26,6 +27,13 @@ import { format } from 'date-fns';
 import { Fonts } from '@/lib/theme';
 import type { Detection, ZoneScore, SkinAssessmentItem } from '@/lib/scan-types';
 import type { ScanHistoryEntry } from '@/lib/scan-api';
+import { PRODUCTS, type Product } from '@/lib/products';
+import { cleanProductName } from '@/lib/clean-product-name';
+
+// Top products sorted by match — shown in the carousel
+const RECOMMENDED_PRODUCTS = [...PRODUCTS]
+  .sort((a, b) => b.match_percent - a.match_percent)
+  .slice(0, 10);
 
 // ─── Tokens ─────────────────────────────────────────────────────────────────
 
@@ -276,19 +284,23 @@ function HeroCard({
   avatarUri,
   eyebrow,
   headline,
-  description,
   score,
   scoreLabel,
   accent,
+  imageNativeWidth,
+  imageNativeHeight,
 }: {
   avatarUri: string;
   eyebrow: string;
   headline: string;
-  description: string;
   score: number;
   scoreLabel: string;
   accent: { ring: string; ringSoft: string; halo: string };
+  imageNativeWidth: number;
+  imageNativeHeight: number;
 }) {
+  const [avatarExpanded, setAvatarExpanded] = useState(false);
+
   // Wrap headline to two lines at the natural mid-word boundary
   const headlineNode = useMemo(() => {
     const trimmed = (headline ?? '').trim();
@@ -320,14 +332,18 @@ function HeroCard({
           end={{ x: 1, y: 1 }}
           style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
         />
-        {/* avatar */}
-        <View style={heroStyles.avatarWrap}>
+        {/* avatar — tappable to expand */}
+        <TouchableOpacity
+          style={heroStyles.avatarWrap}
+          onPress={() => avatarUri && setAvatarExpanded(true)}
+          activeOpacity={0.85}
+        >
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={heroStyles.avatar} resizeMode="cover" />
           ) : (
             <View style={[heroStyles.avatar, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* text col */}
         <View style={heroStyles.textCol}>
@@ -336,8 +352,24 @@ function HeroCard({
             <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
           </View>
           <Text style={heroStyles.headline}>{headlineNode}</Text>
-          {!!description && <Text style={heroStyles.body}>{description}</Text>}
         </View>
+
+        {/* full-screen avatar modal */}
+        <Modal visible={avatarExpanded} transparent animationType="fade" onRequestClose={() => setAvatarExpanded(false)}>
+          <Pressable
+            style={heroStyles.avatarModalBg}
+            onPress={() => setAvatarExpanded(false)}
+          >
+            <Image
+              source={{ uri: avatarUri }}
+              style={[
+                heroStyles.avatarModalImg,
+                { aspectRatio: imageNativeWidth / Math.max(imageNativeHeight, 1) },
+              ]}
+              resizeMode="contain"
+            />
+          </Pressable>
+        </Modal>
 
         {/* score col */}
         <View style={heroStyles.scoreCol}>
@@ -371,8 +403,8 @@ const heroStyles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    alignItems: 'center',
+    gap: 12,
     borderRadius: 22,
     padding: 14,
     paddingTop: 16,
@@ -387,8 +419,8 @@ const heroStyles = StyleSheet.create({
     elevation: 10,
   },
   avatarWrap: {
-    width: 86,
-    height: 96,
+    width: 100,
+    height: 128,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -400,7 +432,7 @@ const heroStyles = StyleSheet.create({
   textCol: {
     flex: 1,
     minWidth: 0,
-    paddingTop: 2,
+    justifyContent: 'center',
   },
   eyebrowRow: {
     flexDirection: 'row',
@@ -431,7 +463,6 @@ const heroStyles = StyleSheet.create({
   },
   scoreCol: {
     alignItems: 'center',
-    paddingTop: 2,
   },
   scoreLabel: {
     fontFamily: Fonts.semibold,
@@ -445,11 +476,74 @@ const heroStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 13,
   },
+  avatarModalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarModalImg: {
+    width: '90%',
+    borderRadius: 18,
+  },
 });
 
 // ─── Info modal ─────────────────────────────────────────────────────────────
 
-interface InfoSheet { title: string; body: string }
+interface ProductRec {
+  name: string;
+  brand: string;
+  buyUrl: string;
+  iconType: 'cleanse' | 'hydrate' | 'spf';
+}
+interface InfoSheet { title: string; body: string; product?: ProductRec }
+
+const PRODUCT_GRADIENTS: Record<ProductRec['iconType'], readonly [string, string]> = {
+  cleanse: ['#0A2E20', '#103D2B'],
+  hydrate: ['#1A0845', '#2D1069'],
+  spf:     ['#0D2440', '#1A3D60'],
+};
+
+function ProductCard({ product }: { product: ProductRec }) {
+  const grad = PRODUCT_GRADIENTS[product.iconType];
+  const icon =
+    product.iconType === 'cleanse' ? <Cleanse size={40} color="#6EE7B7" /> :
+    product.iconType === 'hydrate' ? <Droplet size={40} color={C.violetSoft} /> :
+    <Sun size={40} color="#FCD34D" />;
+  const shopGrad: readonly [string, string] =
+    product.iconType === 'cleanse' ? ['#0E7A4A', '#0A5C36'] :
+    product.iconType === 'hydrate' ? ['#6E45E8', '#4F22BE'] :
+    ['#1A6EA8', '#0D4A72'];
+
+  return (
+    <View style={modalStyles.productWrap}>
+      <LinearGradient
+        colors={grad as [string, string]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={modalStyles.productImgArea}
+      >
+        {icon}
+      </LinearGradient>
+      <Text style={modalStyles.productBrand}>{product.brand}</Text>
+      <Text style={modalStyles.productName}>{product.name}</Text>
+      <TouchableOpacity
+        style={modalStyles.shopBtn}
+        activeOpacity={0.85}
+        onPress={() => Linking.openURL(product.buyUrl)}
+      >
+        <LinearGradient
+          colors={shopGrad as [string, string]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={modalStyles.shopBtnGrad}
+        >
+          <Text style={modalStyles.shopBtnText}>View on Amazon →</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 function InfoModal({ info, onClose }: { info: InfoSheet | null; onClose: () => void }) {
   return (
@@ -464,18 +558,21 @@ function InfoModal({ info, onClose }: { info: InfoSheet | null; onClose: () => v
           style={[StyleSheet.absoluteFill, { borderRadius: 24 }]}
         />
         <View style={modalStyles.border} />
-        <Text style={modalStyles.title}>{info?.title}</Text>
-        <Text style={modalStyles.body}>{info?.body}</Text>
-        <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} activeOpacity={0.85}>
-          <LinearGradient
-            colors={['#6E45E8', '#4F22BE']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={modalStyles.closeBtnGradient}
-          >
-            <Text style={modalStyles.closeBtnText}>Got it</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 4 }}>
+          {info?.product && <ProductCard product={info.product} />}
+          <Text style={modalStyles.title}>{info?.title}</Text>
+          <Text style={modalStyles.body}>{info?.body}</Text>
+          <TouchableOpacity style={modalStyles.closeBtn} onPress={onClose} activeOpacity={0.85}>
+            <LinearGradient
+              colors={['#6E45E8', '#4F22BE']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={modalStyles.closeBtnGradient}
+            >
+              <Text style={modalStyles.closeBtnText}>Got it</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -484,7 +581,6 @@ function InfoModal({ info, onClose }: { info: InfoSheet | null; onClose: () => v
 const modalStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
     position: 'relative',
@@ -541,6 +637,54 @@ const modalStyles = StyleSheet.create({
   closeBtnText: {
     fontFamily: Fonts.bold,
     fontSize: 16,
+    color: '#FFFFFF',
+  },
+  productWrap: {
+    marginBottom: 18,
+    alignItems: 'center',
+  },
+  productImgArea: {
+    width: '100%',
+    height: 140,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  productBrand: {
+    fontFamily: Fonts.semibold,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: C.textDim,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  productName: {
+    fontFamily: Fonts.bold,
+    fontSize: 15,
+    lineHeight: 19,
+    color: C.text,
+    textAlign: 'center',
+    marginBottom: 12,
+    paddingHorizontal: 8,
+  },
+  shopBtn: {
+    borderRadius: 999,
+    overflow: 'hidden',
+    width: '100%',
+    marginBottom: 8,
+  },
+  shopBtnGrad: {
+    paddingVertical: 13,
+    alignItems: 'center',
+    borderRadius: 999,
+  },
+  shopBtnText: {
+    fontFamily: Fonts.bold,
+    fontSize: 14,
     color: '#FFFFFF',
   },
 });
@@ -976,18 +1120,135 @@ function deriveHighlights(assessment: SkinAssessmentItem[] | undefined) {
   });
 }
 
+// ─── Product Carousel ────────────────────────────────────────────────────────
+
+function ProductCarouselItem({ product }: { product: Product }) {
+  const [imgError, setImgError] = useState(false);
+  const cleanName = cleanProductName(product.name, product.brand);
+
+  return (
+    <TouchableOpacity
+      style={prodStyles.card}
+      activeOpacity={0.82}
+      onPress={() => Linking.openURL(`https://www.amazon.com/dp/${product.asin}`)}
+    >
+      <View style={prodStyles.imgWrap}>
+        {!imgError && product.image_url ? (
+          <Image
+            source={{ uri: product.image_url }}
+            style={prodStyles.img}
+            resizeMode="cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <LinearGradient colors={['#1A0845', '#2D1069']} style={prodStyles.img}>
+            <Droplet size={32} color={C.violetSoft} />
+          </LinearGradient>
+        )}
+        <View style={prodStyles.matchBadge}>
+          <Text style={prodStyles.matchText}>{product.match_percent}% match</Text>
+        </View>
+      </View>
+      <View style={prodStyles.info}>
+        <Text style={prodStyles.brand} numberOfLines={1}>{product.brand}</Text>
+        <Text style={prodStyles.name} numberOfLines={2}>{cleanName}</Text>
+        <Text style={prodStyles.desc} numberOfLines={2}>{product.description}</Text>
+        <Text style={prodStyles.price}>{product.price}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const prodStyles = StyleSheet.create({
+  card: {
+    width: 152,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.28)',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(14,6,30,0.95)',
+    shadowColor: C.violet,
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  imgWrap: {
+    width: '100%',
+    height: 150,
+    position: 'relative',
+  },
+  img: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(20,8,42,0.8)',
+  },
+  matchBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(52,211,153,0.18)',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.50)',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  matchText: {
+    fontFamily: Fonts.bold,
+    fontSize: 10,
+    color: C.green,
+    letterSpacing: 0.3,
+  },
+  info: {
+    padding: 10,
+    paddingTop: 9,
+  },
+  brand: {
+    fontFamily: Fonts.regular,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: C.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 3,
+  },
+  name: {
+    fontFamily: Fonts.bold,
+    fontSize: 13,
+    lineHeight: 16,
+    color: C.text,
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  desc: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    lineHeight: 14,
+    color: C.textDim,
+    marginBottom: 7,
+  },
+  price: {
+    fontFamily: Fonts.semibold,
+    fontSize: 13,
+    color: C.violetSoft,
+  },
+});
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function GlowAnalysisDashboard({
   avatarUri,
   headline,
-  description,
   skinType,
   severity,
   severityScore,
   totalSpots,
   primaryAcneType,
   skinAssessment,
+  imageNativeWidth,
+  imageNativeHeight,
   onStartPlan,
   onScanAgain,
   onBack,
@@ -1087,10 +1348,11 @@ export default function GlowAnalysisDashboard({
           avatarUri={avatarUri}
           eyebrow={eyebrow}
           headline={headline}
-          description={description}
           score={score}
           scoreLabel={accent.label}
           accent={accent}
+          imageNativeWidth={imageNativeWidth}
+          imageNativeHeight={imageNativeHeight}
         />
 
         <View style={styles.statRow}>
@@ -1145,7 +1407,7 @@ export default function GlowAnalysisDashboard({
             iconBg="rgba(52,211,153,0.10)"
             title="Gentle cleanse"
             desc="Wash away sweat, oil, and buildup."
-            onPress={() => setModal({ title: 'Gentle Cleanse', body: 'Cleansing twice a day removes excess oil, sweat, and environmental debris that clog pores and cause breakouts. Use a gentle low-pH cleanser (pH 4.5–5.5) — harsh soaps strip your acid mantle and trigger more oil production as compensation. Lukewarm water only; hot water breaks down your skin barrier.' })}
+            onPress={() => setModal({ title: 'Gentle Cleanse', body: 'Cleansing twice a day removes excess oil, sweat, and environmental debris that clog pores and cause breakouts. Use a gentle low-pH cleanser (pH 4.5–5.5) — harsh soaps strip your acid mantle and trigger more oil production as compensation. Lukewarm water only; hot water breaks down your skin barrier.', product: { name: 'Hydrating Facial Cleanser', brand: 'CeraVe', buyUrl: 'https://www.amazon.com/dp/B01MSSDEPK', iconType: 'cleanse' } })}
           />
           <HighlightRow
             icon={<Moisturize size={20} color={C.violetSoft} />}
@@ -1153,7 +1415,7 @@ export default function GlowAnalysisDashboard({
             iconBorder="rgba(124,92,252,0.28)"
             title="Hydrate + moisturize"
             desc="Keep your barrier strong and balanced."
-            onPress={() => setModal({ title: 'Hydrate + Moisturize', body: 'A healthy skin barrier keeps moisture in and irritants out. Apply a hydrating serum (hyaluronic acid) to damp skin, then seal with a moisturiser. Even oily skin needs moisturiser — skipping it signals your glands to produce more oil. Look for ceramides, niacinamide, or glycerin in your formula.' })}
+            onPress={() => setModal({ title: 'Hydrate + Moisturize', body: 'A healthy skin barrier keeps moisture in and irritants out. Apply a hydrating serum (hyaluronic acid) to damp skin, then seal with a moisturiser. Even oily skin needs moisturiser — skipping it signals your glands to produce more oil. Look for ceramides, niacinamide, or glycerin in your formula.', product: { name: 'Hyaluronic Acid 2% + B5', brand: 'The Ordinary', buyUrl: 'https://www.amazon.com/dp/B01N9SPQHM', iconType: 'hydrate' } })}
           />
           <HighlightRow
             icon={<Sun size={20} color={C.green} />}
@@ -1161,22 +1423,35 @@ export default function GlowAnalysisDashboard({
             title="SPF every morning"
             desc="Protect clear skin from dark spots."
             last
-            onPress={() => setModal({ title: 'SPF Every Morning', body: 'UV exposure is the #1 cause of dark spots, accelerated ageing, and post-acne marks getting darker. SPF 30+ applied every morning — even on cloudy days and indoors near windows — is non-negotiable. Reapply every 2 hours if you\'re outside. Mineral (zinc oxide) or chemical SPF both work; pick the texture you\'ll actually wear daily.' })}
+            onPress={() => setModal({ title: 'SPF Every Morning', body: 'UV exposure is the #1 cause of dark spots, accelerated ageing, and post-acne marks getting darker. SPF 30+ applied every morning — even on cloudy days and indoors near windows — is non-negotiable. Reapply every 2 hours if you\'re outside. Mineral (zinc oxide) or chemical SPF both work; pick the texture you\'ll actually wear daily.', product: { name: 'UV Clear Broad-Spectrum SPF 46', brand: 'EltaMD', buyUrl: 'https://www.amazon.com/dp/B002MSN3QQ', iconType: 'spf' } })}
           />
         </SectionCard>
 
-        {scanHistory && scanHistory.length >= 2 && (
-          <SectionCard style={{ paddingBottom: 10 }}>
-            <View style={styles.progressHead}>
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.progressTitle}>Your Progress</Text>
-                <Text style={styles.progressSub}>Detected blemishes per scan</Text>
-              </View>
-              <Pill text={trendBadge.text} tone={trendBadge.tone} />
+        {/* Recommended products carousel */}
+        <View style={styles.carouselWrap}>
+          <LinearGradient
+            colors={['rgba(20,8,42,0.55)', 'rgba(10,4,26,0.55)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
+          />
+          <View style={styles.carouselHead}>
+            <View style={sectionStyles.headLeft}>
+              <Sparkle size={11} color={C.violetSoft} />
+              <Text style={sectionStyles.headTitle}>RECOMMENDED FOR YOU</Text>
             </View>
-            <ProgressMiniChart history={scanHistory} currentSessionId={currentSessionId} />
-          </SectionCard>
-        )}
+            <Pill text="For your skin" tone="green" />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.carouselScroll}
+          >
+            {RECOMMENDED_PRODUCTS.map(p => (
+              <ProductCarouselItem key={p.id} product={p} />
+            ))}
+          </ScrollView>
+        </View>
 
         {/* CTA */}
         <View style={styles.ctaWrap}>
@@ -1228,27 +1503,30 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 12,
   },
-  progressHead: {
+  carouselWrap: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.2)',
+    overflow: 'hidden',
+    marginBottom: 10,
+    paddingTop: 12,
+    shadowColor: C.violet,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  carouselHead: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 6,
-    gap: 8,
+    paddingHorizontal: 14,
+    marginBottom: 10,
   },
-  progressTitle: {
-    fontFamily: Fonts.bold,
-    fontSize: 10.5,
-    lineHeight: 12,
-    letterSpacing: 1.6,
-    color: 'rgba(255,255,255,0.85)',
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  progressSub: {
-    fontFamily: Fonts.regular,
-    fontSize: 11,
-    lineHeight: 14,
-    color: C.textDim,
+  carouselScroll: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    gap: 10,
   },
   ctaWrap: {
     position: 'relative',
