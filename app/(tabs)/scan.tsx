@@ -405,6 +405,7 @@ export default function ScanScreen() {
           severityScore={completedSession.severity_score}
           totalSpots={completedSession.total_spots}
           primaryAcneType={completedSession.primary_acne_type}
+          onBack={resetScan}
           onStartPlan={handleStartPlan}
           onScanAgain={resetScan}
           onViewFullScan={resetScan}

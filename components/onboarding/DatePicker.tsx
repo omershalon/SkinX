@@ -84,11 +84,11 @@ const s = StyleSheet.create({
     backgroundColor: '#000000',
   },
   dayPicker: {
-    flex: 1.2,
+    flex: 1.6,
     backgroundColor: '#000000',
   },
   yearPicker: {
-    flex: 2,
+    flex: 2.3,
     backgroundColor: '#000000',
   },
 });

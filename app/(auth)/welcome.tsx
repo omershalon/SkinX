@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, TextInput, Alert,
   ActivityIndicator, Linking, Animated, Easing, PanResponder, Dimensions,
+  Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -257,10 +258,11 @@ export default function WelcomeScreen() {
     try {
       setLoading(true);
       const redirectUrl = ExpoLinking.createURL('/');
+      console.log('[Google OAuth] redirectUrl:', redirectUrl);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'https://wvejvinngszpsaqqzjqw.supabase.co/auth/v1/callback',
+          redirectTo: redirectUrl,
           queryParams: { prompt: 'select_account' },
         },
       });
@@ -302,15 +304,24 @@ export default function WelcomeScreen() {
     clearErrors();
     if (!email) { setEmailError('Enter your email, then tap Forgot password'); return; }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://wvejvinngszpsaqqzjqw.supabase.co/functions/v1/auth-redirect',
+      redirectTo: `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/auth-redirect`,
     });
     if (error) setFormError(error.message);
     else Alert.alert('Email sent', `We've sent a password reset link to ${email}. Check your inbox.`);
   };
 
   return (
-    <View style={[s.container, { paddingBottom: insets.bottom + 20 }]}>
+    <View style={[s.container, { paddingTop: insets.top, paddingBottom: insets.bottom + 20 }]}>
       <View style={[StyleSheet.absoluteFill, { backgroundColor: '#000000' }]} />
+
+      {/* Hero face image */}
+      <View style={s.heroWrap}>
+        <Image
+          source={require('@/assets/images/welcome-face.jpg')}
+          style={s.heroImage}
+          resizeMode="contain"
+        />
+      </View>
 
       {/* Language button */}
       <TouchableOpacity style={[s.langBtn, { top: insets.top + 12 }]} onPress={() => setShowLang(true)} activeOpacity={0.8}>
@@ -471,7 +482,9 @@ export default function WelcomeScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'flex-end' },
+  container: { flex: 1 },
+  heroWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  heroImage: { width: '100%', height: '100%' },
   hero: { alignItems: 'center', gap: 16, paddingHorizontal: 32 },
   appName: { fontFamily: Fonts.bold, fontSize: 38, color: '#FFFFFF', letterSpacing: -1 },
   tagline: { fontFamily: Fonts.bold, fontSize: 28, color: '#FFFFFF', textAlign: 'center', lineHeight: 36, letterSpacing: -0.5 },
