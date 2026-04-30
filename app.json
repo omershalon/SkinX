@@ -11,7 +11,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.glow.skincare",
+      "bundleIdentifier": "com.glow.skincare231",
       "infoPlist": {
         "NSCameraUsageDescription": "Glow needs camera access to analyze your skin and scan products",
         "NSPhotoLibraryUsageDescription": "Glow needs photo library access for skin analysis",
