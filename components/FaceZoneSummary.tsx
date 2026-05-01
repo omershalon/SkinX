@@ -5,6 +5,7 @@ import { Fonts } from '@/lib/theme';
 
 interface FaceZoneSummaryProps {
   zones: ZoneScore[];
+  showHeading?: boolean;
 }
 
 const ZONE_LABELS: Record<string, string> = {
@@ -29,7 +30,7 @@ const SEVERITY_BG: Record<string, string> = {
   severe:   'rgba(248,113,113,0.12)',
 };
 
-export default function FaceZoneSummary({ zones }: FaceZoneSummaryProps) {
+export default function FaceZoneSummary({ zones, showHeading = true }: FaceZoneSummaryProps) {
   if (!zones || zones.length === 0) return null;
 
   // Canonical order
@@ -40,7 +41,7 @@ export default function FaceZoneSummary({ zones }: FaceZoneSummaryProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>FACE ZONES</Text>
+      {showHeading && <Text style={styles.heading}>FACE ZONES</Text>}
       {sorted.map(zone => {
         const color = SEVERITY_COLORS[zone.severity] ?? '#ffffff';
         const bg    = SEVERITY_BG[zone.severity]    ?? 'rgba(255,255,255,0.05)';

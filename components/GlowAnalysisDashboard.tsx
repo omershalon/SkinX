@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -193,27 +193,28 @@ const Chevron = ({ size = 16, color = 'rgba(255,255,255,0.4)' }: { size?: number
 
 // ─── Glow Score Ring ────────────────────────────────────────────────────────
 
-function GlowScoreRing({ score, accent }: { score: number; accent: { ring: string; ringSoft: string; halo: string } }) {
-  const size = 108;
+function GlowScoreRing({ score, accent, size = 108 }: { score: number; accent: { ring: string; ringSoft: string; halo: string }; size?: number }) {
   const stroke = 5;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
+  const fontSize = size < 90 ? Math.round(size * 0.30) : 38;
+  const lineHeight = fontSize + 6;
 
   return (
-    <View style={ringStyles.wrap}>
-      {/* outer halo (faked via tinted shadow on a bg circle) */}
+    <View style={{ width: size, height: size, position: 'relative' }}>
       <View
-        style={[
-          ringStyles.halo,
-          {
-            shadowColor: accent.ring,
-            shadowOpacity: 0.55,
-            shadowRadius: 16,
-            shadowOffset: { width: 0, height: 0 },
-            backgroundColor: accent.halo,
-          },
-        ]}
+        style={{
+          position: 'absolute',
+          top: -10, left: -10, right: -10, bottom: -10,
+          borderRadius: 999,
+          shadowColor: accent.ring,
+          shadowOpacity: 0.55,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 0 },
+          backgroundColor: accent.halo,
+          elevation: 6,
+        }}
       />
       <Svg width={size} height={size} style={{ position: 'relative', zIndex: 1 }}>
         <Defs>
@@ -235,56 +236,12 @@ function GlowScoreRing({ score, accent }: { score: number; accent: { ring: strin
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      <View style={ringStyles.center} pointerEvents="none">
-        <Text style={ringStyles.scoreText}>{Math.round(score)}</Text>
-      </View>
-      <View style={[ringStyles.spark, { top: -2, right: -8 }]}>
-        <Sparkle size={12} color="#fff" />
-      </View>
-      <View style={[ringStyles.spark, { top: 18, right: -12 }]}>
-        <Sparkle size={8} color={accent.ringSoft} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 2 }} pointerEvents="none">
+        <Text style={{ color: C.text, fontFamily: Fonts.bold, fontSize, lineHeight, letterSpacing: -1.4 }}>{Math.round(score)}</Text>
       </View>
     </View>
   );
 }
-
-const ringStyles = StyleSheet.create({
-  wrap: {
-    width: 108,
-    height: 108,
-    position: 'relative',
-  },
-  halo: {
-    position: 'absolute',
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
-    borderRadius: 999,
-    elevation: 6,
-  },
-  center: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  scoreText: {
-    color: C.text,
-    fontFamily: Fonts.bold,
-    fontSize: 38,
-    lineHeight: 44,
-    letterSpacing: -1.4,
-  },
-  spark: {
-    position: 'absolute',
-    zIndex: 3,
-  },
-});
 
 // ─── Hero card ──────────────────────────────────────────────────────────────
 
@@ -311,26 +268,6 @@ function HeroCard({
 }) {
   const [avatarExpanded, setAvatarExpanded] = useState(false);
 
-  // Wrap headline to two lines at the natural mid-word boundary
-  const headlineNode = useMemo(() => {
-    const trimmed = (headline ?? '').trim();
-    const words = trimmed.split(/\s+/);
-    if (words.length <= 1) return trimmed;
-    // Split as evenly as possible by char count
-    let bestIdx = 1;
-    let bestDiff = Infinity;
-    for (let i = 1; i < words.length; i++) {
-      const left = words.slice(0, i).join(' ').length;
-      const right = words.slice(i).join(' ').length;
-      const diff = Math.abs(left - right);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        bestIdx = i;
-      }
-    }
-    return `${words.slice(0, bestIdx).join(' ')}\n${words.slice(bestIdx).join(' ')}`;
-  }, [headline]);
-
   return (
     <View style={heroStyles.outer}>
       <View style={heroStyles.glow} />
@@ -342,38 +279,38 @@ function HeroCard({
           style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
         />
 
-        {/* Single row: thumbnail | text | score ring */}
-        <View style={heroStyles.row}>
-          {/* Thumbnail — contained so full image is always visible */}
-          <TouchableOpacity
-            style={heroStyles.thumbWrap}
-            onPress={() => avatarUri && setAvatarExpanded(true)}
-            activeOpacity={0.85}
-          >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={heroStyles.thumb} resizeMode="contain" />
-            ) : (
-              <View style={[heroStyles.thumb, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
-            )}
-            <View style={heroStyles.expandHint}>
-              <Text style={heroStyles.expandHintText}>⤢</Text>
-            </View>
-          </TouchableOpacity>
+        {/* Left: thumbnail */}
+        <TouchableOpacity
+          style={heroStyles.thumbWrap}
+          onPress={() => avatarUri && setAvatarExpanded(true)}
+          activeOpacity={0.85}
+        >
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={heroStyles.thumb} resizeMode="contain" />
+          ) : (
+            <View style={[heroStyles.thumb, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
+          )}
+          <View style={heroStyles.expandHint}>
+            <Text style={heroStyles.expandHintText}>⤢</Text>
+          </View>
+        </TouchableOpacity>
 
-          {/* Headline + eyebrow */}
-          <View style={heroStyles.textCol}>
+        {/* Right: eyebrow + headline top, score row bottom */}
+        <View style={heroStyles.rightCol}>
+          <View>
             <View style={heroStyles.eyebrowRow}>
               <Sparkle size={11} color={C.violetSoft} />
               <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
             </View>
-            <Text style={heroStyles.headline}>{headlineNode}</Text>
+            <Text style={heroStyles.headline} numberOfLines={3}>{headline}</Text>
           </View>
 
-          {/* Score ring */}
-          <View style={heroStyles.scoreCol}>
-            <GlowScoreRing score={score} accent={accent} />
-            <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
-            <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
+          <View style={heroStyles.scoreRow}>
+            <GlowScoreRing score={score} accent={accent} size={72} />
+            <View style={heroStyles.scoreText}>
+              <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
+              <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
+            </View>
           </View>
         </View>
 
@@ -402,10 +339,7 @@ const heroStyles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    top: -8,
-    left: -8,
-    right: -8,
-    bottom: -8,
+    top: -8, left: -8, right: -8, bottom: -8,
     borderRadius: 28,
     backgroundColor: 'rgba(124,92,252,0.12)',
     shadowColor: C.violet,
@@ -416,11 +350,10 @@ const heroStyles = StyleSheet.create({
   },
   card: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    alignItems: 'stretch',
+    gap: 14,
     borderRadius: 22,
-    padding: 14,
-    paddingVertical: 16,
+    padding: 16,
     borderWidth: 1.5,
     borderColor: 'rgba(167,139,250,0.55)',
     overflow: 'hidden',
@@ -430,19 +363,13 @@ const heroStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
   thumbWrap: {
-    width: 90,
-    height: 120,
+    width: 96,
     borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.40)',
     position: 'relative',
+    minHeight: 128,
   },
   thumb: {
     width: '100%',
@@ -463,16 +390,16 @@ const heroStyles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255,255,255,0.80)',
   },
-  textCol: {
+  rightCol: {
     flex: 1,
     minWidth: 0,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
   eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   eyebrow: {
     fontFamily: Fonts.medium,
@@ -483,32 +410,30 @@ const heroStyles = StyleSheet.create({
   },
   headline: {
     fontFamily: Fonts.bold,
-    fontSize: 22,
-    lineHeight: 25,
+    fontSize: 20,
+    lineHeight: 24,
     color: C.text,
-    letterSpacing: -0.6,
-    marginBottom: 6,
+    letterSpacing: -0.5,
   },
-  body: {
-    fontFamily: Fonts.regular,
-    fontSize: 11,
-    lineHeight: 16,
-    color: 'rgba(255,255,255,0.72)',
-  },
-  scoreCol: {
+  scoreRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  scoreText: {
+    justifyContent: 'center',
   },
   scoreLabel: {
     fontFamily: Fonts.semibold,
-    fontSize: 11,
-    lineHeight: 13,
-    letterSpacing: 0.2,
-    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 15,
+    letterSpacing: 0.1,
   },
   scoreSub: {
-    fontFamily: Fonts.semibold,
-    fontSize: 11,
-    lineHeight: 13,
+    fontFamily: Fonts.bold,
+    fontSize: 14,
+    lineHeight: 17,
   },
   avatarModalBg: {
     flex: 1,
@@ -1478,7 +1403,7 @@ export default function GlowAnalysisDashboard({
             <View style={{ paddingHorizontal: 14 }}>
               <SectionHead title="Zone Breakdown" />
             </View>
-            <FaceZoneSummary zones={zoneScores} />
+            <FaceZoneSummary zones={zoneScores} showHeading={false} />
           </SectionCard>
         )}
 
