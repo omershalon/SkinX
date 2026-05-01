@@ -337,7 +337,7 @@ function HeroCard({
             <Sparkle size={11} color={C.violetSoft} />
             <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
           </View>
-          <Text style={heroStyles.headline}>{headline}</Text>
+          <Text style={heroStyles.headline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>{headline}</Text>
         </View>
 
         {/* full-screen avatar modal */}
@@ -674,6 +674,7 @@ function StatCard({
   icon,
   label,
   value,
+  sub,
   valueColor = C.green,
   iconBg = 'rgba(52,211,153,0.12)',
   iconBorder = 'rgba(52,211,153,0.25)',
@@ -682,6 +683,7 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: string;
+  sub?: string;
   valueColor?: string;
   iconBg?: string;
   iconBorder?: string;
@@ -700,6 +702,7 @@ function StatCard({
       </View>
       <Text style={statStyles.label}>{label}</Text>
       <Text style={[statStyles.value, { color: valueColor }]}>{value}</Text>
+      {!!sub && <Text style={statStyles.sub}>{sub}</Text>}
     </TouchableOpacity>
   );
 }
@@ -744,6 +747,13 @@ const statStyles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 17,
     letterSpacing: -0.2,
+    textAlign: 'center',
+  },
+  sub: {
+    fontFamily: Fonts.regular,
+    fontSize: 9.5,
+    lineHeight: 11,
+    color: C.textMuted,
     textAlign: 'center',
   },
 });
@@ -1132,6 +1142,24 @@ function deriveConcerns(assessment: SkinAssessmentItem[] | undefined) {
   });
 }
 
+const ZONE_SHORT_LABELS: Record<string, string> = {
+  forehead:     'Forehead',
+  left_cheek:   'Left Cheek',
+  right_cheek:  'Right Cheek',
+  nose:         'Nose',
+  chin_jawline: 'Chin & Jaw',
+};
+const SEVERITY_ORDER: Record<string, number> = { severe: 4, moderate: 3, mild: 2, clear: 1 };
+
+function deriveWorstZone(zoneScores: ZoneScore[] | undefined) {
+  if (!zoneScores || zoneScores.length === 0) return null;
+  return zoneScores.reduce((worst, zone) => {
+    const ws = SEVERITY_ORDER[worst.severity] ?? 0;
+    const zs = SEVERITY_ORDER[zone.severity] ?? 0;
+    return zs > ws || (zs === ws && zone.lesion_count > worst.lesion_count) ? zone : worst;
+  });
+}
+
 // ─── Product Carousel ────────────────────────────────────────────────────────
 
 function ProductCarouselItem({ product }: { product: Product }) {
@@ -1280,6 +1308,7 @@ export default function GlowAnalysisDashboard({
   const trendBadge = deriveTrendBadge(scanHistory, currentSessionId);
   const highlights = deriveHighlights(skinAssessment);
   const concerns = deriveConcerns(skinAssessment);
+  const worstZone = deriveWorstZone(zoneScores);
   const eyebrow = score >= 80 ? 'Great news!' : score >= 65 ? 'Looking good' : score >= 50 ? 'Worth a look' : 'Needs care';
 
   const SKIN_TYPE_INFO: Record<string, string> = {
@@ -1398,6 +1427,7 @@ export default function GlowAnalysisDashboard({
             icon={<Drop size={18} color={C.violetSoft} />}
             label="Skin type"
             value={skinType || 'Normal'}
+            sub={worstZone ? `${ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone} area` : undefined}
             valueColor={C.text}
             iconBg="rgba(124,92,252,0.14)"
             iconBorder="rgba(124,92,252,0.30)"
@@ -1417,15 +1447,6 @@ export default function GlowAnalysisDashboard({
             onPress={() => setModal({ title: `Trend · ${trend.value}`, body: TREND_INFO[trend.value] ?? TREND_INFO['Stable'] })}
           />
         </View>
-
-        {zoneScores && zoneScores.length > 0 && (
-          <SectionCard style={{ paddingHorizontal: 0 }}>
-            <View style={{ paddingHorizontal: 14 }}>
-              <SectionHead title="Zone Breakdown" />
-            </View>
-            <FaceZoneSummary zones={zoneScores} showHeading={false} />
-          </SectionCard>
-        )}
 
         <SectionCard>
           <SectionHead title="Today's Highlights" />
@@ -1487,6 +1508,20 @@ export default function GlowAnalysisDashboard({
           />
         </SectionCard>
 
+        {/* Progress chart */}
+        {scanHistory && scanHistory.length > 0 && (
+          <SectionCard>
+            <SectionHead
+              title="Your Progress"
+              badge={<Pill text={`${scanHistory.length} scan${scanHistory.length === 1 ? '' : 's'}`} tone="green" />}
+            />
+            <View style={{ marginTop: 4 }}>
+              <ProgressMiniChart history={scanHistory} currentSessionId={currentSessionId} />
+            </View>
+            <Text style={progressStyles.caption}>Spot count over time — lower is better</Text>
+          </SectionCard>
+        )}
+
         {/* Recommended products carousel */}
         <View style={styles.carouselWrap}>
           <LinearGradient
@@ -1512,20 +1547,6 @@ export default function GlowAnalysisDashboard({
             ))}
           </ScrollView>
         </View>
-
-        {/* Progress chart */}
-        {scanHistory && scanHistory.length > 0 && (
-          <SectionCard>
-            <SectionHead
-              title="Your Progress"
-              badge={<Pill text={`${scanHistory.length} scan${scanHistory.length === 1 ? '' : 's'}`} tone="green" />}
-            />
-            <View style={{ marginTop: 4 }}>
-              <ProgressMiniChart history={scanHistory} currentSessionId={currentSessionId} />
-            </View>
-            <Text style={progressStyles.caption}>Spot count over time — lower is better</Text>
-          </SectionCard>
-        )}
 
         {/* CTA */}
         <View style={styles.ctaWrap}>
