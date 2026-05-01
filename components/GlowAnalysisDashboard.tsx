@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   Linking,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, {
@@ -191,28 +192,103 @@ const Chevron = ({ size = 16, color = 'rgba(255,255,255,0.4)' }: { size?: number
   </Svg>
 );
 
+const MapPin = ({ size = 18, color = C.coral }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2C8.686 2 6 4.686 6 8c0 4.5 6 12 6 12s6-7.5 6-12c0-3.314-2.686-6-6-6z"
+      fill={color}
+      fillOpacity={0.2}
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinejoin="round"
+    />
+    <Circle cx={12} cy={8} r={2} fill={color} />
+  </Svg>
+);
+
+// ─── Animated Ring Sparkles ─────────────────────────────────────────────────
+
+const RING_SPARKLES = [
+  { top: -14, right:  6, size: 11, delay:   0, duration: 1100 },
+  { top:  12, right: -16, size:  7, delay: 450, duration:  900 },
+  { bottom:  4, right: -12, size:  9, delay: 220, duration: 1050 },
+  { top:  -8, left:  -2, size:  6, delay: 680, duration:  850 },
+  { bottom: -6, left:  8, size:  8, delay: 340, duration:  980 },
+];
+
+function AnimatedRingSparkles({ accent }: { accent: { ring: string; ringSoft: string } }) {
+  const anims = useRef(RING_SPARKLES.map(() => new Animated.Value(0))).current;
+
+  useEffect(() => {
+    const loops = RING_SPARKLES.map((s, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(s.delay),
+          Animated.timing(anims[i], { toValue: 1, duration: s.duration / 2, useNativeDriver: true }),
+          Animated.timing(anims[i], { toValue: 0, duration: s.duration / 2, useNativeDriver: true }),
+          Animated.delay(700),
+        ])
+      )
+    );
+    loops.forEach(l => l.start());
+    return () => loops.forEach(l => l.stop());
+  }, []);
+
+  return (
+    <>
+      {RING_SPARKLES.map((s, i) => {
+        const pos: Record<string, number> = {};
+        if ('top'    in s) pos.top    = s.top as number;
+        if ('bottom' in s) pos.bottom = s.bottom as number;
+        if ('left'   in s) pos.left   = s.left as number;
+        if ('right'  in s) pos.right  = s.right as number;
+        return (
+          <Animated.View
+            key={i}
+            style={[
+              { position: 'absolute', zIndex: 10 },
+              pos,
+              {
+                opacity: anims[i],
+                transform: [{ scale: anims[i].interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.3] }) }],
+              },
+            ]}
+          >
+            <Sparkle size={s.size} color={i % 2 === 0 ? accent.ring : accent.ringSoft} />
+          </Animated.View>
+        );
+      })}
+    </>
+  );
+}
+
 // ─── Glow Score Ring ────────────────────────────────────────────────────────
 
-function GlowScoreRing({ score, accent }: { score: number; accent: { ring: string; ringSoft: string; halo: string } }) {
-  const size = 108;
-  const stroke = 5;
+function GlowScoreRing({ score, accent, size = 88 }: { score: number; accent: { ring: string; ringSoft: string; halo: string }; size?: number }) {
+  const stroke = size > 90 ? 5 : 4;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const dash = (Math.max(0, Math.min(100, score)) / 100) * c;
+  const scoreFontSize = Math.round(size * 0.35);
+  const haloOffset = Math.round(size * 0.09);
 
   return (
-    <View style={ringStyles.wrap}>
+    <View style={{ width: size, height: size, position: 'relative' }}>
       <View
-        style={[
-          ringStyles.halo,
-          {
-            shadowColor: accent.ring,
-            shadowOpacity: 0.55,
-            shadowRadius: 16,
-            shadowOffset: { width: 0, height: 0 },
-            backgroundColor: accent.halo,
-          },
-        ]}
+        style={{
+          position: 'absolute',
+          top: -haloOffset,
+          left: -haloOffset,
+          right: -haloOffset,
+          bottom: -haloOffset,
+          borderRadius: 999,
+          elevation: 6,
+          shadowColor: accent.ring,
+          shadowOpacity: 0.55,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 0 },
+          backgroundColor: accent.halo,
+        }}
       />
       <Svg width={size} height={size} style={{ position: 'relative', zIndex: 1 }}>
         <Defs>
@@ -235,33 +311,23 @@ function GlowScoreRing({ score, accent }: { score: number; accent: { ring: strin
         />
       </Svg>
       <View style={ringStyles.center} pointerEvents="none">
-        <Text style={ringStyles.scoreText}>{Math.round(score)}</Text>
+        <Text style={[ringStyles.scoreText, { fontSize: scoreFontSize, lineHeight: scoreFontSize + 6, letterSpacing: scoreFontSize > 30 ? -1.4 : -0.8 }]}>{Math.round(score)}</Text>
       </View>
-      <View style={[ringStyles.spark, { top: -2, right: -8 }]}>
-        <Sparkle size={12} color="#fff" />
-      </View>
-      <View style={[ringStyles.spark, { top: 18, right: -12 }]}>
-        <Sparkle size={8} color={accent.ringSoft} />
-      </View>
+      {size >= 90 && (
+        <>
+          <View style={[ringStyles.spark, { top: -2, right: -8 }]}>
+            <Sparkle size={12} color="#fff" />
+          </View>
+          <View style={[ringStyles.spark, { top: 18, right: -12 }]}>
+            <Sparkle size={8} color={accent.ringSoft} />
+          </View>
+        </>
+      )}
     </View>
   );
 }
 
 const ringStyles = StyleSheet.create({
-  wrap: {
-    width: 108,
-    height: 108,
-    position: 'relative',
-  },
-  halo: {
-    position: 'absolute',
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
-    borderRadius: 999,
-    elevation: 6,
-  },
   center: {
     position: 'absolute',
     top: 0,
@@ -275,9 +341,6 @@ const ringStyles = StyleSheet.create({
   scoreText: {
     color: C.text,
     fontFamily: Fonts.bold,
-    fontSize: 38,
-    lineHeight: 44,
-    letterSpacing: -1.4,
   },
   spark: {
     position: 'absolute',
@@ -291,6 +354,7 @@ function HeroCard({
   avatarUri,
   eyebrow,
   headline,
+  subline,
   score,
   scoreLabel,
   accent,
@@ -300,6 +364,7 @@ function HeroCard({
   avatarUri: string;
   eyebrow: string;
   headline: string;
+  subline?: string;
   score: number;
   scoreLabel: string;
   accent: { ring: string; ringSoft: string; halo: string };
@@ -333,11 +398,24 @@ function HeroCard({
 
         {/* text col */}
         <View style={heroStyles.textCol}>
-          <View style={heroStyles.eyebrowRow}>
-            <Sparkle size={11} color={C.violetSoft} />
-            <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
+          <View style={[heroStyles.eyebrowPill, { borderColor: accent.ring + '55', backgroundColor: accent.ring + '18' }]}>
+            <Sparkle size={9} color={accent.ring} />
+            <Text style={[heroStyles.eyebrow, { color: accent.ring }]}>{eyebrow}</Text>
           </View>
-          <Text style={heroStyles.headline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>{headline}</Text>
+          <Text style={heroStyles.headline} numberOfLines={2}>{headline}</Text>
+          {!!subline && (
+            <Text style={heroStyles.subline}>{subline}</Text>
+          )}
+        </View>
+
+        {/* score col */}
+        <View style={heroStyles.scoreCol}>
+          <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
+          <View style={{ position: 'relative' }}>
+            <GlowScoreRing score={score} accent={accent} />
+            <AnimatedRingSparkles accent={accent} />
+          </View>
+          <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
         </View>
 
         {/* full-screen avatar modal */}
@@ -356,13 +434,6 @@ function HeroCard({
             />
           </Pressable>
         </Modal>
-
-        {/* score col */}
-        <View style={heroStyles.scoreCol}>
-          <GlowScoreRing score={score} accent={accent} />
-          <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
-          <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
-        </View>
       </View>
     </View>
   );
@@ -420,40 +491,53 @@ const heroStyles = StyleSheet.create({
     minWidth: 0,
     justifyContent: 'center',
   },
-  eyebrowRow: {
+  eyebrowPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+    alignSelf: 'flex-start',
+    gap: 5,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    marginBottom: 8,
   },
   eyebrow: {
-    fontFamily: Fonts.medium,
+    fontFamily: Fonts.semibold,
     fontSize: 11,
-    color: C.violetSoft,
-    letterSpacing: 0.2,
-    marginLeft: 4,
+    letterSpacing: 0.1,
   },
   headline: {
     fontFamily: Fonts.bold,
-    fontSize: 22,
-    lineHeight: 25,
+    fontSize: 19,
+    lineHeight: 23,
     color: C.text,
-    letterSpacing: -0.6,
+    letterSpacing: -0.4,
+  },
+  subline: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    lineHeight: 15,
+    color: C.textMuted,
+    marginTop: 5,
   },
   scoreCol: {
     alignItems: 'center',
+    width: 88,
+    flexShrink: 0,
   },
   scoreLabel: {
-    fontFamily: Fonts.semibold,
-    fontSize: 11,
-    lineHeight: 13,
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    lineHeight: 14,
     letterSpacing: 0.2,
-    marginTop: 4,
+    marginBottom: 14,
   },
   scoreSub: {
     fontFamily: Fonts.semibold,
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 14,
+    marginTop: 14,
   },
   avatarModalBg: {
     flex: 1,
@@ -701,7 +785,7 @@ function StatCard({
         {icon}
       </View>
       <Text style={statStyles.label}>{label}</Text>
-      <Text style={[statStyles.value, { color: valueColor }]}>{value}</Text>
+      <Text style={[statStyles.value, { color: valueColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>{value}</Text>
       {!!sub && <Text style={statStyles.sub}>{sub}</Text>}
     </TouchableOpacity>
   );
@@ -778,7 +862,7 @@ function SectionHead({ title, badge }: { title: string; badge?: React.ReactNode 
   return (
     <View style={sectionStyles.head}>
       <View style={sectionStyles.headLeft}>
-        <Sparkle size={11} color={C.violetSoft} />
+        <View style={sectionStyles.headDot} />
         <Text style={sectionStyles.headTitle}>{title}</Text>
       </View>
       {badge}
@@ -844,16 +928,20 @@ const sectionStyles = StyleSheet.create({
   headLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+  },
+  headDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.violetSoft,
   },
   headTitle: {
     fontFamily: Fonts.bold,
-    fontSize: 12,
-    lineHeight: 14,
-    letterSpacing: 1.2,
-    color: 'rgba(255,255,255,0.85)',
-    textTransform: 'uppercase',
-    marginLeft: 6,
+    fontSize: 13,
+    lineHeight: 16,
+    letterSpacing: -0.1,
+    color: 'rgba(255,255,255,0.90)',
   },
   row: {
     flexDirection: 'row',
@@ -1014,22 +1102,54 @@ function deriveScoreAccent(score: number) {
 }
 
 function deriveGlowScore({
-  severity,
-  severityScore,
   totalSpots,
+  zoneScores,
+  skinAssessment,
+  primaryAcneType,
 }: {
-  severity: string;
-  severityScore?: number | null;
   totalSpots?: number | null;
+  zoneScores?: ZoneScore[];
+  skinAssessment?: SkinAssessmentItem[];
+  primaryAcneType?: string | null;
 }): number {
-  if (typeof severityScore === 'number' && severityScore >= 0 && severityScore <= 100) {
-    return Math.max(0, Math.min(100, 100 - severityScore));
-  }
-  const sev = (severity ?? '').toLowerCase();
-  let base = sev === 'high' || sev === 'severe' ? 55 : sev === 'moderate' ? 72 : 92;
   const spots = totalSpots ?? 0;
-  base -= Math.min(spots, 20);
-  return Math.max(20, Math.min(100, base));
+
+  // Component 1 — spot count, exponential decay (40%)
+  // 0 spots→100, 5→76, 10→58, 20→33, 30→19
+  const spotScore = 100 * Math.exp(-0.055 * spots);
+
+  // Component 2 — zone severity + lesion density (35%)
+  const ZONE_BASE: Record<string, number> = { clear: 100, mild: 76, moderate: 46, severe: 18 };
+  let zoneScore: number;
+  if (zoneScores && zoneScores.length > 0) {
+    const perZone = zoneScores.map(z => Math.max(0, (ZONE_BASE[z.severity] ?? 50) - z.lesion_count * 1.8));
+    zoneScore = perZone.reduce((a, b) => a + b, 0) / perZone.length;
+  } else {
+    zoneScore = spotScore;
+  }
+
+  // Component 3 — skin assessment categories (25%, omitted if empty)
+  let assessScore: number | null = null;
+  if (skinAssessment && skinAssessment.length > 0) {
+    const perItem = skinAssessment.map(a => (1 - a.score / 10) * 100);
+    assessScore = perItem.reduce((a, b) => a + b, 0) / perItem.length;
+  }
+
+  const base = assessScore !== null
+    ? 0.40 * spotScore + 0.35 * zoneScore + 0.25 * assessScore
+    : 0.53 * spotScore + 0.47 * zoneScore;
+
+  // Acne type multiplier — inflammatory types penalise more than non-inflammatory
+  const TYPE_MULT: Record<string, number> = {
+    nodular: 0.87, nodule: 0.87, cystic: 0.87, cyst: 0.87,
+    pustular: 0.92, pustule: 0.92, inflammatory: 0.92,
+    papular: 0.94, papule: 0.94,
+    comedonal: 0.97, whitehead: 0.98, blackhead: 0.98,
+  };
+  const typeKey = (primaryAcneType ?? '').toLowerCase();
+  const multiplier = Object.entries(TYPE_MULT).find(([k]) => typeKey.includes(k))?.[1] ?? 1.0;
+
+  return Math.round(Math.max(5, Math.min(99, base * multiplier)));
 }
 
 function deriveBreakouts(totalSpots: number | null | undefined, primaryAcneType?: string | null) {
@@ -1301,7 +1421,7 @@ export default function GlowAnalysisDashboard({
   const insets = useSafeAreaInsets();
   const [modal, setModal] = useState<InfoSheet | null>(null);
 
-  const score = deriveGlowScore({ severity, severityScore, totalSpots });
+  const score = deriveGlowScore({ totalSpots, zoneScores, skinAssessment, primaryAcneType });
   const accent = deriveScoreAccent(score);
   const breakouts = deriveBreakouts(totalSpots, primaryAcneType);
   const trend = deriveTrend(scanHistory, currentSessionId);
@@ -1309,7 +1429,7 @@ export default function GlowAnalysisDashboard({
   const highlights = deriveHighlights(skinAssessment);
   const concerns = deriveConcerns(skinAssessment);
   const worstZone = deriveWorstZone(zoneScores);
-  const eyebrow = score >= 80 ? 'Great news!' : score >= 65 ? 'Looking good' : score >= 50 ? 'Worth a look' : 'Needs care';
+  const eyebrow = score >= 80 ? 'Great news!' : score >= 65 ? 'Looking good' : score >= 50 ? 'Worth a look' : 'Heads up';
 
   const SKIN_TYPE_INFO: Record<string, string> = {
     Normal:      'Normal skin has a healthy balance of oil and moisture. Pores are small, tone is even, and breakouts are rare. Keep it up with gentle cleansing and daily SPF.',
@@ -1405,7 +1525,11 @@ export default function GlowAnalysisDashboard({
           avatarUri={avatarUri}
           eyebrow={eyebrow}
           headline={headline}
-
+          subline={
+            totalSpots && totalSpots > 0
+              ? `${totalSpots} spot${totalSpots !== 1 ? 's' : ''} detected`
+              : 'Skin looking clear'
+          }
           score={score}
           scoreLabel={accent.label}
           accent={accent}
@@ -1423,16 +1547,30 @@ export default function GlowAnalysisDashboard({
             iconBorder={breakouts.color === C.green ? 'rgba(52,211,153,0.25)' : breakouts.color === C.amber ? C.amberBorder : C.coralBorder}
             onPress={() => setModal({ title: 'Breakouts', body: BREAKOUT_INFO(breakouts.value, totalSpots) })}
           />
-          <StatCard
-            icon={<Drop size={18} color={C.violetSoft} />}
-            label="Skin type"
-            value={skinType || 'Normal'}
-            sub={worstZone ? `${ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone} area` : undefined}
-            valueColor={C.text}
-            iconBg="rgba(124,92,252,0.14)"
-            iconBorder="rgba(124,92,252,0.30)"
-            onPress={() => setModal({ title: `Skin Type · ${skinType || 'Normal'}`, body: SKIN_TYPE_INFO[skinType] ?? SKIN_TYPE_INFO['Normal'] })}
-          />
+          {worstZone ? (
+            <StatCard
+              icon={<MapPin size={18} color={worstZone.severity === 'severe' ? C.coral : worstZone.severity === 'moderate' ? C.amber : C.violetSoft} />}
+              label="Focus Zone"
+              value={ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone}
+              valueColor={worstZone.severity === 'severe' ? C.coral : worstZone.severity === 'moderate' ? C.amber : C.violetSoft}
+              iconBg={worstZone.severity === 'severe' ? C.coralBg : worstZone.severity === 'moderate' ? C.amberBg : 'rgba(124,92,252,0.14)'}
+              iconBorder={worstZone.severity === 'severe' ? C.coralBorder : worstZone.severity === 'moderate' ? C.amberBorder : 'rgba(124,92,252,0.30)'}
+              onPress={() => setModal({
+                title: `Focus Zone · ${ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone}`,
+                body: `Your ${ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone} area shows the most activity this scan — ${worstZone.severity} severity${worstZone.lesion_count > 0 ? ` with ${worstZone.lesion_count} spot${worstZone.lesion_count !== 1 ? 's' : ''} detected` : ''}. Applying targeted treatments here first will have the biggest impact on your overall score.`,
+              })}
+            />
+          ) : (
+            <StatCard
+              icon={<Drop size={18} color={C.violetSoft} />}
+              label="Skin type"
+              value={skinType || 'Normal'}
+              valueColor={C.text}
+              iconBg="rgba(124,92,252,0.14)"
+              iconBorder="rgba(124,92,252,0.30)"
+              onPress={() => setModal({ title: `Skin Type · ${skinType || 'Normal'}`, body: SKIN_TYPE_INFO[skinType] ?? SKIN_TYPE_INFO['Normal'] })}
+            />
+          )}
           <StatCard
             icon={
               trend.icon === 'down' ? <TrendDown size={18} color={trend.color} /> :

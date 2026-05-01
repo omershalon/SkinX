@@ -325,7 +325,7 @@ export function getSkinHeadline(session: ScanSession): string {
   if (severity === 'mild' && totalSpots <= 3) return 'Mostly Clear Skin';
   if (severity === 'mild' && totalSpots <= 8) return 'A Few Spots';
   if (severity === 'mild') return 'Light Breakout';
-  if (severity === 'moderate') return 'Some Concerns Found';
+  if (severity === 'moderate') return 'Some Breakouts';
   return 'Needs Attention';
 }
 
