@@ -29,6 +29,7 @@ import type { Detection, ZoneScore, SkinAssessmentItem } from '@/lib/scan-types'
 import type { ScanHistoryEntry } from '@/lib/scan-api';
 import { PRODUCTS, type Product } from '@/lib/products';
 import { cleanProductName } from '@/lib/clean-product-name';
+import FaceZoneSummary from '@/components/FaceZoneSummary';
 
 // Top products sorted by match — shown in the carousel
 const RECOMMENDED_PRODUCTS = [...PRODUCTS]
@@ -112,6 +113,13 @@ const TrendUp = ({ size = 18, color = C.green }: { size?: number; color?: string
 const TrendFlat = ({ size = 18, color = C.greenSoft }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M4 12h16" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+  </Svg>
+);
+
+const TrendDown = ({ size = 18, color = C.coral }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M3 7l6 6 4-4 8 8" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M14 17h7v-7" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -284,6 +292,7 @@ function HeroCard({
   avatarUri,
   eyebrow,
   headline,
+  description,
   score,
   scoreLabel,
   accent,
@@ -293,6 +302,7 @@ function HeroCard({
   avatarUri: string;
   eyebrow: string;
   headline: string;
+  description?: string;
   score: number;
   scoreLabel: string;
   accent: { ring: string; ringSoft: string; halo: string };
@@ -323,7 +333,6 @@ function HeroCard({
 
   return (
     <View style={heroStyles.outer}>
-      {/* Glow halo behind card */}
       <View style={heroStyles.glow} />
       <View style={heroStyles.card}>
         <LinearGradient
@@ -332,34 +341,45 @@ function HeroCard({
           end={{ x: 1, y: 1 }}
           style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
         />
-        {/* avatar — tappable to expand */}
+
+        {/* Row 1: full-width photo */}
         <TouchableOpacity
-          style={heroStyles.avatarWrap}
+          style={heroStyles.photoWrap}
           onPress={() => avatarUri && setAvatarExpanded(true)}
           activeOpacity={0.85}
         >
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={heroStyles.avatar} resizeMode="cover" />
+            <Image source={{ uri: avatarUri }} style={heroStyles.photo} resizeMode="cover" />
           ) : (
-            <View style={[heroStyles.avatar, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
+            <View style={[heroStyles.photo, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
           )}
+          <View style={heroStyles.expandHint}>
+            <Text style={heroStyles.expandHintText}>Tap to expand</Text>
+          </View>
         </TouchableOpacity>
 
-        {/* text col */}
-        <View style={heroStyles.textCol}>
-          <View style={heroStyles.eyebrowRow}>
-            <Sparkle size={11} color={C.violetSoft} />
-            <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
+        {/* Row 2: score ring + headline */}
+        <View style={heroStyles.bottomRow}>
+          <View style={heroStyles.scoreCol}>
+            <GlowScoreRing score={score} accent={accent} />
+            <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
+            <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
           </View>
-          <Text style={heroStyles.headline}>{headlineNode}</Text>
+          <View style={heroStyles.textCol}>
+            <View style={heroStyles.eyebrowRow}>
+              <Sparkle size={11} color={C.violetSoft} />
+              <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
+            </View>
+            <Text style={heroStyles.headline}>{headlineNode}</Text>
+            {!!description && (
+              <Text style={heroStyles.body} numberOfLines={3}>{description}</Text>
+            )}
+          </View>
         </View>
 
-        {/* full-screen avatar modal */}
+        {/* full-screen photo modal */}
         <Modal visible={avatarExpanded} transparent animationType="fade" onRequestClose={() => setAvatarExpanded(false)}>
-          <Pressable
-            style={heroStyles.avatarModalBg}
-            onPress={() => setAvatarExpanded(false)}
-          >
+          <Pressable style={heroStyles.avatarModalBg} onPress={() => setAvatarExpanded(false)}>
             <Image
               source={{ uri: avatarUri }}
               style={[
@@ -370,13 +390,6 @@ function HeroCard({
             />
           </Pressable>
         </Modal>
-
-        {/* score col */}
-        <View style={heroStyles.scoreCol}>
-          <GlowScoreRing score={score} accent={accent} />
-          <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
-          <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
-        </View>
       </View>
     </View>
   );
@@ -402,13 +415,7 @@ const heroStyles = StyleSheet.create({
     elevation: 6,
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     borderRadius: 22,
-    padding: 14,
-    paddingTop: 16,
-    paddingBottom: 16,
     borderWidth: 1.5,
     borderColor: 'rgba(167,139,250,0.55)',
     overflow: 'hidden',
@@ -418,16 +425,36 @@ const heroStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
-  avatarWrap: {
-    width: 100,
-    height: 128,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  photoWrap: {
+    width: '100%',
+    height: 170,
+    position: 'relative',
   },
-  avatar: {
+  photo: {
     width: '100%',
     height: '100%',
+  },
+  expandHint: {
+    position: 'absolute',
+    bottom: 8,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  expandHintText: {
+    fontFamily: Fonts.regular,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.65)',
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   textCol: {
     flex: 1,
@@ -859,9 +886,9 @@ const sectionStyles = StyleSheet.create({
   },
   headTitle: {
     fontFamily: Fonts.bold,
-    fontSize: 10.5,
-    lineHeight: 12,
-    letterSpacing: 1.6,
+    fontSize: 12,
+    lineHeight: 14,
+    letterSpacing: 1.2,
     color: 'rgba(255,255,255,0.85)',
     textTransform: 'uppercase',
     marginLeft: 6,
@@ -1048,7 +1075,7 @@ function deriveBreakouts(totalSpots: number | null | undefined, primaryAcneType?
   if (n === 0) return { label: 'Breakouts', value: 'None', color: C.green };
   if (primaryAcneType) {
     const cap = primaryAcneType.charAt(0).toUpperCase() + primaryAcneType.slice(1);
-    return { label: 'Breakouts', value: cap, color: n > 8 ? C.coral : C.amber };
+    return { label: 'Breakouts', value: `${n} ${cap}`, color: n > 8 ? C.coral : C.amber };
   }
   return { label: 'Breakouts', value: `${n} spot${n === 1 ? '' : 's'}`, color: n > 8 ? C.coral : C.amber };
 }
@@ -1063,7 +1090,7 @@ function deriveTrend(history: ScanHistoryEntry[] | undefined, currentSessionId?:
   const prev = history[idx - 1].spot_count;
   const delta = cur - prev;
   if (delta < -1) return { label: 'Trend', value: 'Improving', color: C.green, icon: 'up' as const };
-  if (delta > 1) return { label: 'Trend', value: 'Worsening', color: C.coral, icon: 'flat' as const };
+  if (delta > 1) return { label: 'Trend', value: 'Worsening', color: C.coral, icon: 'down' as const };
   return { label: 'Trend', value: 'Stable', color: C.green, icon: 'up' as const };
 }
 
@@ -1116,6 +1143,39 @@ function deriveHighlights(assessment: SkinAssessmentItem[] | undefined) {
       iconBg: m?.bg ?? 'rgba(52,211,153,0.10)',
       title: m?.title ?? s.label,
       desc: m?.desc ?? 'Looking good in this area.',
+    };
+  });
+}
+
+function deriveConcerns(assessment: SkinAssessmentItem[] | undefined) {
+  if (!assessment || assessment.length === 0) return [];
+
+  const weaknesses = assessment.filter((a) => !a.is_strength).slice(0, 3);
+  if (weaknesses.length === 0) return [];
+
+  const map: Partial<Record<SkinAssessmentItem['category'], { icon: React.ReactNode; bg: string; border: string; title: string; desc: string }>> = {
+    active_breakouts:  { icon: <Shield size={20} color={C.coral} />,   bg: C.coralBg, border: C.coralBorder, title: 'Active breakouts',  desc: 'Inflamed spots detected in this scan.' },
+    comedones:         { icon: <Shield size={20} color={C.amber} />,   bg: C.amberBg, border: C.amberBorder, title: 'Clogged pores',      desc: 'Blackheads or whiteheads present.' },
+    dark_spots:        { icon: <Sun size={20} color={C.amber} />,      bg: C.amberBg, border: C.amberBorder, title: 'Dark spots',         desc: 'Post-inflammatory pigmentation detected.' },
+    redness:           { icon: <Droplet size={20} color={C.coral} />,  bg: C.coralBg, border: C.coralBorder, title: 'Redness',            desc: 'Visible inflammation or irritation.' },
+    skin_texture:      { icon: <Droplet size={20} color={C.amber} />,  bg: C.amberBg, border: C.amberBorder, title: 'Uneven texture',     desc: 'Surface roughness or bumpiness detected.' },
+    pore_visibility:   { icon: <Shield size={20} color={C.amber} />,   bg: C.amberBg, border: C.amberBorder, title: 'Visible pores',      desc: 'Enlarged pores in one or more zones.' },
+    skin_tone_evenness:{ icon: <Sun size={20} color={C.amber} />,      bg: C.amberBg, border: C.amberBorder, title: 'Uneven tone',        desc: 'Color variation detected across zones.' },
+    oiliness:          { icon: <Droplet size={20} color={C.amber} />,  bg: C.amberBg, border: C.amberBorder, title: 'Excess oiliness',    desc: 'Elevated sebum levels detected.' },
+    hydration:         { icon: <Droplet size={20} color={C.coral} />,  bg: C.coralBg, border: C.coralBorder, title: 'Low hydration',      desc: 'Moisture barrier may need support.' },
+    brightness:        { icon: <Sun size={20} color={C.amber} />,      bg: C.amberBg, border: C.amberBorder, title: 'Dull brightness',    desc: 'Radiance appears lower than ideal.' },
+    under_eye:         { icon: <Sun size={20} color={C.amber} />,      bg: C.amberBg, border: C.amberBorder, title: 'Under-eye fatigue',  desc: 'Puffiness or shadows detected.' },
+  };
+
+  return weaknesses.map((s, i) => {
+    const m = map[s.category];
+    return {
+      key: `concern-${s.category}-${i}`,
+      icon: m?.icon ?? <Shield size={20} color={C.coral} />,
+      iconBg: m?.bg ?? C.coralBg,
+      iconBorder: m?.border ?? C.coralBorder,
+      title: m?.title ?? s.label,
+      desc: m?.desc ?? 'This area needs attention.',
     };
   });
 }
@@ -1241,17 +1301,20 @@ const prodStyles = StyleSheet.create({
 export default function GlowAnalysisDashboard({
   avatarUri,
   headline,
+  description,
   skinType,
   severity,
   severityScore,
   totalSpots,
   primaryAcneType,
+  zoneScores,
   skinAssessment,
   imageNativeWidth,
   imageNativeHeight,
   onStartPlan,
   onScanAgain,
   onBack,
+  onViewFullScan,
   scanHistory,
   currentSessionId,
 }: GlowAnalysisDashboardProps) {
@@ -1264,6 +1327,7 @@ export default function GlowAnalysisDashboard({
   const trend = deriveTrend(scanHistory, currentSessionId);
   const trendBadge = deriveTrendBadge(scanHistory, currentSessionId);
   const highlights = deriveHighlights(skinAssessment);
+  const concerns = deriveConcerns(skinAssessment);
   const eyebrow = score >= 80 ? 'Great news!' : score >= 65 ? 'Looking good' : score >= 50 ? 'Worth a look' : 'Needs care';
 
   const SKIN_TYPE_INFO: Record<string, string> = {
@@ -1306,6 +1370,18 @@ export default function GlowAnalysisDashboard({
     'Well hydrated':         { title: 'Well Hydrated', body: 'Your moisture barrier appears intact. Hydrated skin looks plumper, heals faster, and is more resilient to breakouts. Hyaluronic acid serum applied to damp skin locks moisture in.' },
     'Healthy radiance':      { title: 'Healthy Radiance', body: 'Your skin looks bright and rested. Radiance comes from healthy cell turnover and good hydration. Vitamin C serum and gentle AHA exfoliation both boost glow over time.' },
     'Refreshed under-eye':   { title: 'Refreshed Under-Eye', body: 'Minimal puffiness or dark circles detected. The under-eye area has very thin skin that shows fatigue and dehydration first. Caffeine eye cream and good sleep both help maintain this area.' },
+    // Concern entries
+    'Active breakouts':   { title: 'Active Breakouts', body: 'Inflamed spots are present. Avoid picking — bacteria spread and cause scarring. Benzoyl peroxide (2.5–5%) or salicylic acid applied directly to spots helps clear them without over-drying surrounding skin.' },
+    'Clogged pores':      { title: 'Clogged Pores', body: "Blackheads and whiteheads form when sebum and dead cells block pores. A BHA (salicylic acid 1–2%) used 2–3× per week dissolves the buildup from inside. Avoid pore strips — they remove the plug but don't prevent new ones forming." },
+    'Dark spots':         { title: 'Dark Spots', body: 'Post-inflammatory hyperpigmentation forms after inflammation triggers melanin overproduction. SPF 30+ daily is essential — UV darkens existing spots. Vitamin C, niacinamide, and azelaic acid all help fade them over 8–12 weeks.' },
+    'Redness':            { title: 'Redness', body: "Visible inflammation can come from active breakouts, a compromised skin barrier, or external triggers (fragrance, heat, harsh products). Centella asiatica and niacinamide are proven calming actives. Avoid scrubs and alcohol-based toners." },
+    'Uneven texture':     { title: 'Uneven Texture', body: "Rough or bumpy surface texture is usually dead cell buildup or congestion. A gentle AHA (glycolic or lactic acid) 1–2× per week speeds cell turnover. Don't layer multiple actives — pick one exfoliant and use it consistently." },
+    'Visible pores':      { title: 'Visible Pores', body: 'Pore size is largely genetic, but keeping them clear shrinks their appearance. Niacinamide (5–10%) tightens pore appearance over time. BHA keeps them clear. Clay masks once a week absorb excess oil that enlarges them.' },
+    'Uneven tone':        { title: 'Uneven Tone', body: 'Colour variation across zones can be from sun damage, acne marks, or inflammation. Daily SPF prevents further darkening. Vitamin C serum (L-ascorbic acid 10–20%) + niacinamide together address both brightness and tone over 8–12 weeks.' },
+    'Excess oiliness':    { title: 'Excess Oiliness', body: 'Over-production of sebum is often genetic but worsened by over-cleansing (strips the barrier → compensatory oil) or skipping moisturiser. A lightweight gel moisturiser + niacinamide regulates output without stripping.' },
+    'Low hydration':      { title: 'Low Hydration', body: 'A weakened moisture barrier lets water escape. Apply hyaluronic acid serum to damp skin (it needs water to work) then immediately seal with a moisturiser containing ceramides. Avoid long hot showers and alcohol-based products.' },
+    'Dull brightness':    { title: 'Dull Brightness', body: 'Dullness is usually dead cell buildup and poor circulation. Gentle AHA exfoliation (1–2×/week), vitamin C serum, and adequate sleep all contribute to radiance. Niacinamide also inhibits melanin transfer for a brightening effect.' },
+    'Under-eye fatigue':  { title: 'Under-Eye Fatigue', body: 'The under-eye skin is the thinnest on the face — it shows dehydration and fatigue fast. Caffeine eye cream reduces puffiness. Hyaluronic acid eye products plump fine lines. Sleep quality matters more than any product.' },
   };
 
   return (
@@ -1348,6 +1424,7 @@ export default function GlowAnalysisDashboard({
           avatarUri={avatarUri}
           eyebrow={eyebrow}
           headline={headline}
+          description={description}
           score={score}
           scoreLabel={accent.label}
           accent={accent}
@@ -1375,7 +1452,11 @@ export default function GlowAnalysisDashboard({
             onPress={() => setModal({ title: `Skin Type · ${skinType || 'Normal'}`, body: SKIN_TYPE_INFO[skinType] ?? SKIN_TYPE_INFO['Normal'] })}
           />
           <StatCard
-            icon={trend.icon === 'flat' ? <TrendFlat size={18} color={trend.color} /> : <TrendUp size={18} color={trend.color} />}
+            icon={
+              trend.icon === 'down' ? <TrendDown size={18} color={trend.color} /> :
+              trend.icon === 'flat' ? <TrendFlat size={18} color={trend.color} /> :
+              <TrendUp size={18} color={trend.color} />
+            }
             label={trend.label}
             value={trend.value}
             valueColor={trend.color}
@@ -1384,6 +1465,15 @@ export default function GlowAnalysisDashboard({
             onPress={() => setModal({ title: `Trend · ${trend.value}`, body: TREND_INFO[trend.value] ?? TREND_INFO['Stable'] })}
           />
         </View>
+
+        {zoneScores && zoneScores.length > 0 && (
+          <SectionCard style={{ paddingHorizontal: 0 }}>
+            <View style={{ paddingHorizontal: 14 }}>
+              <SectionHead title="Zone Breakdown" />
+            </View>
+            <FaceZoneSummary zones={zoneScores} />
+          </SectionCard>
+        )}
 
         <SectionCard>
           <SectionHead title="Today's Highlights" />
@@ -1399,6 +1489,24 @@ export default function GlowAnalysisDashboard({
             />
           ))}
         </SectionCard>
+
+        {concerns.length > 0 && (
+          <SectionCard>
+            <SectionHead title="Areas to Work On" />
+            {concerns.map((c, i) => (
+              <HighlightRow
+                key={c.key}
+                icon={c.icon}
+                iconBg={c.iconBg}
+                iconBorder={c.iconBorder}
+                title={c.title}
+                desc={c.desc}
+                last={i === concerns.length - 1}
+                onPress={() => setModal(HIGHLIGHT_INFO[c.title] ?? { title: c.title, body: c.desc })}
+              />
+            ))}
+          </SectionCard>
+        )}
 
         <SectionCard>
           <SectionHead title="Maintain Your Glow" badge={<Pill text="Maintenance mode" tone="green" />} />
@@ -1440,7 +1548,7 @@ export default function GlowAnalysisDashboard({
               <Sparkle size={11} color={C.violetSoft} />
               <Text style={sectionStyles.headTitle}>RECOMMENDED FOR YOU</Text>
             </View>
-            <Pill text="For your skin" tone="green" />
+            <Pill text="Top Picks" tone="green" />
           </View>
           <ScrollView
             horizontal
@@ -1452,6 +1560,20 @@ export default function GlowAnalysisDashboard({
             ))}
           </ScrollView>
         </View>
+
+        {/* Progress chart */}
+        {scanHistory && scanHistory.length > 0 && (
+          <SectionCard>
+            <SectionHead
+              title="Your Progress"
+              badge={<Pill text={`${scanHistory.length} scan${scanHistory.length === 1 ? '' : 's'}`} tone="green" />}
+            />
+            <View style={{ marginTop: 4 }}>
+              <ProgressMiniChart history={scanHistory} currentSessionId={currentSessionId} />
+            </View>
+            <Text style={progressStyles.caption}>Spot count over time — lower is better</Text>
+          </SectionCard>
+        )}
 
         {/* CTA */}
         <View style={styles.ctaWrap}>
@@ -1471,6 +1593,12 @@ export default function GlowAnalysisDashboard({
         <TouchableOpacity onPress={onScanAgain} activeOpacity={0.7} style={styles.scanAgainBtn}>
           <Text style={styles.scanAgainText}>Take Another Scan</Text>
         </TouchableOpacity>
+
+        {onViewFullScan && (
+          <TouchableOpacity onPress={onViewFullScan} activeOpacity={0.7} style={styles.scanAgainBtn}>
+            <Text style={styles.viewFullScanText}>View Full Scan Map</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <InfoModal info={modal} onClose={() => setModal(null)} />
@@ -1563,5 +1691,20 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.semibold,
     fontSize: 13,
     color: C.violetSoft,
+  },
+  viewFullScanText: {
+    fontFamily: Fonts.semibold,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.45)',
+  },
+});
+
+const progressStyles = StyleSheet.create({
+  caption: {
+    fontFamily: Fonts.regular,
+    fontSize: 10.5,
+    color: 'rgba(255,255,255,0.40)',
+    textAlign: 'center',
+    paddingBottom: 4,
   },
 });
