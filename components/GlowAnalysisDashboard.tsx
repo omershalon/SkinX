@@ -342,42 +342,42 @@ function HeroCard({
           style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
         />
 
-        {/* Row 1: full-width photo */}
-        <TouchableOpacity
-          style={heroStyles.photoWrap}
-          onPress={() => avatarUri && setAvatarExpanded(true)}
-          activeOpacity={0.85}
-        >
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={heroStyles.photo} resizeMode="cover" />
-          ) : (
-            <View style={[heroStyles.photo, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
-          )}
-          <View style={heroStyles.expandHint}>
-            <Text style={heroStyles.expandHintText}>Tap to expand</Text>
-          </View>
-        </TouchableOpacity>
+        {/* Single row: thumbnail | text | score ring */}
+        <View style={heroStyles.row}>
+          {/* Thumbnail — contained so full image is always visible */}
+          <TouchableOpacity
+            style={heroStyles.thumbWrap}
+            onPress={() => avatarUri && setAvatarExpanded(true)}
+            activeOpacity={0.85}
+          >
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={heroStyles.thumb} resizeMode="contain" />
+            ) : (
+              <View style={[heroStyles.thumb, { backgroundColor: 'rgba(167,139,250,0.25)' }]} />
+            )}
+            <View style={heroStyles.expandHint}>
+              <Text style={heroStyles.expandHintText}>⤢</Text>
+            </View>
+          </TouchableOpacity>
 
-        {/* Row 2: score ring + headline */}
-        <View style={heroStyles.bottomRow}>
-          <View style={heroStyles.scoreCol}>
-            <GlowScoreRing score={score} accent={accent} />
-            <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
-            <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
-          </View>
+          {/* Headline + eyebrow */}
           <View style={heroStyles.textCol}>
             <View style={heroStyles.eyebrowRow}>
               <Sparkle size={11} color={C.violetSoft} />
               <Text style={heroStyles.eyebrow}>{eyebrow}</Text>
             </View>
             <Text style={heroStyles.headline}>{headlineNode}</Text>
-            {!!description && (
-              <Text style={heroStyles.body} numberOfLines={3}>{description}</Text>
-            )}
+          </View>
+
+          {/* Score ring */}
+          <View style={heroStyles.scoreCol}>
+            <GlowScoreRing score={score} accent={accent} />
+            <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
+            <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
           </View>
         </View>
 
-        {/* full-screen photo modal */}
+        {/* Full-screen modal */}
         <Modal visible={avatarExpanded} transparent animationType="fade" onRequestClose={() => setAvatarExpanded(false)}>
           <Pressable style={heroStyles.avatarModalBg} onPress={() => setAvatarExpanded(false)}>
             <Image
@@ -415,7 +415,12 @@ const heroStyles = StyleSheet.create({
     elevation: 6,
   },
   card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderRadius: 22,
+    padding: 14,
+    paddingVertical: 16,
     borderWidth: 1.5,
     borderColor: 'rgba(167,139,250,0.55)',
     overflow: 'hidden',
@@ -425,36 +430,38 @@ const heroStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
-  photoWrap: {
-    width: '100%',
-    height: 170,
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  thumbWrap: {
+    width: 90,
+    height: 120,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.35)',
     position: 'relative',
   },
-  photo: {
+  thumb: {
     width: '100%',
     height: '100%',
   },
   expandHint: {
     position: 'absolute',
-    bottom: 8,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    bottom: 5,
+    right: 5,
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   expandHintText: {
-    fontFamily: Fonts.regular,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.65)',
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    paddingTop: 16,
-    paddingBottom: 16,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.80)',
   },
   textCol: {
     flex: 1,
