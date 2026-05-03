@@ -37,7 +37,7 @@ export default function SkinTransitionGraph() {
     const LINE_DUR = 1200;
     Animated.sequence([
       Animated.delay(START_DELAY),
-      Animated.timing(progress, { toValue: 1, duration: LINE_DUR, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
+      Animated.timing(progress, { toValue: 1, duration: LINE_DUR, easing: Easing.in(Easing.cubic), useNativeDriver: false }),
     ]).start();
 
     Animated.sequence([
@@ -45,30 +45,34 @@ export default function SkinTransitionGraph() {
       Animated.timing(c1Opacity, { toValue: 1, duration: 240, useNativeDriver: true }),
     ]).start();
     Animated.sequence([
-      Animated.delay(START_DELAY + 520),
+      Animated.delay(START_DELAY + 830),
       Animated.timing(c2Opacity, { toValue: 1, duration: 240, useNativeDriver: true }),
     ]).start();
     Animated.sequence([
-      Animated.delay(START_DELAY + 800),
+      Animated.delay(START_DELAY + 1080),
       Animated.timing(cBOpacity, { toValue: 1, duration: 240, useNativeDriver: true }),
     ]).start();
     Animated.sequence([
-      Animated.delay(START_DELAY + LINE_DUR - 100),
+      Animated.delay(START_DELAY + LINE_DUR - 60),
       Animated.spring(trophyScale, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }),
     ]).start();
   }, []);
 
   const p0 = { x: 12,         y: GH * 0.78 };
-  const p1 = { x: GW * 0.32,  y: GH * 0.58 };
+  const p1 = { x: GW * 0.32,  y: GH * 0.73 };
   const p2 = { x: GW - 16,    y: GH * 0.14 };
 
-  // Point on the curve between p1 and p2, sitting on the line at ~t=0.4.
-  const pB = { x: GW * 0.60,  y: GH * 0.39 };
+  // Point on the curve between p1 and p2 (refit for the tangent-continuous path).
+  const pB = { x: GW * 0.60,  y: GH * 0.35 };
 
+  // Segment 1: exponential-feel — control points held at p0.y so the line
+  // hugs the floor and ramps up sharply approaching p1.
+  // Segment 2: continues in the same tangent direction as segment 1 ends
+  // (G1-continuous at p1, no kink), then plateaus at p2.
   const linePath =
     `M ${p0.x} ${p0.y} ` +
-    `C ${GW * 0.18} ${p0.y}, ${GW * 0.28} ${p1.y + 16}, ${p1.x} ${p1.y} ` +
-    `C ${GW * 0.58} ${p1.y - 22}, ${GW * 0.78} ${p2.y + 12}, ${p2.x} ${p2.y}`;
+    `C ${GW * 0.18} ${p0.y}, ${GW * 0.30} ${p0.y}, ${p1.x} ${p1.y} ` +
+    `C ${GW * 0.42} ${GH * 0.48}, ${GW * 0.78} ${p2.y}, ${p2.x} ${p2.y}`;
 
   const fillPath = `${linePath} L ${p2.x} ${GH} L ${p0.x} ${GH} Z`;
 
