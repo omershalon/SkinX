@@ -12,6 +12,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.glow.skincare231",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Glow needs camera access to analyze your skin and scan products",
         "NSPhotoLibraryUsageDescription": "Glow needs photo library access for skin analysis",
@@ -51,7 +52,8 @@
           "speechRecognitionPermission": "Glow needs speech recognition to understand your voice"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-apple-authentication"
     ],
     "scheme": "glow"
   }
