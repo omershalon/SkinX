@@ -50,7 +50,7 @@ export default function AnimatedGraph() {
   const midY = GH * 0.5; // both lines start in the middle
 
   // SkinX (white): starts middle, curves smoothly upward
-  const skinXPath = `M ${R} ${midY} C ${GW * 0.25} ${midY - 5}, ${GW * 0.45} ${GH * 0.28}, ${GW * 0.65} ${GH * 0.18} C ${GW * 0.8} ${GH * 0.1}, ${GW * 0.9} ${GH * 0.08}, ${GW - R} ${GH * 0.08}`;
+  const skinXPath = `M ${R} ${midY} C ${GW * 0.25} ${midY - 5}, ${GW * 0.45} ${GH * 0.28}, ${GW * 0.65} ${GH * 0.18} C ${GW * 0.8} ${GH * 0.1}, ${GW * 0.9} ${GH * 0.04}, ${GW - R} ${GH * 0.04}`;
 
   // Without SkinX (white): single cubic bezier — flat then drops off smoothly
   const withoutPath = `M ${R} ${midY} C ${GW * 0.62} ${midY}, ${GW * 0.72} ${GH * 0.91}, ${GW - R} ${GH * 0.91}`;
@@ -85,7 +85,7 @@ export default function AnimatedGraph() {
     return [x, y] as [number, number];
   };
   const seg1 = { p0: [R, midY] as [number, number], p1: [GW * 0.25, midY - 5] as [number, number], p2: [GW * 0.45, GH * 0.28] as [number, number], p3: [GW * 0.65, GH * 0.18] as [number, number] };
-  const seg2 = { p0: seg1.p3, p1: [GW * 0.8, GH * 0.1] as [number, number], p2: [GW * 0.9, GH * 0.08] as [number, number], p3: [GW - R, GH * 0.08] as [number, number] };
+  const seg2 = { p0: seg1.p3, p1: [GW * 0.8, GH * 0.1] as [number, number], p2: [GW * 0.9, GH * 0.04] as [number, number], p3: [GW - R, GH * 0.04] as [number, number] };
 
   const DENSE = 400;
   const densePts: [number, number][] = [];

@@ -58,12 +58,12 @@ export default function SkinTransitionGraph() {
     ]).start();
   }, []);
 
-  const p0 = { x: 12,         y: GH * 0.78 };
-  const p1 = { x: GW * 0.32,  y: GH * 0.73 };
+  const p0 = { x: 12,         y: GH * 0.66 };
+  const p1 = { x: GW * 0.32,  y: GH * 0.62 };
   const p2 = { x: GW - 16,    y: GH * 0.14 };
 
   // Point on the curve between p1 and p2 (refit for the tangent-continuous path).
-  const pB = { x: GW * 0.60,  y: GH * 0.35 };
+  const pB = { x: GW * 0.60,  y: GH * 0.40 };
 
   // Segment 1: exponential-feel — control points held at p0.y so the line
   // hugs the floor and ramps up sharply approaching p1.
@@ -72,7 +72,7 @@ export default function SkinTransitionGraph() {
   const linePath =
     `M ${p0.x} ${p0.y} ` +
     `C ${GW * 0.18} ${p0.y}, ${GW * 0.30} ${p0.y}, ${p1.x} ${p1.y} ` +
-    `C ${GW * 0.42} ${GH * 0.48}, ${GW * 0.78} ${p2.y}, ${p2.x} ${p2.y}`;
+    `C ${GW * 0.42} ${GH * 0.66}, ${GW * 0.78} ${p2.y}, ${p2.x} ${p2.y}`;
 
   const fillPath = `${linePath} L ${p2.x} ${GH} L ${p0.x} ${GH} Z`;
 

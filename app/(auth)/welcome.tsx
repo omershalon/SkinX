@@ -484,7 +484,7 @@ export default function WelcomeScreen() {
 const s = StyleSheet.create({
   container: { flex: 1 },
   heroWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  heroImage: { width: '100%', height: '100%', transform: [{ translateY: -40 }, { scale: 1.09 }] },
+  heroImage: { width: '100%', height: '100%', transform: [{ translateY: -30 }, { scale: 1.09 }] },
   hero: { alignItems: 'center', gap: 16, paddingHorizontal: 32 },
   appName: { fontFamily: Fonts.bold, fontSize: 38, color: '#FFFFFF', letterSpacing: -1 },
   tagline: { fontFamily: Fonts.bold, fontSize: 28, color: '#FFFFFF', textAlign: 'center', lineHeight: 36, letterSpacing: -0.5 },

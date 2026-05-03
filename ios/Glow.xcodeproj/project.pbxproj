@@ -355,7 +355,7 @@
 				CODE_SIGN_ENTITLEMENTS = Glow/GlowDebug.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = RP9NPW4SC9;
+				DEVELOPMENT_TEAM = S6DN2SCVU3;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -374,7 +374,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.glow.skincare3;
+				PRODUCT_BUNDLE_IDENTIFIER = com.glow.skincareArjun;
 				PRODUCT_NAME = Glow;
 				SWIFT_OBJC_BRIDGING_HEADER = "Glow/Glow-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
