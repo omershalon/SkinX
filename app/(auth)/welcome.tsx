@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, TextInput, Alert,
   ActivityIndicator, Linking, Animated, Easing, PanResponder, Dimensions,
-  Image, ScrollView,
+  Image, ScrollView, Keyboard,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import PrivacyPolicyModal from '@/components/PrivacyPolicyModal';
+import TermsModal from '@/components/TermsModal';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -186,6 +187,7 @@ export default function WelcomeScreen() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [showLang, setShowLang] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
   const signInDismissRef = useRef<((onComplete?: () => void) => void) | null>(null);
   const langDismissRef   = useRef<((onComplete?: () => void) => void) | null>(null);
@@ -195,6 +197,20 @@ export default function WelcomeScreen() {
     // Reset position when email screen closes so it's ready for next open
     if (!showEmailScreen) emailScreenSlide.setValue(SCREEN_H);
   }, [showEmailScreen]);
+
+  const [kbHeight, setKbHeight] = useState(0);
+  const kbHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardWillShow', (e) => {
+      if (kbHideTimer.current) { clearTimeout(kbHideTimer.current); kbHideTimer.current = null; }
+      setKbHeight(e.endCoordinates.height);
+    });
+    const hide = Keyboard.addListener('keyboardWillHide', () => {
+      kbHideTimer.current = setTimeout(() => setKbHeight(0), 100);
+    });
+    return () => { show.remove(); hide.remove(); if (kbHideTimer.current) clearTimeout(kbHideTimer.current); };
+  }, []);
+
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
 
   useEffect(() => {
@@ -407,7 +423,7 @@ export default function WelcomeScreen() {
               {loading && <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />}
               <Text style={s.termsText}>
                 {t('signIn.terms')}{'\n'}
-                <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/terms')}>{t('signIn.termsLink')}</Text>
+                <Text style={s.termsLink} onPress={() => setShowTerms(true)}>{t('signIn.termsLink')}</Text>
                 {' '}{t('signIn.and')}{' '}
                 <Text style={s.termsLink} onPress={() => setShowPrivacy(true)}>{t('signIn.privacyLink')}</Text>
               </Text>
@@ -486,6 +502,7 @@ export default function WelcomeScreen() {
             </ScrollView>
           </View>
         )}
+        <TermsModal visible={showTerms} onClose={() => setShowTerms(false)} />
       </Modal>
 
       {/* Full-screen email sign-in */}
@@ -539,7 +556,7 @@ export default function WelcomeScreen() {
               <Text style={s.forgotText}>{t('signIn.forgotPassword')}</Text>
             </TouchableOpacity>
           </View>
-          <View style={[s.esBottom, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[s.esBottom, { bottom: kbHeight, paddingBottom: kbHeight > 0 ? 16 : insets.bottom + 16 }]}>
             <TouchableOpacity
               style={[s.esSubmitBtn, (!email || !password || loading) && s.esSubmitBtnDisabled]}
               onPress={handleSignIn}
@@ -680,7 +697,16 @@ const s = StyleSheet.create({
   esInputBoxError: { borderColor: '#e53e3e' },
   esInputLabel: { fontFamily: Fonts.regular, fontSize: 13, color: '#888', marginBottom: 2 },
   esInput: { fontFamily: Fonts.regular, fontSize: 17, color: '#000', padding: 0, height: 26 },
-  esBottom: { paddingHorizontal: 20 },
+  esBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    backgroundColor: '#fff',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#e0e0e0',
+  },
   esSubmitBtn: { height: 56, borderRadius: 50, backgroundColor: '#1c1c1e', justifyContent: 'center', alignItems: 'center' },
   esSubmitBtnDisabled: { backgroundColor: '#aeaeb2' },
   esSubmitTxt: { fontFamily: Fonts.semibold, fontSize: 17, color: '#fff' },
