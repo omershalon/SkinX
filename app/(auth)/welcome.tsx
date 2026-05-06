@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Modal,
   KeyboardAvoidingView, Platform, TextInput, Alert,
@@ -179,6 +179,35 @@ function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.R
   );
 }
 
+const SignInBar = memo(function SignInBar({
+  kbAnim,
+  kbPaddingBottom,
+  email,
+  password,
+  loading,
+  onPress,
+}: {
+  kbAnim: Animated.Value;
+  kbPaddingBottom: Animated.AnimatedInterpolation<string | number>;
+  email: string;
+  password: string;
+  loading: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Animated.View style={[s.esBottom, { bottom: kbAnim, paddingBottom: kbPaddingBottom }]}>
+      <TouchableOpacity
+        style={[s.esSubmitBtn, (!email || !password || loading) && s.esSubmitBtnDisabled]}
+        onPress={onPress}
+        disabled={loading}
+        activeOpacity={0.85}
+      >
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.esSubmitTxt}>Sign in</Text>}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
+
 export default function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -203,18 +232,28 @@ export default function WelcomeScreen() {
     if (!showEmailScreen) emailScreenSlide.setValue(SCREEN_H);
   }, [showEmailScreen]);
 
-  const [kbHeight, setKbHeight] = useState(0);
+  const kbAnim = useRef(new Animated.Value(0)).current;
   const kbHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const show = Keyboard.addListener('keyboardWillShow', (e) => {
       if (kbHideTimer.current) { clearTimeout(kbHideTimer.current); kbHideTimer.current = null; }
-      setKbHeight(e.endCoordinates.height);
+      kbAnim.setValue(e.endCoordinates.height);
     });
     const hide = Keyboard.addListener('keyboardWillHide', () => {
-      kbHideTimer.current = setTimeout(() => setKbHeight(0), 100);
+      kbHideTimer.current = setTimeout(() => kbAnim.setValue(0), 200);
     });
     return () => { show.remove(); hide.remove(); if (kbHideTimer.current) clearTimeout(kbHideTimer.current); };
   }, []);
+
+  // Memoize so the same Animated node is reused across re-renders — prevents
+  // a one-frame flicker caused by a new interpolation node being created on
+  // every focusedField state change.
+  const kbPaddingBottom = useMemo(
+    () => kbAnim.interpolate({ inputRange: [0, 1], outputRange: [insets.bottom + 16, 16], extrapolate: 'clamp' }),
+    // insets.bottom never changes at runtime on a real device
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
 
@@ -309,7 +348,7 @@ export default function WelcomeScreen() {
   };
 
   // ── Email Sign In ──
-  const handleSignIn = async () => {
+  const handleSignIn = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     clearErrors();
     let hasError = false;
@@ -321,7 +360,7 @@ export default function WelcomeScreen() {
     setLoading(false);
     if (error) setFormError(error.message);
     else closeModal();
-  };
+  }, [email, password]);
 
   const handleForgotPassword = async () => {
     clearErrors();
@@ -628,16 +667,14 @@ export default function WelcomeScreen() {
               <Text style={s.forgotText}>{t('signIn.forgotPassword')}</Text>
             </TouchableOpacity>
           </View>
-          <View style={[s.esBottom, { bottom: kbHeight, paddingBottom: kbHeight > 0 ? 16 : insets.bottom + 16 }]}>
-            <TouchableOpacity
-              style={[s.esSubmitBtn, (!email || !password || loading) && s.esSubmitBtnDisabled]}
-              onPress={handleSignIn}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.esSubmitTxt}>Sign in</Text>}
-            </TouchableOpacity>
-          </View>
+          <SignInBar
+            kbAnim={kbAnim}
+            kbPaddingBottom={kbPaddingBottom}
+            email={email}
+            password={password}
+            loading={loading}
+            onPress={handleSignIn}
+          />
         </Animated.View>
       )}
     </View>
