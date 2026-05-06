@@ -299,7 +299,7 @@ const resources = {
         subtitle: 'Your feedback helps us improve',
       },
       onboarding: {
-        helpPersonalize: 'This helps us personalize your plan',
+        helpPersonalize: 'This helps us personalize your routine',
         selectAll: 'Select all that apply.',
         yes: 'Yes',
         no: 'No',

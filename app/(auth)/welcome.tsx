@@ -20,6 +20,12 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Haptics from 'expo-haptics';
 import PrivacyPolicyModal from '@/components/PrivacyPolicyModal';
+import {
+  TERMS_DATE, TERMS_INTRO, TERMS_TOC,
+  TERMS_S1, TERMS_S2, TERMS_S3, TERMS_S4, TERMS_S5, TERMS_S6, TERMS_S7,
+  TERMS_S8_9, TERMS_S10, TERMS_S11_12, TERMS_S13_14, TERMS_S15_16,
+  TERMS_S17, TERMS_S18, TERMS_S19_20, TERMS_S21_22, TERMS_S23_27,
+} from '@/lib/termsText';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -186,6 +192,7 @@ export default function WelcomeScreen() {
   const [showSignIn, setShowSignIn] = useState(false);
   const [showLang, setShowLang] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [showEmailScreen, setShowEmailScreen] = useState(false);
   const signInDismissRef = useRef<((onComplete?: () => void) => void) | null>(null);
   const langDismissRef   = useRef<((onComplete?: () => void) => void) | null>(null);
@@ -407,7 +414,7 @@ export default function WelcomeScreen() {
               {loading && <ActivityIndicator color={Colors.primary} style={{ marginTop: 8 }} />}
               <Text style={s.termsText}>
                 {t('signIn.terms')}{'\n'}
-                <Text style={s.termsLink} onPress={() => Linking.openURL('https://www.skinxapp.com/terms')}>{t('signIn.termsLink')}</Text>
+                <Text style={s.termsLink} onPress={() => setShowTerms(true)}>{t('signIn.termsLink')}</Text>
                 {' '}{t('signIn.and')}{' '}
                 <Text style={s.termsLink} onPress={() => setShowPrivacy(true)}>{t('signIn.privacyLink')}</Text>
               </Text>
@@ -483,6 +490,74 @@ export default function WelcomeScreen() {
 
               <Text style={s.privacyHeading}>17. HOW CAN YOU REVIEW, UPDATE, OR DELETE THE DATA WE COLLECT FROM YOU?</Text>
               <Text style={s.privacyBody}>Based on the applicable laws of your country or state of residence in the US, you may have the right to request access to the personal information we collect from you, details about how we have processed it, correct inaccuracies, or delete your personal information. You may also have the right to withdraw your consent to our processing of your personal information. These rights may be limited in some circumstances by applicable law. To request to review, update, or delete your personal information, please fill out and submit a data subject access request at https://app.termly.io/dsar/6b9a84e6-9221-4caf-a07f-24602f5f9f30.{'\n\n'}This Privacy Policy was created using Termly's Privacy Policy Generator.</Text>
+            </ScrollView>
+          </View>
+        )}
+        {showTerms && (
+          <View style={s.privacyOverlay}>
+            <View style={[s.privacyHeader, { paddingTop: insets.top + 14 }]}>
+              <Text style={s.privacyTitle}>Terms of Use</Text>
+              <TouchableOpacity onPress={() => setShowTerms(false)} style={s.privacyCloseBtn}>
+                <Text style={s.privacyCloseTxt}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={s.privacyScroll} contentContainerStyle={s.privacyContent}>
+              <Text style={s.privacyDate}>{TERMS_DATE}</Text>
+              <Text style={s.privacyBody}>{TERMS_INTRO}</Text>
+
+              <Text style={s.privacyHeading}>TABLE OF CONTENTS</Text>
+              <Text style={s.privacyBody}>{TERMS_TOC}</Text>
+
+              <Text style={s.privacyHeading}>1. OUR SERVICES</Text>
+              <Text style={s.privacyBody}>{TERMS_S1}</Text>
+
+              <Text style={s.privacyHeading}>2. INTELLECTUAL PROPERTY RIGHTS</Text>
+              <Text style={s.privacyBody}>{TERMS_S2}</Text>
+
+              <Text style={s.privacyHeading}>3. USER REPRESENTATIONS</Text>
+              <Text style={s.privacyBody}>{TERMS_S3}</Text>
+
+              <Text style={s.privacyHeading}>4. USER REGISTRATION</Text>
+              <Text style={s.privacyBody}>{TERMS_S4}</Text>
+
+              <Text style={s.privacyHeading}>5. PURCHASES AND PAYMENT</Text>
+              <Text style={s.privacyBody}>{TERMS_S5}</Text>
+
+              <Text style={s.privacyHeading}>6. SUBSCRIPTIONS</Text>
+              <Text style={s.privacyBody}>{TERMS_S6}</Text>
+
+              <Text style={s.privacyHeading}>7. PROHIBITED ACTIVITIES</Text>
+              <Text style={s.privacyBody}>{TERMS_S7}</Text>
+
+              <Text style={s.privacyHeading}>8. USER GENERATED CONTRIBUTIONS &amp; 9. CONTRIBUTION LICENSE</Text>
+              <Text style={s.privacyBody}>{TERMS_S8_9}</Text>
+
+              <Text style={s.privacyHeading}>10. MOBILE APPLICATION LICENSE</Text>
+              <Text style={s.privacyBody}>{TERMS_S10}</Text>
+
+              <Text style={s.privacyHeading}>11. SOCIAL MEDIA &amp; 12. THIRD-PARTY WEBSITES AND CONTENT</Text>
+              <Text style={s.privacyBody}>{TERMS_S11_12}</Text>
+
+              <Text style={s.privacyHeading}>13. SERVICES MANAGEMENT &amp; 14. PRIVACY POLICY</Text>
+              <Text style={s.privacyBody}>{TERMS_S13_14}</Text>
+
+              <Text style={s.privacyHeading}>15. TERM AND TERMINATION &amp; 16. MODIFICATIONS AND INTERRUPTIONS</Text>
+              <Text style={s.privacyBody}>{TERMS_S15_16}</Text>
+
+              <Text style={s.privacyHeading}>17. GOVERNING LAW</Text>
+              <Text style={s.privacyBody}>{TERMS_S17}</Text>
+
+              <Text style={s.privacyHeading}>18. DISPUTE RESOLUTION</Text>
+              <Text style={s.privacyBody}>{TERMS_S18}</Text>
+
+              <Text style={s.privacyHeading}>19. CORRECTIONS &amp; 20. DISCLAIMER</Text>
+              <Text style={s.privacyBody}>{TERMS_S19_20}</Text>
+
+              <Text style={s.privacyHeading}>21. LIMITATIONS OF LIABILITY &amp; 22. INDEMNIFICATION</Text>
+              <Text style={s.privacyBody}>{TERMS_S21_22}</Text>
+
+              <Text style={s.privacyHeading}>23. USER DATA — 27. CONTACT US</Text>
+              <Text style={s.privacyBody}>{TERMS_S23_27}</Text>
             </ScrollView>
           </View>
         )}

@@ -680,7 +680,7 @@ export default function OnboardingScreen() {
               let age = today.getFullYear() - dob.getFullYear();
               const m = today.getMonth() - dob.getMonth();
               if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) age--;
-              if (age < 9) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAgeGateVisible(true); return; }
+              if (age < 13) { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAgeGateVisible(true); return; }
             }
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             isLastStep ? finish() : next();
@@ -700,7 +700,7 @@ export default function OnboardingScreen() {
                 <Text style={st.modalCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
-            <Text style={st.modalBody}>You must be over 9 to use SkinX.</Text>
+            <Text style={st.modalBody}>You must be 13 or older to use SkinX.</Text>
             <TouchableOpacity style={st.modalBtn} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); setAgeGateVisible(false); router.replace({ pathname: '/(auth)/welcome', params: { instant: '1' } }); }} activeOpacity={0.85}>
               <Text style={st.modalBtnText}>OK</Text>
             </TouchableOpacity>
