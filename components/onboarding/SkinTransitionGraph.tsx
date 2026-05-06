@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, Easing } from 'react-native';
-import Svg, { Path, Circle, Defs, LinearGradient, Stop, ClipPath, Rect } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop, ClipPath } from 'react-native-svg';
 import { Fonts, Colors } from '@/lib/theme';
 
 const { width: SW } = Dimensions.get('window');
@@ -10,9 +10,39 @@ const GH = 180;
 const CARD_BG = '#1C1C1E';
 const PURPLE = Colors.primary;
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
-const AnimatedRect = Animated.createAnimatedComponent(Rect);
+const START_DELAY = 300;
+const LINE_DUR    = 1200;
+
+const p0  = { x: 12,         y: GH * 0.66 };
+const p2  = { x: GW - 16,    y: GH * 0.14 };
+const cp1 = { x: GW * 0.55,  y: p0.y };
+const cp2 = { x: GW * 0.65,  y: p2.y };
+
+function bezierAt(t: number) {
+  const mt = 1 - t;
+  return {
+    x: mt*mt*mt*p0.x + 3*mt*mt*t*cp1.x + 3*mt*t*t*cp2.x + t*t*t*p2.x,
+    y: mt*mt*mt*p0.y + 3*mt*mt*t*cp1.y + 3*mt*t*t*cp2.y + t*t*t*p2.y,
+  };
+}
+
+const p1 = bezierAt(0.22);
+const pB = bezierAt(0.535);
+
+
+// Invert Easing.in(Easing.cubic) (f(t)=t^3) to find when the clip rect
+// right edge reaches a given SVG x coordinate.
+function dotDelay(svgX: number) {
+  const ratio = (svgX + 12) / (GW + 24);
+  return START_DELAY + LINE_DUR * Math.pow(ratio, 1 / 3);
+}
+
+const AnimatedCircle = Animated.createAnimatedComponent(
+  require('react-native-svg').Circle,
+);
+const AnimatedRect = Animated.createAnimatedComponent(
+  require('react-native-svg').Rect,
+);
 
 function TrophyIcon({ size = 16 }: { size?: number }) {
   return (
@@ -27,56 +57,32 @@ function TrophyIcon({ size = 16 }: { size?: number }) {
 
 export default function SkinTransitionGraph() {
   const progress    = useRef(new Animated.Value(0)).current;
-  const c1Opacity   = useRef(new Animated.Value(0)).current;
   const c2Opacity   = useRef(new Animated.Value(0)).current;
   const cBOpacity   = useRef(new Animated.Value(0)).current;
   const trophyScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const START_DELAY = 300;
-    const LINE_DUR = 1200;
     Animated.sequence([
       Animated.delay(START_DELAY),
       Animated.timing(progress, { toValue: 1, duration: LINE_DUR, easing: Easing.in(Easing.cubic), useNativeDriver: false }),
     ]).start();
 
     Animated.sequence([
-      Animated.delay(START_DELAY),
-      Animated.timing(c1Opacity, { toValue: 1, duration: 240, useNativeDriver: true }),
+      Animated.delay(dotDelay(p1.x)),
+      Animated.timing(c2Opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
     Animated.sequence([
-      Animated.delay(START_DELAY + 830),
-      Animated.timing(c2Opacity, { toValue: 1, duration: 240, useNativeDriver: true }),
+      Animated.delay(dotDelay(pB.x)),
+      Animated.timing(cBOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
     ]).start();
     Animated.sequence([
-      Animated.delay(START_DELAY + 1080),
-      Animated.timing(cBOpacity, { toValue: 1, duration: 240, useNativeDriver: true }),
-    ]).start();
-    Animated.sequence([
-      Animated.delay(START_DELAY + LINE_DUR - 60),
+      Animated.delay(dotDelay(p2.x)),
       Animated.spring(trophyScale, { toValue: 1, friction: 5, tension: 140, useNativeDriver: true }),
     ]).start();
   }, []);
 
-  const p0 = { x: 12,         y: GH * 0.66 };
-  const p1 = { x: GW * 0.32,  y: GH * 0.62 };
-  const p2 = { x: GW - 16,    y: GH * 0.14 };
-
-  // Point on the curve between p1 and p2 (refit for the tangent-continuous path).
-  const pB = { x: GW * 0.60,  y: GH * 0.40 };
-
-  // Segment 1: exponential-feel — control points held at p0.y so the line
-  // hugs the floor and ramps up sharply approaching p1.
-  // Segment 2: continues in the same tangent direction as segment 1 ends
-  // (G1-continuous at p1, no kink), then plateaus at p2.
-  const linePath =
-    `M ${p0.x} ${p0.y} ` +
-    `C ${GW * 0.18} ${p0.y}, ${GW * 0.30} ${p0.y}, ${p1.x} ${p1.y} ` +
-    `C ${GW * 0.42} ${GH * 0.66}, ${GW * 0.78} ${p2.y}, ${p2.x} ${p2.y}`;
-
+  const linePath = `M ${p0.x} ${p0.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
   const fillPath = `${linePath} L ${p2.x} ${GH} L ${p0.x} ${GH} Z`;
-
-  const pathLen = 520;
 
   return (
     <View style={s.card}>
@@ -89,11 +95,11 @@ export default function SkinTransitionGraph() {
               <Stop offset="0" stopColor={PURPLE} stopOpacity={0.28} />
               <Stop offset="1" stopColor={PURPLE} stopOpacity={0} />
             </LinearGradient>
-            <ClipPath id="reveal">
+            <ClipPath id="reveal-line">
               <AnimatedRect
                 x={-12}
                 y={-4}
-                width={progress.interpolate({ inputRange: [0, 1], outputRange: [0, GW + 24] })}
+                width={progress.interpolate({ inputRange: [0, 1], outputRange: [p0.x + 12, GW + 24] })}
                 height={GH + 8}
               />
             </ClipPath>
@@ -105,24 +111,23 @@ export default function SkinTransitionGraph() {
               stroke="rgba(255,255,255,0.08)" strokeWidth={1} strokeDasharray="4,4" />
           ))}
 
-          <Path d={fillPath} fill="url(#fade)" stroke="none" clipPath="url(#reveal)" />
+          <Path d={fillPath} fill="url(#fade)" stroke="none" clipPath="url(#reveal-line)" />
 
-          <AnimatedPath
+          <Path
             d={linePath}
             stroke={PURPLE}
             strokeWidth={3}
             fill="none"
             strokeLinecap="round"
-            strokeDasharray={pathLen}
-            strokeDashoffset={progress.interpolate({ inputRange: [0, 1], outputRange: [pathLen, 0] })}
+            clipPath="url(#reveal-line)"
           />
 
-          <AnimatedCircle cx={p0.x} cy={p0.y} r={5.5} fill={CARD_BG} stroke={PURPLE} strokeWidth={2.5} opacity={c1Opacity} />
+          <Circle cx={p0.x} cy={p0.y} r={5.5} fill={CARD_BG} stroke={PURPLE} strokeWidth={2.5} />
           <AnimatedCircle cx={p1.x} cy={p1.y} r={5.5} fill={CARD_BG} stroke={PURPLE} strokeWidth={2.5} opacity={c2Opacity} />
           <AnimatedCircle cx={pB.x} cy={pB.y} r={5.5} fill={CARD_BG} stroke={PURPLE} strokeWidth={2.5} opacity={cBOpacity} />
         </Svg>
 
-        <Animated.View style={[s.trophy, { left: p2.x - 6, top: p2.y - 14, transform: [{ scale: trophyScale }] }]}>
+        <Animated.View style={[s.trophy, { left: p2.x - 4, top: p2.y - 12, transform: [{ scale: trophyScale }] }]}>
           <TrophyIcon size={18} />
         </Animated.View>
       </View>

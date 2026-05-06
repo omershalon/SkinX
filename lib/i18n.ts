@@ -444,7 +444,7 @@ const resources = {
         affirmBody: "Most people never take the first step. The fact that you're here means you're serious about real change and that's exactly what gets results.",
 
         trustTitle: 'Thank you for\ntrusting us',
-        trustSubtitle: "Now let's personalize SkinX for you...",
+        trustSubtitle: "Now let's personalize your routine...",
         trustCardTitle: 'Your privacy and security matter to us.',
         trustCardBody: 'We will always keep your personal information private and secure.',
       },

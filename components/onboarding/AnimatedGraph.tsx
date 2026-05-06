@@ -36,14 +36,14 @@ export default function AnimatedGraph() {
         Animated.timing(stat1Opacity, { toValue: 1, duration: 260, useNativeDriver: true }),
         Animated.spring(stat1Y, { toValue: 0, friction: 7, tension: 80, useNativeDriver: true }),
       ]).start();
-    }, LINE_DELAY + LINE_DURATION + 180);
+    }, LINE_DELAY + LINE_DURATION + 60);
 
     setTimeout(() => {
       Animated.parallel([
         Animated.timing(stat2Opacity, { toValue: 1, duration: 260, useNativeDriver: true }),
         Animated.spring(stat2Y, { toValue: 0, friction: 7, tension: 80, useNativeDriver: true }),
       ]).start();
-    }, LINE_DELAY + LINE_DURATION + 180 + 140);
+    }, LINE_DELAY + LINE_DURATION + 60 + 140);
   }, []);
 
   const R = 6; // circle radius + breathing room
