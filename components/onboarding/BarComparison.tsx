@@ -8,18 +8,18 @@ const CARD_BG = '#1C1C1E';
 export default function BarComparison() {
   const withoutAnim = useRef(new Animated.Value(0)).current;
   const withAnim    = useRef(new Animated.Value(0)).current;
-  const labelOpacity = useRef(new Animated.Value(0)).current;
+  const label1Opacity = useRef(new Animated.Value(0)).current;
+  const label2Opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     const DELAY = 300;
     const DURATION = 700;
     setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(withoutAnim, { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-        Animated.timing(withAnim,    { toValue: 1, duration: DURATION + 120, easing: Easing.out(Easing.cubic), useNativeDriver: false }),
-      ]).start(() => {
-        Animated.timing(labelOpacity, { toValue: 1, duration: 260, useNativeDriver: true }).start();
-      });
+      Animated.timing(withoutAnim, { toValue: 1, duration: DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+      Animated.timing(withAnim,    { toValue: 1, duration: DURATION + 120, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+      // Labels appear at the time proportional to each bar's height fraction of the taller bar
+      setTimeout(() => Animated.timing(label1Opacity, { toValue: 1, duration: 260, useNativeDriver: true }).start(), (DURATION + 120) * (0.44 / 0.88));
+      setTimeout(() => Animated.timing(label2Opacity, { toValue: 1, duration: 260, useNativeDriver: true }).start(), DURATION + 120);
     }, DELAY);
   }, []);
 
@@ -46,7 +46,7 @@ export default function BarComparison() {
             <View style={s.barCol}>
               <View style={[s.barTrack, { height: BAR_MAX_H }]}>
                 <Animated.View style={[s.bar, s.barWithout, { height: withoutH }]}>
-                  <Animated.Text style={[s.barStat, { opacity: labelOpacity }]}>1x</Animated.Text>
+                  <Animated.Text style={[s.barStat, { opacity: label1Opacity }]}>1x</Animated.Text>
                 </Animated.View>
               </View>
             </View>
@@ -55,7 +55,7 @@ export default function BarComparison() {
             <View style={s.barCol}>
               <View style={[s.barTrack, { height: BAR_MAX_H }]}>
                 <Animated.View style={[s.bar, s.barWith, { height: withH }]}>
-                  <Animated.Text style={[s.barStat, s.barStatWith, { opacity: labelOpacity }]}>2x</Animated.Text>
+                  <Animated.Text style={[s.barStat, s.barStatWith, { opacity: label2Opacity }]}>2x</Animated.Text>
                 </Animated.View>
               </View>
             </View>
