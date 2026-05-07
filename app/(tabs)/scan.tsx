@@ -104,13 +104,31 @@ export default function ScanScreen() {
   const [skinProfileId, setSkinProfileId] = useState<string | null>(null);
   const [frontImageDims, setFrontImageDims] = useState<{ width: number; height: number } | null>(null);
   const [planGenerating, setPlanGenerating] = useState(false);
+  const [existingPlan, setExistingPlan] = useState<{ ranked_items: any[] } | null>(null);
+
+  const fetchActivePlan = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('personalized_plans')
+      .select('ranked_items')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    setExistingPlan(data ?? null);
+  };
 
   // Only restore results when explicitly navigated from home (loadTs changes each tap)
   useEffect(() => {
     if (loadSessionId && loadTs) {
       setCompletedSession(null);
       loadScanSession(loadSessionId).then(session => {
-        if (session) setCompletedSession(session);
+        if (session) {
+          setCompletedSession(session);
+          fetchActivePlan();
+        }
       });
     }
   }, [loadTs]);
@@ -266,6 +284,7 @@ export default function ScanScreen() {
         const history = await loadScanHistory(session.user_id);
         setScanHistory(history);
       }
+      fetchActivePlan();
     } catch (err: any) {
       console.error('Analysis error:', err);
       const message = err?.message || String(err);
@@ -287,6 +306,7 @@ export default function ScanScreen() {
     setCompletedSession(null);
     setSkinProfileId(null);
     setFrontImageDims(null);
+    setExistingPlan(null);
   };
 
   // Helper: extract a human-readable message from a Supabase FunctionsHttpError
@@ -341,8 +361,12 @@ export default function ScanScreen() {
       // Refresh session so the JWT isn't expired after the long scan process
       await supabase.auth.refreshSession();
 
+      const invokeBody: Record<string, unknown> = { skin_profile_id: profileId };
+      if (existingPlan?.ranked_items?.length) {
+        invokeBody.existing_plan = existingPlan.ranked_items;
+      }
       const { error } = await supabase.functions.invoke('generate-plan', {
-        body: { skin_profile_id: profileId },
+        body: invokeBody,
       });
       invokeError = error ?? null;
     } catch (e: any) {
@@ -406,6 +430,7 @@ export default function ScanScreen() {
           totalSpots={completedSession.total_spots}
           primaryAcneType={completedSession.primary_acne_type}
           onBack={resetScan}
+          hasPlan={existingPlan !== null}
           onStartPlan={handleStartPlan}
           onScanAgain={resetScan}
           onViewFullScan={resetScan}
