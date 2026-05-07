@@ -520,10 +520,14 @@ export default function PlanScreen() {
       return;
     }
     setGenerating(true);
-    setPlan(null);
     setDoneToday(new Set());
     try {
-      const { error } = await supabase.functions.invoke('generate-plan', { body: { skin_profile_id: skinProfile.id } });
+      const body: Record<string, unknown> = { skin_profile_id: skinProfile.id };
+      const currentItems = (plan?.ranked_items as unknown as RankedItem[]) ?? [];
+      if (currentItems.length > 0) {
+        body.existing_plan = currentItems;
+      }
+      const { error } = await supabase.functions.invoke('generate-plan', { body });
       if (error) throw error;
       await fetchPlan();
     } catch (err) {
