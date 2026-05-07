@@ -230,7 +230,7 @@ function detectMeaningfulChange(
   const t = CONFIG.meaningful_change_threshold;
 
   // 1. Count change
-  const currentTotal = current.front.length + current.left.length + current.right.length;
+  const currentTotal = current.front.length;
   const prevTotal = prev.total_spots ?? 0;
   const delta = Math.abs(currentTotal - prevTotal);
   if (
@@ -361,7 +361,7 @@ function buildCachedReviewedDetections(current: AllDetections) {
 
 /** Reconstruct a ScanResponse from a previous session + current detections */
 function buildCachedResponse(prev: PreviousSession, current: AllDetections): object {
-  const currentTotal = current.front.length + current.left.length + current.right.length;
+  const currentTotal = current.front.length;
   return {
     reviewed_detections: buildCachedReviewedDetections(current),
     summary: {
@@ -565,7 +565,7 @@ serve(async (req) => {
       left: detections?.left ?? [],
       right: detections?.right ?? [],
     };
-    const currentTotal = current.front.length + current.left.length + current.right.length;
+    const currentTotal = current.front.length;
 
     console.log('[gemini-review-scan] received images — front:', front_image?.length ?? 0, 'left:', left_image?.length ?? 0, 'right:', right_image?.length ?? 0);
     console.log('[gemini-review-scan] Ultralytics detections:', {

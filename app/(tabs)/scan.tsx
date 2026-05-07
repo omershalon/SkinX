@@ -22,7 +22,7 @@ import { Colors, Typography, BorderRadius, Spacing } from '@/lib/theme';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import type { ViewAngle, CapturedImage, ScanSession } from '@/lib/scan-types';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { runDetectionOnAll, countDetections } from '@/lib/yolo';
+import { runDetection, countDetections } from '@/lib/yolo';
 import { runScanPipeline, loadScanSession, loadScanHistory } from '@/lib/scan-api';
 import type { ScanHistoryEntry } from '@/lib/scan-api';
 import {
@@ -255,15 +255,17 @@ export default function ScanScreen() {
         right: captures[0]!,
       };
 
-      // Step 1: Run YOLO on-device
+      // Step 1: Run YOLO on-device — front image only (single-image scan)
       setProcessingStep('Detecting acne spots...');
-      const detections = await runDetectionOnAll(images);
+      const frontDetection = await runDetection(captures[0]!);
+      const emptyDetection = { detections: [], imageWidth: frontDetection.imageWidth, imageHeight: frontDetection.imageHeight, inferenceTimeMs: 0 };
+      const detections = { front: frontDetection, left: emptyDetection, right: emptyDetection };
 
       // Use imageWidth/imageHeight from DetectionResult — guaranteed same coordinate space as bbox coords
       if (detections.front) {
         setFrontImageDims({ width: detections.front.imageWidth, height: detections.front.imageHeight });
       }
-      const totalDetected = countDetections(detections);
+      const totalDetected = detections.front.detections.length;
       console.log(`[Scan] YOLO detected ${totalDetected} spots`);
 
       // Step 2: Run full pipeline (upload + Gemini review)
