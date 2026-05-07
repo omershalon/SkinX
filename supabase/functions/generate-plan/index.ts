@@ -25,7 +25,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    const { skin_profile_id } = await req.json();
+    const { skin_profile_id, existing_plan } = await req.json();
     if (!skin_profile_id) {
       return new Response(JSON.stringify({ error: 'Missing skin_profile_id' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -130,22 +130,13 @@ serve(async (req) => {
 
     // ── Assemble the full prompt ──
 
-    const prompt = `You are a holistic skin health practitioner who combines ancestral wisdom with evidence-based dermatology. You take a root-cause, whole-body approach to skin health. Your philosophy:
+    const existingPlanContext = Array.isArray(existing_plan) && existing_plan.length > 0
+      ? `═══ CURRENT PLAN (smart-merge mode) ═══\n${existing_plan.map((item: any, i: number) =>
+          `${i + 1}. [${item.pillar}] ${item.title} — ${item.rationale}`
+        ).join('\n')}`
+      : '';
 
-- NATURAL FIRST: Prioritize plant-based, clean, and traditional remedies over synthetic/pharmaceutical products.
-- CLEAN FORMULATIONS: When recommending actives (retinoids, BHA, niacinamide, zinc), suggest them in clean/natural forms — willow bark extract as natural BHA, bakuchiol or rosehip oil as retinol alternatives, food-based zinc. Never recommend CeraVe, Neutrogena, La Roche-Posay, or similar mainstream/corporate brands.
-- ROOT CAUSE: Skin problems reflect internal imbalances — gut health, hormones, inflammation, nutrient deficiencies, toxin load, stress. Address the root cause.
-- ANCESTRAL HEALTH: Draw from Ayurveda (neem, triphala, manjistha, ashwagandha), TCM (gua sha, herbal formulas), and ancestral nutrition (bone broth, fermented foods, omega-3 rich foods). Grounding, cold exposure, morning sunlight, filtered water.
-
-═══ PATIENT PROFILE ═══
-${skinContext}
-
-${onboardingContext ? `═══ PATIENT HISTORY ═══\n${onboardingContext}\n` : ''}
-${productInsight ? `═══ PRODUCT EXPERIENCE ═══\n${productInsight}\n` : ''}
-${scanContext ? `═══ RECENT PRODUCT SCANS ═══\n${scanContext}\n` : ''}
-${progressContext ? `═══ SKIN PROGRESS OVER TIME ═══\n${progressContext}\n` : ''}
-
-═══ YOUR TASK ═══
+    const freshTaskInstruction = `═══ YOUR TASK ═══
 Generate exactly 10 actionable recommendations — always include 6-7 PRODUCT picks, 1-2 diet, 1 herbal, 1 lifestyle:
 
 PRODUCT picks: Clean/natural skincare only. Recommend specific natural ingredients — tallow balm, rosehip oil (natural vitamin A), willow bark (natural BHA), tea tree oil, bakuchiol, manuka honey, niacinamide in clean formulations, zinc oxide mineral SPF. Favor brands like Santa Cruz Paleo, Cocokind, Herbivore, OSEA, Pai, Badger, Weleda, True Botanicals. Prioritize product picks — this is a skincare app and topical interventions are the most actionable for the patient.
@@ -175,6 +166,48 @@ Return ONLY a JSON array. No markdown. No explanation. No backticks.
 pillar values: product | diet | herbal | lifestyle
 time_of_day values: morning | midday | evening
 Exactly 10 items. 6-7 must be product pillar, spread across morning/midday/evening. impact_rank 1 = highest priority. notes field is REQUIRED and must be personalised to this patient's exact profile.`;
+
+    const mergeTaskInstruction = `${existingPlanContext}
+
+═══ YOUR TASK ═══
+You are updating this patient's existing plan based on their latest scan. Rules:
+- KEEP items whose pillar/rationale still matches the current skin profile.
+- ADD 1–2 new items if the latest scan reveals a condition not addressed in the current plan (e.g. a new acne type detected).
+- REMOVE an item ONLY when you are certain its target condition is no longer present (acne type gone from scan, severity dropped to none). When in doubt, keep it.
+- Output exactly 10 items total. All 4 pillars (product, diet, herbal, lifestyle) must remain present.
+- All other format rules apply: "title" 1-3 words max, "rationale" ultra-short, "time_of_day" morning/midday/evening, "notes" array of exactly 3 personalised bullet strings, "impact_rank" 1=highest.
+
+CRITICAL FORMAT RULES:
+- "title": 1-3 words max
+- "rationale": ultra-short action hint (e.g. "2 cups daily · anti-androgen")
+- "time_of_day": assign based on what makes sense — "morning", "midday", or "evening". Spread product picks across all three times. Do NOT put all products in morning.
+- "notes": an array of exactly 3 bullet strings. Each bullet MUST (a) name the patient's exact skin type / acne type / severity, (b) explain the biological mechanism connecting this pick to THAT condition, (c) NEVER repeat the rationale field.
+
+Return ONLY a JSON array. No markdown. No explanation. No backticks.
+[{"pillar":"...","title":"...","rationale":"...","time_of_day":"morning","notes":["...","...","..."],"impact_rank":1}, ...10 items]
+
+pillar values: product | diet | herbal | lifestyle
+time_of_day values: morning | midday | evening
+Exactly 10 items. 6-7 must be product pillar. impact_rank 1 = highest priority. notes field is REQUIRED and must be personalised to this patient's exact profile.`;
+
+    const taskInstruction = existingPlanContext ? mergeTaskInstruction : freshTaskInstruction;
+
+    const prompt = `You are a holistic skin health practitioner who combines ancestral wisdom with evidence-based dermatology. You take a root-cause, whole-body approach to skin health. Your philosophy:
+
+- NATURAL FIRST: Prioritize plant-based, clean, and traditional remedies over synthetic/pharmaceutical products.
+- CLEAN FORMULATIONS: When recommending actives (retinoids, BHA, niacinamide, zinc), suggest them in clean/natural forms — willow bark extract as natural BHA, bakuchiol or rosehip oil as retinol alternatives, food-based zinc. Never recommend CeraVe, Neutrogena, La Roche-Posay, or similar mainstream/corporate brands.
+- ROOT CAUSE: Skin problems reflect internal imbalances — gut health, hormones, inflammation, nutrient deficiencies, toxin load, stress. Address the root cause.
+- ANCESTRAL HEALTH: Draw from Ayurveda (neem, triphala, manjistha, ashwagandha), TCM (gua sha, herbal formulas), and ancestral nutrition (bone broth, fermented foods, omega-3 rich foods). Grounding, cold exposure, morning sunlight, filtered water.
+
+═══ PATIENT PROFILE ═══
+${skinContext}
+
+${onboardingContext ? `═══ PATIENT HISTORY ═══\n${onboardingContext}\n` : ''}
+${productInsight ? `═══ PRODUCT EXPERIENCE ═══\n${productInsight}\n` : ''}
+${scanContext ? `═══ RECENT PRODUCT SCANS ═══\n${scanContext}\n` : ''}
+${progressContext ? `═══ SKIN PROGRESS OVER TIME ═══\n${progressContext}\n` : ''}
+
+${taskInstruction}`;
 
     const REQUIRED_PILLARS = ['product', 'diet', 'herbal', 'lifestyle'];
 
@@ -208,8 +241,9 @@ Exactly 10 items. 6-7 must be product pillar, spread across morning/midday/eveni
         contents: [{ parts: [{ text: extraInstruction ? `${prompt}\n\nCRITICAL: ${extraInstruction}` : prompt }] }],
         generationConfig: {
           temperature: 0.9,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
           responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 0 },
         },
       };
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
