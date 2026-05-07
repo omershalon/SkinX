@@ -74,6 +74,7 @@ export interface GlowAnalysisDashboardProps {
   severityScore?: number | null;
   totalSpots?: number | null;
   primaryAcneType?: string | null;
+  hasPlan?: boolean;
   onScanAgain?: () => void;
   onStartPlan?: () => void;
   onViewFullScan?: () => void;
@@ -1411,6 +1412,7 @@ export default function GlowAnalysisDashboard({
   skinAssessment,
   imageNativeWidth,
   imageNativeHeight,
+  hasPlan,
   onStartPlan,
   onScanAgain,
   onBack,
@@ -1696,7 +1698,7 @@ export default function GlowAnalysisDashboard({
               end={{ x: 0.5, y: 1 }}
               style={styles.ctaGradient}
             >
-              <Text style={styles.ctaText}>Start My Plan</Text>
+              <Text style={styles.ctaText}>{hasPlan ? 'Update My Plan' : 'Start My Plan'}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
