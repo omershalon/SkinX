@@ -1,9 +1,9 @@
 import { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback, memo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Modal,
+  View, Text, StyleSheet, TouchableOpacity, Modal, Pressable,
   KeyboardAvoidingView, Platform, TextInput, Alert,
   ActivityIndicator, Linking, Animated, Easing, PanResponder, Dimensions,
-  Image, ScrollView, Keyboard,
+  Image, ScrollView, Keyboard, InputAccessoryView,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -180,30 +180,30 @@ function DraggableSheet({ children, onDismiss, dismissRef }: { children: React.R
 }
 
 const SignInBar = memo(function SignInBar({
-  kbAnim,
-  kbPaddingBottom,
+  kbTranslate,
+  insetsBottom,
   email,
   password,
   loading,
   onPress,
 }: {
-  kbAnim: Animated.Value;
-  kbPaddingBottom: Animated.AnimatedInterpolation<string | number>;
+  kbTranslate: Animated.Value;
+  insetsBottom: number;
   email: string;
   password: string;
   loading: boolean;
   onPress: () => void;
 }) {
+  const enabled = !!email && !!password && !loading;
   return (
-    <Animated.View style={[s.esBottom, { bottom: kbAnim, paddingBottom: kbPaddingBottom }]}>
-      <TouchableOpacity
-        style={[s.esSubmitBtn, (!email || !password || loading) && s.esSubmitBtnDisabled]}
+    <Animated.View style={[s.esBottom, { bottom: 0, paddingBottom: insetsBottom + 8, transform: [{ translateY: kbTranslate }] }]}>
+      <Pressable
+        style={({ pressed }) => [s.esSubmitBtn, !enabled && s.esSubmitBtnDisabled, pressed && enabled && { opacity: 0.85 }]}
         onPress={onPress}
-        disabled={loading}
-        activeOpacity={0.85}
+        disabled={!enabled}
       >
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={s.esSubmitTxt}>Sign in</Text>}
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });
@@ -232,28 +232,32 @@ export default function WelcomeScreen() {
     if (!showEmailScreen) emailScreenSlide.setValue(SCREEN_H);
   }, [showEmailScreen]);
 
-  const kbAnim = useRef(new Animated.Value(0)).current;
+  // Native-driver translateY: runs entirely on the UI thread, zero JS involvement.
+  // kbIsVisible prevents setValue being called mid-field-switch — the root cause
+  // of the button flicker (iOS fires keyboardWillShow again when switching from
+  // email keyboard → password keyboard, even though keyboard stays visible).
+  const kbTranslate = useRef(new Animated.Value(0)).current;
   const kbHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const kbIsVisible = useRef(false);
+  const insetsBottomRef = useRef(insets.bottom);
+  insetsBottomRef.current = insets.bottom;
   useEffect(() => {
     const show = Keyboard.addListener('keyboardWillShow', (e) => {
       if (kbHideTimer.current) { clearTimeout(kbHideTimer.current); kbHideTimer.current = null; }
-      kbAnim.setValue(e.endCoordinates.height);
+      if (!kbIsVisible.current) {
+        // Only move the bar when keyboard first appears, not on every field switch.
+        kbIsVisible.current = true;
+        kbTranslate.setValue(-e.endCoordinates.height);
+      }
     });
     const hide = Keyboard.addListener('keyboardWillHide', () => {
-      kbHideTimer.current = setTimeout(() => kbAnim.setValue(0), 200);
+      kbHideTimer.current = setTimeout(() => {
+        kbIsVisible.current = false;
+        kbTranslate.setValue(0);
+      }, 200);
     });
     return () => { show.remove(); hide.remove(); if (kbHideTimer.current) clearTimeout(kbHideTimer.current); };
   }, []);
-
-  // Memoize so the same Animated node is reused across re-renders — prevents
-  // a one-frame flicker caused by a new interpolation node being created on
-  // every focusedField state change.
-  const kbPaddingBottom = useMemo(
-    () => kbAnim.interpolate({ inputRange: [0, 1], outputRange: [insets.bottom + 16, 16], extrapolate: 'clamp' }),
-    // insets.bottom never changes at runtime on a real device
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
 
   const [selectedLang, setSelectedLang] = useState(LANGUAGES[0]);
 
@@ -653,7 +657,9 @@ export default function WelcomeScreen() {
                   value={password}
                   onChangeText={(v) => { setPassword(v); setPasswordError(''); }}
                   secureTextEntry={!showPassword}
-                  autoComplete="password"
+                  autoComplete="off"
+                  textContentType="none"
+                  inputAccessoryViewID="loginPwAccessory"
                   onFocus={() => setFocusedField('password')}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -668,13 +674,16 @@ export default function WelcomeScreen() {
             </TouchableOpacity>
           </View>
           <SignInBar
-            kbAnim={kbAnim}
-            kbPaddingBottom={kbPaddingBottom}
+            kbTranslate={kbTranslate}
+            insetsBottom={insets.bottom}
             email={email}
             password={password}
             loading={loading}
             onPress={handleSignIn}
           />
+          {Platform.OS === 'ios' && (
+            <InputAccessoryView nativeID="loginPwAccessory" style={s.hiddenAccessory} />
+          )}
         </Animated.View>
       )}
     </View>
@@ -819,6 +828,7 @@ const s = StyleSheet.create({
   esSubmitBtn: { height: 56, borderRadius: 50, backgroundColor: '#1c1c1e', justifyContent: 'center', alignItems: 'center' },
   esSubmitBtnDisabled: { backgroundColor: '#aeaeb2' },
   esSubmitTxt: { fontFamily: Fonts.semibold, fontSize: 17, color: '#fff' },
+  hiddenAccessory: { height: 0 },
 
   // Language button (top-right of welcome screen)
   langBtn: {
