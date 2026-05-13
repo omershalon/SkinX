@@ -98,6 +98,8 @@ export interface ZoneScore {
   lesion_count: number;
   severity: 'clear' | 'mild' | 'moderate' | 'severe';
   primary_types: string[];
+  /** Gemini's independent visual health score for this zone (0–100, higher = healthier). Not derived from YOLO counts. */
+  visual_score?: number;
 }
 
 export interface SkinInsights {

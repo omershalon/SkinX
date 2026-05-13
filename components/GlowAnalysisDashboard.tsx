@@ -1119,11 +1119,15 @@ function deriveGlowScore({
   // 0 spots→100, 5→76, 10→58, 20→33, 30→19
   const spotScore = 100 * Math.exp(-0.055 * spots);
 
-  // Component 2 — zone severity + lesion density (35%)
-  const ZONE_BASE: Record<string, number> = { clear: 100, mild: 76, moderate: 46, severe: 18 };
+  // Component 2 — Gemini visual zone scores (35%)
+  // Uses Gemini's independent visual_score per zone (0-100). Falls back to severity
+  // tier if visual_score is unavailable (e.g. cached sessions from before this change).
+  const ZONE_SEVERITY_FALLBACK: Record<string, number> = { clear: 100, mild: 76, moderate: 46, severe: 18 };
   let zoneScore: number;
   if (zoneScores && zoneScores.length > 0) {
-    const perZone = zoneScores.map(z => Math.max(0, (ZONE_BASE[z.severity] ?? 50) - z.lesion_count * 1.8));
+    const perZone = zoneScores.map(z =>
+      typeof z.visual_score === 'number' ? z.visual_score : (ZONE_SEVERITY_FALLBACK[z.severity] ?? 50)
+    );
     zoneScore = perZone.reduce((a, b) => a + b, 0) / perZone.length;
   } else {
     zoneScore = spotScore;

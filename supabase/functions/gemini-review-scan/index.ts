@@ -736,6 +736,7 @@ Using all ${imageCount} images and the YOLO detection list:
 - Overall severity and zone breakdown
 - Skin type, moisture, 2 key observations
 - zone_assignments: for EACH front detection listed above (in order [1], [2], …), look at the annotated image and assign it to exactly one zone. Output as an array of strings, one per detection, in the same order. Valid values: "forehead", "left_cheek", "right_cheek", "nose", "chin_jawline". Judge relative to the actual face in the image — the face may not fill the frame.
+- zone_visual_scores: for ALL 5 face zones, assign a visual skin health score 0–100 (100 = perfect, 0 = severely affected). Base this ENTIRELY on visual inspection of the plain image — redness, texture, pigmentation, scarring, pore size, evenness. DO NOT factor in YOLO detection counts at all. Assess every zone even if no spots were detected there.
 - skin_assessment: assess all 11 categories below from the photo and YOLO data. Score each 0–10 (lower = better condition). Mark between 1 and 4 of the lowest-scoring categories as is_strength=true, and between 1 and 4 of the highest-scoring as is_strength=false. Label must be a friendly one-sentence plain-English description.
 
 Categories: active_breakouts, comedones, dark_spots, redness, skin_texture, pore_visibility, skin_tone_evenness, oiliness, hydration, brightness, under_eye
@@ -769,6 +770,13 @@ Return ONLY valid JSON:
     "key_observations": ["obs 1", "obs 2"]
   },
   "zone_assignments": ["forehead", "left_cheek", "chin_jawline"],
+  "zone_visual_scores": [
+    {"zone": "forehead", "score": 72},
+    {"zone": "left_cheek", "score": 85},
+    {"zone": "right_cheek", "score": 80},
+    {"zone": "nose", "score": 65},
+    {"zone": "chin_jawline", "score": 70}
+  ],
   "skin_assessment": [
     {"category": "active_breakouts", "label": "Several inflamed spots on forehead and chin", "score": 7, "is_strength": false},
     {"category": "comedones", "label": "Very few blackheads or whiteheads detected", "score": 2, "is_strength": true},
@@ -786,6 +794,7 @@ NOTE: Return empty arrays for recommendations and skin_plan — those are genera
 CRITICAL:
 - severity must be exactly "mild", "moderate", or "severe"
 - zone_assignments must have exactly ${current.front.length} entries (one per front detection, in order)
+- zone_visual_scores must have exactly 5 entries, one per zone, scored independently of YOLO detection counts
 - confirmed YOLO detections: source="model" status="confirmed"; missed: source="ai" status="added"; false positive: status="removed"
 - Keep ALL text values short (one sentence max per field)
 - Empty arrays are valid`;
@@ -931,32 +940,46 @@ CRITICAL:
       );
     }
 
-    // ── Build zone_scores from Gemini's per-detection zone_assignments ──────────
-    // Gemini assigns each front detection (in order) to a zone by looking at the
-    // annotated image. We tally those assignments here — counts always match YOLO total.
+    // ── Build zone_scores: YOLO counts + Gemini visual scores (independent) ──────
+    // lesion_count comes from YOLO detections assigned to each zone.
+    // visual_score comes from Gemini's independent visual assessment (not count-based).
     {
       const assignments: string[] = Array.isArray(result.zone_assignments) ? result.zone_assignments : [];
       console.log('[gemini-review-scan] zone_assignments from Gemini:', assignments);
 
+      // Tally YOLO detection counts per zone
       const zoneData: Record<string, { count: number; types: Set<string> }> = {};
       for (const z of ZONE_NAMES) zoneData[z] = { count: 0, types: new Set() };
 
       current.front.forEach((det, i) => {
         const raw = (assignments[i] ?? '').toLowerCase().trim();
-        // Accept minor variations ("left cheek" → "left_cheek", etc.)
         const zone = ZONE_NAMES.find(z => z === raw || z.replace('_', ' ') === raw || raw.includes(z.split('_')[0]))
-          ?? 'left_cheek'; // fallback to left_cheek if Gemini returns garbage
+          ?? 'left_cheek';
         zoneData[zone].count++;
         zoneData[zone].types.add(det.className);
       });
 
+      // Extract Gemini's independent visual scores per zone
+      const visualScores: Record<string, number> = {};
+      if (Array.isArray(result.zone_visual_scores)) {
+        for (const zv of result.zone_visual_scores) {
+          if (zv.zone && typeof zv.score === 'number') {
+            visualScores[zv.zone] = Math.max(0, Math.min(100, zv.score));
+          }
+        }
+      }
+
+      const ZONE_BASE_FALLBACK: Record<string, number> = { clear: 100, mild: 76, moderate: 46, severe: 18 };
       result.zone_scores = ZONE_NAMES.map(zone => {
         const { count, types } = zoneData[zone];
+        // Severity still derived from YOLO count (used for display labels only)
         const severity = count === 0 ? 'clear' : count <= 2 ? 'mild' : count <= 5 ? 'moderate' : 'severe';
-        return { zone, lesion_count: count, severity, primary_types: Array.from(types) };
+        // visual_score is purely Gemini's; fall back to severity tier if Gemini didn't return it
+        const visual_score = visualScores[zone] ?? ZONE_BASE_FALLBACK[severity] ?? 50;
+        return { zone, lesion_count: count, severity, visual_score, primary_types: Array.from(types) };
       });
 
-      console.log('[gemini-review-scan] zone_scores (from assignments):', result.zone_scores.map((z: any) => `${z.zone}:${z.lesion_count}`).join(', '));
+      console.log('[gemini-review-scan] zone_scores:', result.zone_scores.map((z: any) => `${z.zone}:${z.lesion_count}(visual:${z.visual_score})`).join(', '));
     }
 
     // ── Clamp skin_assessment to 1–4 strengths and 1–4 weaknesses ──
