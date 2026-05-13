@@ -7,7 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const CONFIG = {
   /** Only call Claude on the first scan of the day; reuse cached response for later scans */
-  enable_first_scan_only_gemini: true,
+  enable_first_scan_only_gemini: false,
 
   /** Send only the front image to Claude (left/right are excluded) */
   enable_gemini_front_only: false,
@@ -736,8 +736,8 @@ Using all ${imageCount} images and the YOLO detection list:
 - Overall severity and zone breakdown
 - Skin type, moisture, 2 key observations
 - zone_assignments: for EACH front detection listed above (in order [1], [2], …), look at the annotated image and assign it to exactly one zone. Output as an array of strings, one per detection, in the same order. Valid values: "forehead", "left_cheek", "right_cheek", "nose", "chin_jawline". Judge relative to the actual face in the image — the face may not fill the frame.
-- zone_visual_scores: for ALL 5 face zones, assign a visual skin health score 0–100 (100 = perfect, 0 = severely affected). Base this ENTIRELY on visual inspection of the plain image — redness, texture, pigmentation, scarring, pore size, evenness. DO NOT factor in YOLO detection counts at all. Assess every zone even if no spots were detected there.
-- skin_assessment: assess all 11 categories below from the photo and YOLO data. Score each 0–10 (lower = better condition). Mark between 1 and 4 of the lowest-scoring categories as is_strength=true, and between 1 and 4 of the highest-scoring as is_strength=false. Label must be a friendly one-sentence plain-English description.
+- zone_visual_scores: for ALL 5 face zones, assign a visual skin health score 0–100 based ENTIRELY on visual inspection of the plain image (redness, texture, pigmentation, scarring, pore size, evenness). DO NOT factor YOLO detection counts at all. Use this strict calibration scale: 90–100 = near-flawless, essentially zero visible concerns (extremely rare); 70–89 = healthy skin, only barely noticeable imperfections; 50–69 = average skin, some visible concerns such as mild redness, texture, or pores; 30–49 = below-average, multiple visible concerns; 0–29 = significant visible skin problems. Most real people should score between 40–72 per zone. Scores above 80 should be exceptional. Assess every zone even if no spots were detected.
+- skin_assessment: assess all 11 categories below from the photo and YOLO data. Score each 0–10 where 0 = perfectly clear/healthy (exceptionally rare) and 10 = severely affected. Average or slightly imperfect skin in a category should score 3–6 — do not give 0 or 1 unless the category is genuinely excellent. Mark between 1 and 4 of the lowest-scoring categories as is_strength=true, and between 1 and 4 of the highest-scoring as is_strength=false. Label must be a friendly one-sentence plain-English description.
 
 Categories: active_breakouts, comedones, dark_spots, redness, skin_texture, pore_visibility, skin_tone_evenness, oiliness, hydration, brightness, under_eye
 
