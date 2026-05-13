@@ -1,280 +1,747 @@
-import { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
+import { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  Linking,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Circle } from 'react-native-svg';
-import { Colors, Fonts, BorderRadius } from '@/lib/theme';
-import { useTranslation } from 'react-i18next';
+import Svg, { Path } from 'react-native-svg';
+import { Colors, Fonts } from '@/lib/theme';
+import { supabase } from '@/lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-function BellIcon({ size = 80 }: { size?: number }) {
+// ─── Icons ──────────────────────────────────────────────────────────────────
+
+function LockIcon({ size = 14, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size * 0.6} height={size * 0.6} viewBox="0 0 24 24" fill="none">
-        <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="rgba(255,255,255,0.2)" strokeWidth={2} fill="rgba(255,255,255,0.05)" />
-        <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="rgba(255,255,255,0.2)" strokeWidth={2} strokeLinecap="round" />
-      </Svg>
-      {/* Red notification badge */}
-      <View style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ fontFamily: Fonts.bold, fontSize: 13, color: '#FFF' }}>1</Text>
-      </View>
-    </View>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 10V7a6 6 0 0112 0v3M5 10h14a1 1 0 011 1v9a1 1 0 01-1 1H5a1 1 0 01-1-1v-9a1 1 0 011-1z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
   );
 }
+
+function ShieldIcon({ size = 14, color = 'rgba(255,255,255,0.55)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2L4 6v6c0 5 3.5 9.5 8 10 4.5-.5 8-5 8-10V6l-8-4z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CheckCircle({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"
+        fill="#A78BFA"
+      />
+      <Path
+        d="M8 12.5l2.5 2.5 5.5-5.5"
+        stroke="#FFFFFF"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function TargetIcon({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" stroke="#FFFFFF" strokeWidth={1.8} />
+      <Path d="M12 18a6 6 0 100-12 6 6 0 000 12z" stroke="#FFFFFF" strokeWidth={1.8} />
+      <Path d="M12 14a2 2 0 100-4 2 2 0 000 4z" fill="#FFFFFF" />
+    </Svg>
+  );
+}
+
+function SunIcon({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 17a5 5 0 100-10 5 5 0 000 10z" stroke="#FFFFFF" strokeWidth={1.8} />
+      <Path
+        d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+        stroke="#FFFFFF"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function FlaskIcon({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 2v6L4 18a2 2 0 002 3h12a2 2 0 002-3L15 8V2M9 2h6M8 14h8"
+        stroke="#FFFFFF"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ArrowRight({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 12h14M13 5l7 7-7 7" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LaurelLeft({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <Path
+        d="M28 4c-8 0-14 4-18 10-3 5-4 12-3 16 4-1 11-2 16-7 6-6 8-13 5-19z"
+        stroke="#A78BFA"
+        strokeWidth={1.4}
+        fill="rgba(167,139,250,0.15)"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14 18c2-2 4-3 6-4M10 23c2-1 4-3 6-4" stroke="#A78BFA" strokeWidth={1.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function LaurelRight({ size = 22 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
+      <Path
+        d="M4 4c8 0 14 4 18 10 3 5 4 12 3 16-4-1-11-2-16-7-6-6-8-13-5-19z"
+        stroke="#A78BFA"
+        strokeWidth={1.4}
+        fill="rgba(167,139,250,0.15)"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M18 18c-2-2-4-3-6-4M22 23c-2-1-4-3-6-4" stroke="#A78BFA" strokeWidth={1.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ScanCorners() {
+  // Four purple L-brackets on the hero scan image
+  const C = '#A78BFA';
+  const S = 22;
+  const T = 3;
+  return (
+    <>
+      <View style={[corner.base, { top: 10, left: 10 }]}>
+        <View style={[corner.h, { backgroundColor: C, width: S, height: T, top: 0, left: 0 }]} />
+        <View style={[corner.v, { backgroundColor: C, width: T, height: S, top: 0, left: 0 }]} />
+      </View>
+      <View style={[corner.base, { top: 10, right: 10 }]}>
+        <View style={[corner.h, { backgroundColor: C, width: S, height: T, top: 0, right: 0 }]} />
+        <View style={[corner.v, { backgroundColor: C, width: T, height: S, top: 0, right: 0 }]} />
+      </View>
+      <View style={[corner.base, { bottom: 10, left: 10 }]}>
+        <View style={[corner.h, { backgroundColor: C, width: S, height: T, bottom: 0, left: 0 }]} />
+        <View style={[corner.v, { backgroundColor: C, width: T, height: S, bottom: 0, left: 0 }]} />
+      </View>
+      <View style={[corner.base, { bottom: 10, right: 10 }]}>
+        <View style={[corner.h, { backgroundColor: C, width: S, height: T, bottom: 0, right: 0 }]} />
+        <View style={[corner.v, { backgroundColor: C, width: T, height: S, bottom: 0, right: 0 }]} />
+      </View>
+    </>
+  );
+}
+
+// ─── Component data ─────────────────────────────────────────────────────────
+
+const FEATURES = [
+  'Full AI skin breakdown',
+  'Personalized AM/PM routine',
+  'Product ingredient recommendations',
+  'Progress tracking with scan history',
+  'Weekly skin improvement plan',
+  'Avoid products that may worsen your skin',
+];
+
+const LOCKED_ITEMS = [
+  { icon: <TargetIcon />, title: 'Skin priorities', body: 'Know what to fix first based on your scan' },
+  { icon: <SunIcon />, title: 'AM + PM routine', body: 'Step-by-step routine made for your skin' },
+  { icon: <FlaskIcon />, title: 'Product ingredient guide', body: 'What to use, what to avoid, and why' },
+];
+
+// ─── Screen ─────────────────────────────────────────────────────────────────
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const insets = useSafeAreaInsets();
-  const scrollRef = useRef<ScrollView>(null);
-  const [page, setPage] = useState(0);
-  const [selectedPlan, setSelectedPlan] = useState<'yearly' | 'monthly'>('yearly');
-  const { t } = useTranslation();
+  const params = useLocalSearchParams<{ profileId?: string; from?: string }>();
+  const [selected, setSelected] = useState<'yearly' | 'weekly'>('yearly');
+  const [busy, setBusy] = useState(false);
 
-  const trialEndDate = new Date();
-  trialEndDate.setDate(trialEndDate.getDate() + 3);
-  const dateStr = trialEndDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-
-  const goNext = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    scrollRef.current?.scrollTo({ x: SCREEN_WIDTH * nextPage, animated: true });
+  const handleUnlock = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      // TODO: RevenueCat – Purchases.purchasePackage()
+      const profileId = params.profileId;
+      if (params.from === 'scan' && profileId) {
+        await supabase.auth.refreshSession();
+        const { error } = await supabase.functions.invoke('generate-plan', {
+          body: { skin_profile_id: profileId },
+        });
+        if (error) {
+          Alert.alert('Plan Generation Failed', error.message ?? 'Please try again.');
+          setBusy(false);
+          return;
+        }
+        router.replace('/(tabs)/plan');
+        return;
+      }
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      Alert.alert('Something went wrong', e?.message ?? 'Please try again.');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const subscribe = () => {
-    // TODO: Integrate RevenueCat / StoreKit for real payment
-    // For now, just navigate to the app
-    router.replace('/(tabs)');
-  };
-
-  const skip = () => {
-    router.replace('/(tabs)');
+  const handleRestore = () => {
+    Alert.alert('Restore Purchases', 'No active subscription found.');
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <LinearGradient colors={['#08080F', '#0D0D1A']} style={StyleSheet.absoluteFill} />
+    <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <LinearGradient colors={['#08020F', '#0E0524', '#0A0218']} style={StyleSheet.absoluteFill} />
 
       {/* Top bar */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => { if (page > 0) { setPage(page - 1); scrollRef.current?.scrollTo({ x: SCREEN_WIDTH * (page - 1), animated: true }); } }}>
-          <Text style={styles.topBack}>{page > 0 ? '‹' : ''}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={skip}>
-          <Text style={styles.restore}>{t('paywall.restore')}</Text>
+        <View style={{ width: 60 }} />
+        <TouchableOpacity onPress={handleRestore}>
+          <Text style={styles.restore}>Restore</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Horizontal paging screens */}
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEnabled={false}
-        onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH))}
-      >
-        {/* ═══ SCREEN 1: "We want you to try it for free" ═══ */}
-        <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
-          <Text style={[styles.heading, { marginTop: 16 }]}>{t('paywall.heading1')}</Text>
+      {/* Main content — no scroll, flex layout */}
+      <View style={styles.content}>
 
-          <View style={styles.pageCenter}>
-            {/* Phone mockup placeholder */}
-            <View style={styles.phoneMockup}>
-              <View style={styles.mockScreen}>
-                <Text style={{ fontSize: 40 }}>📸</Text>
-                <Text style={styles.mockText}>AI Skin Scan</Text>
-              </View>
-            </View>
+        {/* Logo + headline */}
+        <View style={styles.brandRow}>
+          <View style={styles.logoMark}><Text style={styles.logoMarkX}>X</Text></View>
+          <Text style={styles.brandName}>SkinX</Text>
+        </View>
+        <Text style={styles.headline}>
+          Your skin scan is <Text style={styles.headlineAccent}>ready</Text>
+        </Text>
+        <Text style={styles.subhead}>Unlock your personalized skin plan based on your scan.</Text>
+
+        {/* Hero card — flex:1 so face fills available space */}
+        <View style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <LockIcon size={13} color="#A78BFA" />
+            <Text style={styles.heroTopText}>Unlock Your Full Plan</Text>
           </View>
-
-          <View style={styles.pageBottom}>
-            <View style={styles.noPayRow}>
-              <Text style={styles.noPayCheck}>✓</Text>
-              <Text style={styles.noPayText}>{t('paywall.noPayment')}</Text>
+          <View style={styles.heroBody}>
+            <View style={styles.faceWrap}>
+              <Image
+                source={require('@/assets/images/welcome-face.jpg')}
+                style={styles.faceImg}
+                resizeMode="contain"
+              />
+              <View style={styles.scanLine} />
+              <LinearGradient
+                colors={['rgba(10,2,24,0)', 'rgba(10,2,24,0.35)']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+              <ScanCorners />
             </View>
-            <TouchableOpacity style={styles.blackBtn} onPress={goNext} activeOpacity={0.85}>
-              <Text style={styles.blackBtnText}>{t('paywall.tryFree')}</Text>
-            </TouchableOpacity>
-            <Text style={styles.priceHint}>{t('paywall.hint1')}</Text>
+            <View style={styles.lockedCol}>
+              {LOCKED_ITEMS.map((item) => (
+                <View key={item.title} style={styles.lockedCard}>
+                  <View style={styles.lockedIcon}>{item.icon}</View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.lockedTitle}>{item.title}</Text>
+                    <Text style={styles.lockedBody}>{item.body}</Text>
+                  </View>
+                  <LockIcon size={10} color="rgba(255,255,255,0.5)" />
+                </View>
+              ))}
+            </View>
           </View>
         </View>
 
-        {/* ═══ SCREEN 2: "We'll send you a reminder" ═══ */}
-        <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
-          <View style={styles.pageCenter}>
-            <Text style={styles.heading}>{t('paywall.heading2')}</Text>
-            <BellIcon size={100} />
-          </View>
-
-          <View style={styles.pageBottom}>
-            <View style={styles.noPayRow}>
-              <Text style={styles.noPayCheck}>✓</Text>
-              <Text style={styles.noPayText}>{t('paywall.noPayment')}</Text>
+        {/* SkinX Pro */}
+        <View style={styles.proDivider}>
+          <LaurelLeft size={22} />
+          <Text style={styles.proLabel}>SkinX Pro</Text>
+          <LaurelRight size={22} />
+        </View>
+        {/* Features grid */}
+        <View style={styles.featuresCard}>
+          {FEATURES.map((f) => (
+            <View key={f} style={styles.featureItem}>
+              <CheckCircle size={15} />
+              <Text style={styles.featureText}>{f}</Text>
             </View>
-            <TouchableOpacity style={styles.blackBtn} onPress={goNext} activeOpacity={0.85}>
-              <Text style={styles.blackBtnText}>{t('paywall.continueFree')}</Text>
-            </TouchableOpacity>
-            <Text style={styles.priceHint}>{t('paywall.hint1')}</Text>
-          </View>
+          ))}
         </View>
 
-        {/* ═══ SCREEN 3: Plan selection + payment ═══ */}
-        <View style={[styles.page, { paddingBottom: insets.bottom + 20 }]}>
-          <ScrollView contentContainerStyle={styles.screen3Content} showsVerticalScrollIndicator={false}>
-            <Text style={styles.heading}>{t('paywall.heading3')}</Text>
-
-            {/* Timeline */}
-            <View style={styles.timeline}>
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, { backgroundColor: '#F59E0B' }]}>
-                  <Text style={styles.timelineDotIcon}>🔓</Text>
-                </View>
-                <View style={styles.timelineTextArea}>
-                  <Text style={styles.timelineTitle}>{t('paywall.today')}</Text>
-                  <Text style={styles.timelineDesc}>{t('paywall.todayDesc')}</Text>
-                </View>
-              </View>
-              <View style={styles.timelineLine} />
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, { backgroundColor: '#F59E0B' }]}>
-                  <Text style={styles.timelineDotIcon}>🔔</Text>
-                </View>
-                <View style={styles.timelineTextArea}>
-                  <Text style={styles.timelineTitle}>{t('paywall.reminder')}</Text>
-                  <Text style={styles.timelineDesc}>{t('paywall.reminderDesc')}</Text>
-                </View>
-              </View>
-              <View style={styles.timelineLine} />
-              <View style={styles.timelineItem}>
-                <View style={[styles.timelineDot, { backgroundColor: '#6B7280' }]}>
-                  <Text style={styles.timelineDotIcon}>👑</Text>
-                </View>
-                <View style={styles.timelineTextArea}>
-                  <Text style={styles.timelineTitle}>{t('paywall.billing')}</Text>
-                  <Text style={styles.timelineDesc}>{t('paywall.billingDesc', { dateStr })}</Text>
-                </View>
-              </View>
+        {/* Plan cards */}
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setSelected('yearly')}
+          style={[styles.planCard, selected === 'yearly' && styles.planCardSelected]}>
+          <View style={[styles.radio, selected === 'yearly' && styles.radioSelected]}>
+            {selected === 'yearly' && <View style={styles.radioDot} />}
+          </View>
+          <View style={styles.planMid}>
+            <Text style={styles.planLabel}>YEARLY ACCESS</Text>
+            <View style={styles.bestValueRow}>
+              <Text style={styles.bestValueStar}>★</Text>
+              <Text style={styles.bestValue}>BEST VALUE</Text>
             </View>
+            <Text style={styles.planSubtle}>Just $2.50 per month</Text>
+          </View>
+          <View style={styles.planPriceCol}>
+            <Text style={styles.planPrice}>$29.99</Text>
+            <Text style={styles.planUnit}>per year</Text>
+          </View>
+          <View style={[styles.saveBadge, selected !== 'yearly' && { opacity: 0 }]}>
+            <Text style={styles.saveBadgeLabel}>SAVE</Text>
+            <Text style={styles.saveBadgePct}>58%</Text>
+          </View>
+        </TouchableOpacity>
 
-            {/* Plan cards */}
-            <View style={styles.planRow}>
-              <TouchableOpacity
-                style={[styles.planCard, selectedPlan === 'monthly' && styles.planCardSelected]}
-                onPress={() => setSelectedPlan('monthly')} activeOpacity={0.85}
-              >
-                <Text style={styles.planTitle}>{t('paywall.monthly')}</Text>
-                <Text style={styles.planPrice}>{t('paywall.monthlyPrice')}</Text>
-                <View style={[styles.radio, selectedPlan === 'monthly' && styles.radioSelected]} />
-              </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setSelected('weekly')}
+          style={[styles.planCard, selected === 'weekly' && styles.planCardSelected]}>
+          <View style={[styles.radio, selected === 'weekly' && styles.radioSelected]}>
+            {selected === 'weekly' && <View style={styles.radioDot} />}
+          </View>
+          <View style={styles.planMid}>
+            <Text style={styles.planLabel}>WEEKLY ACCESS</Text>
+            <Text style={styles.planSubtle}>Billed weekly</Text>
+          </View>
+          <View style={styles.planPriceCol}>
+            <Text style={styles.planPrice}>$4.99</Text>
+            <Text style={styles.planUnit}>per week</Text>
+          </View>
+        </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.planCard, styles.planCardYearly, selectedPlan === 'yearly' && styles.planCardSelected]}
-                onPress={() => setSelectedPlan('yearly')} activeOpacity={0.85}
-              >
-                <View style={styles.freeBadge}>
-                  <Text style={styles.freeBadgeText}>{t('paywall.freeBadge')}</Text>
+        {/* CTA */}
+        <TouchableOpacity activeOpacity={0.9} onPress={handleUnlock} style={styles.ctaWrap} disabled={busy}>
+          <LinearGradient
+            colors={['#C4B5FD', '#A78BFA', '#8B5CF6']}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={styles.cta}
+          >
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : (
+              <>
+                <View style={styles.ctaInner}>
+                  <LockIcon size={17} color="#FFFFFF" />
+                  <Text style={styles.ctaText}>Continue</Text>
                 </View>
-                <Text style={styles.planTitle}>{t('paywall.yearly')}</Text>
-                <Text style={styles.planPrice}>{t('paywall.yearlyPrice')}</Text>
-                <View style={[styles.radio, selectedPlan === 'yearly' && styles.radioSelected]}>
-                  {selectedPlan === 'yearly' && <View style={styles.radioInner} />}
-                </View>
-              </TouchableOpacity>
-            </View>
+                <ArrowRight size={17} color="#FFFFFF" />
+              </>
+            )}
+          </LinearGradient>
+        </TouchableOpacity>
 
-            <View style={styles.noPayRow}>
-              <Text style={styles.noPayCheck}>✓</Text>
-              <Text style={styles.noPayText}>{t('paywall.noPayment')}</Text>
-            </View>
-
-            <TouchableOpacity style={styles.blackBtn} onPress={subscribe} activeOpacity={0.85}>
-              <Text style={styles.blackBtnText}>{t('paywall.cta')}</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.priceHint}>{t('paywall.ctaHint')}</Text>
-
-            <TouchableOpacity onPress={skip} style={{ marginTop: 12 }}>
-              <Text style={styles.skipText}>{t('paywall.later')}</Text>
-            </TouchableOpacity>
-          </ScrollView>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <ShieldIcon size={12} />
+          <Text style={styles.cancelText}>Cancel anytime</Text>
+          <Text style={styles.footerDot}>•</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://skinx.app/terms')}>
+            <Text style={styles.legalLink}>Terms</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerDot}>•</Text>
+          <TouchableOpacity onPress={() => Linking.openURL('https://skinx.app/privacy')}>
+            <Text style={styles.legalLink}>Privacy Policy</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
 
-      {/* Page dots */}
-      <View style={[styles.dotsRow, { bottom: insets.bottom + 8 }]}>
-        {[0, 1, 2].map(i => (
-          <View key={i} style={[styles.dot, i === page && styles.dotActive]} />
-        ))}
       </View>
     </View>
   );
 }
 
+// ─── Styles ─────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#08020F' },
 
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8 },
-  topBack: { fontSize: 28, color: 'rgba(255,255,255,0.5)', fontWeight: '300', width: 30 },
-  restore: { fontFamily: Fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.35)' },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 4,
+  },
+  restore: {
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
+  },
 
-  page: { width: SCREEN_WIDTH, flex: 1, justifyContent: 'space-between', paddingHorizontal: 24 },
-  pageCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 32 },
-  pageBottom: { gap: 14, alignItems: 'center' },
+  // No-scroll flex content
+  content: {
+    flex: 1,
+    paddingHorizontal: 16,
+    gap: 4,
+  },
 
-  heading: { fontFamily: Fonts.bold, fontSize: 28, color: '#FFFFFF', textAlign: 'center', lineHeight: 36, letterSpacing: -0.5 },
+  // Brand
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+  },
+  logoMark: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    backgroundColor: '#7C3AED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  logoMarkX: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 14,
+    lineHeight: 16,
+  },
+  brandName: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
 
-  // Phone mockup
-  phoneMockup: { width: 200, height: 300, borderRadius: 24, backgroundColor: '#1A1A2E', borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
-  mockScreen: { alignItems: 'center', gap: 8 },
-  mockText: { fontFamily: Fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.4)' },
+  // Headline
+  headline: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 28,
+    lineHeight: 34,
+    letterSpacing: -0.8,
+    textAlign: 'center',
+  },
+  headlineAccent: { color: '#A78BFA' },
+  subhead: {
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: Fonts.regular,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: -4,
+  },
 
-  // No payment row
-  noPayRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  noPayCheck: { fontSize: 14, color: Colors.success },
-  noPayText: { fontFamily: Fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.5)' },
+  // Hero card — flex:1 so it grows to fill available space
+  heroCard: {
+    flex: 1,
+    backgroundColor: '#0A0420',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.18)',
+    padding: 10,
+    overflow: 'hidden',
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 5,
+    paddingBottom: 7,
+  },
+  heroTopText: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.semibold,
+    fontSize: 11.5,
+  },
+  heroBody: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 9,
+  },
+  faceWrap: {
+    flex: 1,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#150830',
+  },
+  faceImg: {
+    width: '100%',
+    height: '100%',
+  },
+  scanLine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: '50%',
+    width: 1.2,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
+  lockedCol: {
+    flex: 1,
+    gap: 6,
+    justifyContent: 'space-between',
+  },
+  lockedCard: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    backgroundColor: 'rgba(124,58,237,0.18)',
+    borderRadius: 9,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.12)',
+  },
+  lockedIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    backgroundColor: 'rgba(167,139,250,0.22)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockedTitle: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.semibold,
+    fontSize: 11,
+    lineHeight: 13,
+  },
+  lockedBody: {
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: Fonts.regular,
+    fontSize: 9,
+    lineHeight: 11,
+    marginTop: 1,
+  },
 
-  // Black CTA button (Cal AI style)
-  blackBtn: { width: '100%', height: 56, borderRadius: 16, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
-  blackBtnText: { fontFamily: Fonts.bold, fontSize: 17, color: '#000000' },
+  // Pro divider
+  proDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  proLabel: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 19,
+    letterSpacing: -0.3,
+  },
+  proSub: {
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: Fonts.regular,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: -4,
+  },
 
-  priceHint: { fontFamily: Fonts.regular, fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' },
-  skipText: { fontFamily: Fonts.medium, fontSize: 14, color: 'rgba(255,255,255,0.25)', textAlign: 'center' },
-
-  // Screen 3 content
-  screen3Content: { paddingTop: 20, paddingBottom: 40, gap: 20, paddingHorizontal: 24 },
-
-  // Timeline
-  timeline: { gap: 0 },
-  timelineItem: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
-  timelineDot: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  timelineDotIcon: { fontSize: 16 },
-  timelineTextArea: { flex: 1, paddingBottom: 4 },
-  timelineTitle: { fontFamily: Fonts.bold, fontSize: 15, color: '#FFF' },
-  timelineDesc: { fontFamily: Fonts.regular, fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 19, marginTop: 2 },
-  timelineLine: { width: 2, height: 20, backgroundColor: 'rgba(255,255,255,0.1)', marginLeft: 17 },
+  // Features — 2-column grid inside a card
+  featuresCard: {
+    backgroundColor: 'rgba(124,58,237,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.16)',
+    borderRadius: 14,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  featureItem: {
+    width: '50%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    paddingVertical: 3,
+    paddingRight: 6,
+  },
+  featureText: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontFamily: Fonts.regular,
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
 
   // Plan cards
-  planRow: { flexDirection: 'row', gap: 12 },
   planCard: {
-    flex: 1, backgroundColor: Colors.card, borderRadius: 16,
-    padding: 16, borderWidth: 1.5, borderColor: Colors.border,
-    alignItems: 'center', gap: 6, position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 10,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  planCardYearly: {},
-  planCardSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(124,92,252,0.1)' },
-  planTitle: { fontFamily: Fonts.semibold, fontSize: 14, color: 'rgba(255,255,255,0.7)' },
-  planPrice: { fontFamily: Fonts.bold, fontSize: 18, color: '#FFF' },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
-  radioSelected: { borderColor: Colors.primary },
-  radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: Colors.primary },
-  freeBadge: { position: 'absolute', top: -1, right: -1, backgroundColor: Colors.success, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, borderBottomLeftRadius: 0, borderTopLeftRadius: 8 },
-  freeBadgeText: { fontFamily: Fonts.bold, fontSize: 10, color: '#FFF', letterSpacing: 0.5 },
+  planCardSelected: {
+    borderColor: '#A78BFA',
+    backgroundColor: 'rgba(167,139,250,0.12)',
+  },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioSelected: { borderColor: '#A78BFA' },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#A78BFA',
+  },
+  planMid: { flex: 1, gap: 2 },
+  planLabel: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 12.5,
+    letterSpacing: 0.3,
+  },
+  bestValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(167,139,250,0.18)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 5,
+    alignSelf: 'flex-start',
+  },
+  bestValueStar: { color: '#A78BFA', fontSize: 9 },
+  bestValue: {
+    color: '#A78BFA',
+    fontFamily: Fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  planSubtle: {
+    color: 'rgba(255,255,255,0.45)',
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+  },
+  planPriceCol: { alignItems: 'flex-end' },
+  planPrice: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 18,
+    letterSpacing: -0.3,
+  },
+  planUnit: {
+    color: 'rgba(255,255,255,0.4)',
+    fontFamily: Fonts.regular,
+    fontSize: 10.5,
+  },
+  saveBadge: {
+    width: 48,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(167,139,250,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginRight: -2,
+  },
+  saveBadgeLabel: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.semibold,
+    fontSize: 9,
+    letterSpacing: 0.4,
+  },
+  saveBadgePct: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 14,
+  },
 
-  // Page dots
-  dotsRow: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
-  dotActive: { backgroundColor: '#FFF', width: 20 },
+  // CTA
+  ctaWrap: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    shadowColor: '#7C3AED',
+    shadowOpacity: 0.4,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 10,
+  },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 20,
+  },
+  ctaInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  ctaText: {
+    color: '#FFFFFF',
+    fontFamily: Fonts.bold,
+    fontSize: 17,
+    letterSpacing: -0.2,
+  },
+
+  // Footer row — cancel + legal on one line
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingBottom: 4,
+  },
+  cancelText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: Fonts.medium,
+    fontSize: 11.5,
+  },
+  footerDot: {
+    color: 'rgba(255,255,255,0.25)',
+    fontSize: 9,
+  },
+  legalLink: {
+    color: 'rgba(255,255,255,0.45)',
+    fontFamily: Fonts.medium,
+    fontSize: 11.5,
+  },
+});
+
+const corner = StyleSheet.create({
+  base: {
+    position: 'absolute',
+    width: 22,
+    height: 22,
+  },
+  h: { position: 'absolute', borderRadius: 1.5 },
+  v: { position: 'absolute', borderRadius: 1.5 },
 });
