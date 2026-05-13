@@ -22,7 +22,7 @@ import { Colors, Typography, BorderRadius, Spacing } from '@/lib/theme';
 import { LoadingOverlay } from '@/components/LoadingOverlay';
 import type { ViewAngle, CapturedImage, ScanSession } from '@/lib/scan-types';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { runDetectionOnAll, countDetections } from '@/lib/yolo';
+import { runDetection, countDetections } from '@/lib/yolo';
 import { runScanPipeline, loadScanSession, loadScanHistory } from '@/lib/scan-api';
 import type { ScanHistoryEntry } from '@/lib/scan-api';
 import {
@@ -104,13 +104,31 @@ export default function ScanScreen() {
   const [skinProfileId, setSkinProfileId] = useState<string | null>(null);
   const [frontImageDims, setFrontImageDims] = useState<{ width: number; height: number } | null>(null);
   const [planGenerating, setPlanGenerating] = useState(false);
+  const [existingPlan, setExistingPlan] = useState<{ ranked_items: any[] } | null>(null);
+
+  const fetchActivePlan = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('personalized_plans')
+      .select('ranked_items')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+    setExistingPlan(data ?? null);
+  };
 
   // Only restore results when explicitly navigated from home (loadTs changes each tap)
   useEffect(() => {
     if (loadSessionId && loadTs) {
       setCompletedSession(null);
       loadScanSession(loadSessionId).then(session => {
-        if (session) setCompletedSession(session);
+        if (session) {
+          setCompletedSession(session);
+          fetchActivePlan();
+        }
       });
     }
   }, [loadTs]);
@@ -237,15 +255,17 @@ export default function ScanScreen() {
         right: captures[0]!,
       };
 
-      // Step 1: Run YOLO on-device
+      // Step 1: Run YOLO on-device — front image only (single-image scan)
       setProcessingStep('Detecting acne spots...');
-      const detections = await runDetectionOnAll(images);
+      const frontDetection = await runDetection(captures[0]!);
+      const emptyDetection = { detections: [], imageWidth: frontDetection.imageWidth, imageHeight: frontDetection.imageHeight, inferenceTimeMs: 0 };
+      const detections = { front: frontDetection, left: emptyDetection, right: emptyDetection };
 
       // Use imageWidth/imageHeight from DetectionResult — guaranteed same coordinate space as bbox coords
       if (detections.front) {
         setFrontImageDims({ width: detections.front.imageWidth, height: detections.front.imageHeight });
       }
-      const totalDetected = countDetections(detections);
+      const totalDetected = detections.front.detections.length;
       console.log(`[Scan] YOLO detected ${totalDetected} spots`);
 
       // Step 2: Run full pipeline (upload + Gemini review)
@@ -266,6 +286,7 @@ export default function ScanScreen() {
         const history = await loadScanHistory(session.user_id);
         setScanHistory(history);
       }
+      fetchActivePlan();
     } catch (err: any) {
       console.error('Analysis error:', err);
       const message = err?.message || String(err);
@@ -287,6 +308,7 @@ export default function ScanScreen() {
     setCompletedSession(null);
     setSkinProfileId(null);
     setFrontImageDims(null);
+    setExistingPlan(null);
   };
 
   // Helper: extract a human-readable message from a Supabase FunctionsHttpError
@@ -333,11 +355,37 @@ export default function ScanScreen() {
       return;
     }
 
-    // Gate plan generation behind paywall — paywall runs generate-plan on unlock.
-    router.push({
-      pathname: '/(auth)/paywall',
-      params: { profileId, from: 'scan' },
-    });
+    console.log('[scan] invoking generate-plan with skin_profile_id:', profileId);
+    setPlanGenerating(true);
+
+    let invokeError: any = null;
+    try {
+      // Refresh session so the JWT isn't expired after the long scan process
+      await supabase.auth.refreshSession();
+
+      const invokeBody: Record<string, unknown> = { skin_profile_id: profileId };
+      if (existingPlan?.ranked_items?.length) {
+        invokeBody.existing_plan = existingPlan.ranked_items;
+      }
+      const { error } = await supabase.functions.invoke('generate-plan', {
+        body: invokeBody,
+      });
+      invokeError = error ?? null;
+    } catch (e: any) {
+      // Some SDK versions throw instead of returning { error }
+      invokeError = e;
+    }
+
+    if (invokeError) {
+      const detail = await extractEdgeFnError(invokeError);
+      console.error('[scan] generate-plan failed:', detail);
+      Alert.alert('Plan Generation Failed', detail);
+      setPlanGenerating(false);
+      return;
+    }
+
+    setPlanGenerating(false);
+    router.push('/(tabs)/plan');
   };
 
   // ─── Inline results (stays inside the tab, tab bar remains visible) ─────────
@@ -384,6 +432,7 @@ export default function ScanScreen() {
           totalSpots={completedSession.total_spots}
           primaryAcneType={completedSession.primary_acne_type}
           onBack={resetScan}
+          hasPlan={existingPlan !== null}
           onStartPlan={handleStartPlan}
           onScanAgain={resetScan}
           onViewFullScan={resetScan}
