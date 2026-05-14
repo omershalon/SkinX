@@ -207,6 +207,89 @@ const MapPin = ({ size = 18, color = C.coral }: { size?: number; color?: string 
   </Svg>
 );
 
+const StarOutline = ({ size = 20, color = C.violetSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 3l2.6 5.4 5.9.9-4.3 4.1 1 5.8L12 16.5 6.8 19.2l1-5.8L3.5 9.3l5.9-.9z"
+      stroke={color}
+      strokeWidth={1.7}
+      strokeLinejoin="round"
+      fill="none"
+    />
+  </Svg>
+);
+
+const DotsIcon = ({ size = 20, color = C.violetSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={6.5} r={1.6} fill={color} />
+    <Circle cx={7.5} cy={10} r={1.6} fill={color} />
+    <Circle cx={16.5} cy={10} r={1.6} fill={color} />
+    <Circle cx={12} cy={13.5} r={1.6} fill={color} />
+    <Circle cx={8} cy={17} r={1.6} fill={color} />
+    <Circle cx={16} cy={17} r={1.6} fill={color} />
+  </Svg>
+);
+
+const SlashCircle = ({ size = 22, color = C.greenSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.7} fill="none" />
+    <Line x1={6} y1={18} x2={18} y2={6} stroke={color} strokeWidth={1.7} strokeLinecap="round" />
+  </Svg>
+);
+
+const MoonStars = ({ size = 20, color = C.violetSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M20 14.5A8 8 0 1 1 9.5 4a6 6 0 0 0 10.5 10.5z"
+      fill={color}
+      fillOpacity={0.22}
+      stroke={color}
+      strokeWidth={1.6}
+      strokeLinejoin="round"
+    />
+    <Path d="M18 4.2l.5-1.4L20 2.4l-1.5-.5L18 .5l-.5 1.4-1.5.5L17.5 3z" fill={color} />
+    <Path d="M14.5 9l.3-.8.8-.3-.8-.3-.3-.8-.3.8-.8.3.8.3z" fill={color} />
+  </Svg>
+);
+
+const LeafIcon = ({ size = 13, color = C.violetSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M20 4c-9 0-15 5-15 13 0 .8.1 1.5.3 2.2 1.1-6.5 6.4-11 14.7-11-1 5-5 8.4-10 9"
+      stroke={color}
+      fill={color}
+      fillOpacity={0.18}
+      strokeWidth={1.6}
+      strokeLinejoin="round"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const BottleIcon = ({ size = 22, color = C.greenSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M10 4h4v3h-4z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+    <Path d="M8 8.5h8v11.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+    <Path d="M8 13h8" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+  </Svg>
+);
+
+const DropletFilled = ({ size = 22, color = C.violetSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 3C12 3 5.5 11 5.5 15.5a6.5 6.5 0 0 0 13 0C18.5 11 12 3 12 3z"
+      fill={color}
+      fillOpacity={0.92}
+    />
+  </Svg>
+);
+
+const SparkleSmall = ({ size = 12, color = C.green }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3z" fill={color} />
+  </Svg>
+);
+
 // ─── Animated Ring Sparkles ─────────────────────────────────────────────────
 
 const RING_SPARKLES = [
@@ -1401,6 +1484,663 @@ const prodStyles = StyleSheet.create({
   },
 });
 
+// ─── New Components: Scan-Findings / Routine-Tonight UI ─────────────────────
+
+function FancySectionHead({
+  icon,
+  iconBg,
+  title,
+  subtitle,
+  badge,
+  compact,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  subtitle?: string;
+  badge?: React.ReactNode;
+  compact?: boolean;
+}) {
+  return (
+    <View style={[fancyHeadStyles.row, compact && fancyHeadStyles.rowCompact]}>
+      <View style={[fancyHeadStyles.iconCircle, { backgroundColor: iconBg }]}>{icon}</View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={fancyHeadStyles.title}>{title}</Text>
+        {!!subtitle && <Text style={fancyHeadStyles.subtitle}>{subtitle}</Text>}
+      </View>
+      {badge}
+    </View>
+  );
+}
+
+const fancyHeadStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  rowCompact: {
+    marginBottom: 4,
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    fontFamily: Fonts.bold,
+    fontSize: 15,
+    lineHeight: 18,
+    color: C.text,
+    letterSpacing: -0.2,
+  },
+  subtitle: {
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    lineHeight: 14,
+    color: C.textDim,
+    marginTop: 2,
+  },
+});
+
+function OverallPill({ score }: { score: number }) {
+  const label = score >= 80 ? 'Great' : score >= 65 ? 'Good' : score >= 50 ? 'Fair' : 'Needs care';
+  const tone = score >= 65 ? C.green : score >= 50 ? C.amber : C.coral;
+  const bg = score >= 65 ? C.greenBg : score >= 50 ? C.amberBg : C.coralBg;
+  const border = score >= 65 ? C.greenBorder : score >= 50 ? C.amberBorder : C.coralBorder;
+  return (
+    <View style={[overallStyles.pill, { backgroundColor: bg, borderColor: border }]}>
+      <SparkleSmall size={11} color={tone} />
+      <Text style={[overallStyles.text, { color: tone }]}>Overall: {label}</Text>
+      <View style={[overallStyles.dot, { borderColor: tone }]} />
+    </View>
+  );
+}
+
+const overallStyles = StyleSheet.create({
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  text: {
+    fontFamily: Fonts.semibold,
+    fontSize: 10.5,
+    lineHeight: 12,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+  },
+});
+
+function MaintenancePill() {
+  return (
+    <View style={maintenancePillStyles.pill}>
+      <LeafIcon size={11} color={C.violetSoft} />
+      <Text style={maintenancePillStyles.text}>Maintenance mode</Text>
+    </View>
+  );
+}
+
+const maintenancePillStyles = StyleSheet.create({
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.45)',
+    backgroundColor: 'rgba(124,92,252,0.14)',
+  },
+  text: {
+    fontFamily: Fonts.semibold,
+    fontSize: 10.5,
+    lineHeight: 12,
+    color: C.violetSoft,
+  },
+});
+
+function MainTakeawayCard({
+  label,
+  title,
+  body,
+  showMaintenancePill,
+}: {
+  label: string;
+  title: string;
+  body: string;
+  showMaintenancePill: boolean;
+}) {
+  return (
+    <View style={takeawayStyles.card}>
+      <LinearGradient
+        colors={['rgba(20,8,42,0.55)', 'rgba(10,4,26,0.55)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
+      />
+      <View style={[takeawayStyles.iconCircle]}>
+        <StarOutline size={20} color={C.violetSoft} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <View style={takeawayStyles.headerRow}>
+          <Text style={takeawayStyles.label}>{label}</Text>
+          {showMaintenancePill && <MaintenancePill />}
+        </View>
+        <Text style={takeawayStyles.title}>{title}</Text>
+        {!!body && <Text style={takeawayStyles.body}>{body}</Text>}
+      </View>
+    </View>
+  );
+}
+
+const takeawayStyles = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.2)',
+    overflow: 'hidden',
+    marginBottom: 10,
+    shadowColor: C.violet,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
+  },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(124,92,252,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    gap: 8,
+  },
+  label: {
+    fontFamily: Fonts.semibold,
+    fontSize: 11.5,
+    lineHeight: 14,
+    color: C.textDim,
+    letterSpacing: 0.1,
+  },
+  title: {
+    fontFamily: Fonts.bold,
+    fontSize: 15,
+    lineHeight: 19,
+    color: C.text,
+    letterSpacing: -0.2,
+    marginBottom: 4,
+  },
+  body: {
+    fontFamily: Fonts.regular,
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: C.textDim,
+  },
+});
+
+function FindingCard({
+  icon,
+  iconBg,
+  iconBorder,
+  title,
+  desc,
+  pillText,
+  pillTone,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  iconBg: string;
+  iconBorder: string;
+  title: string;
+  desc: string;
+  pillText: string;
+  pillTone: 'green' | 'violet';
+  onPress?: () => void;
+}) {
+  const palette =
+    pillTone === 'violet'
+      ? { bg: 'rgba(124,92,252,0.16)', border: 'rgba(124,92,252,0.45)', text: C.violetSoft }
+      : { bg: C.greenBg, border: C.greenBorder, text: C.greenSoft };
+
+  return (
+    <TouchableOpacity style={findingStyles.card} onPress={onPress} activeOpacity={0.8}>
+      <View style={[findingStyles.iconCircle, { backgroundColor: iconBg, borderColor: iconBorder }]}>
+        {icon}
+      </View>
+      <Text style={findingStyles.title} numberOfLines={2}>{title}</Text>
+      <Text style={findingStyles.desc} numberOfLines={3}>{desc}</Text>
+      <View style={[findingStyles.pill, { backgroundColor: palette.bg, borderColor: palette.border }]}>
+        {pillTone === 'violet' ? (
+          <Text style={[findingStyles.pillTilde, { color: palette.text }]}>~</Text>
+        ) : (
+          <CheckSm size={10} color={palette.text} />
+        )}
+        <Text style={[findingStyles.pillText, { color: palette.text }]}>{pillText}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const findingStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  card: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.18)',
+    backgroundColor: 'rgba(10,4,26,0.45)',
+    paddingVertical: 11,
+    paddingHorizontal: 10,
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  title: {
+    fontFamily: Fonts.bold,
+    fontSize: 12,
+    lineHeight: 14.5,
+    color: C.text,
+    letterSpacing: -0.1,
+  },
+  desc: {
+    fontFamily: Fonts.regular,
+    fontSize: 9.5,
+    lineHeight: 12.5,
+    color: C.textDim,
+    minHeight: 36,
+  },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  pillTilde: {
+    fontFamily: Fonts.bold,
+    fontSize: 11,
+    lineHeight: 12,
+  },
+  pillText: {
+    fontFamily: Fonts.semibold,
+    fontSize: 10,
+    lineHeight: 12,
+  },
+});
+
+function RoutineStep({
+  number,
+  icon,
+  title,
+  desc,
+  onPress,
+}: {
+  number: number;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity style={routineStyles.card} onPress={onPress} activeOpacity={0.8}>
+      <View style={routineStyles.topRow}>
+        <View style={routineStyles.numberBadge}>
+          <Text style={routineStyles.numberText}>{number}</Text>
+        </View>
+        <Text style={routineStyles.title} numberOfLines={2}>{title}</Text>
+        <View style={routineStyles.iconWrap}>{icon}</View>
+      </View>
+      <Text style={routineStyles.desc} numberOfLines={3}>{desc}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function DottedConnector() {
+  return (
+    <View style={routineStyles.connector}>
+      <View style={routineStyles.connectorDot} />
+      <View style={routineStyles.connectorDot} />
+      <View style={routineStyles.connectorDot} />
+      <View style={routineStyles.connectorDot} />
+    </View>
+  );
+}
+
+const routineStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  card: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.20)',
+    backgroundColor: 'rgba(10,4,26,0.45)',
+    paddingVertical: 10,
+    paddingHorizontal: 9,
+    gap: 4,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  numberBadge: {
+    width: 19,
+    height: 19,
+    borderRadius: 10,
+    backgroundColor: C.violet,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  numberText: {
+    fontFamily: Fonts.bold,
+    fontSize: 10.5,
+    lineHeight: 12,
+    color: '#FFFFFF',
+  },
+  title: {
+    flex: 1,
+    fontFamily: Fonts.bold,
+    fontSize: 11.5,
+    lineHeight: 13.5,
+    color: C.text,
+    letterSpacing: -0.1,
+  },
+  iconWrap: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  desc: {
+    fontFamily: Fonts.regular,
+    fontSize: 9.5,
+    lineHeight: 12.5,
+    color: C.textDim,
+    marginTop: 2,
+  },
+  connector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 3,
+  },
+  connectorDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(124,92,252,0.55)',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(52,211,153,0.25)',
+    backgroundColor: 'rgba(52,211,153,0.06)',
+  },
+  footerText: {
+    flex: 1,
+    fontFamily: Fonts.regular,
+    fontSize: 11,
+    lineHeight: 14,
+    color: C.textDim,
+  },
+  footerHighlight: {
+    fontFamily: Fonts.bold,
+    color: C.greenSoft,
+  },
+});
+
+// ─── Findings / Routine / Takeaway derivation ───────────────────────────────
+
+type FindingTone = 'green' | 'violet';
+interface Finding {
+  key: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  iconBorder: string;
+  title: string;
+  desc: string;
+  pillText: string;
+  pillTone: FindingTone;
+}
+
+function deriveFindings(
+  assessment: SkinAssessmentItem[] | undefined,
+  totalSpots: number | null | undefined,
+): Finding[] {
+  const greenBgI = 'rgba(52,211,153,0.10)';
+  const greenBd = 'rgba(52,211,153,0.40)';
+  const violetBg = 'rgba(124,92,252,0.14)';
+  const violetBd = 'rgba(124,92,252,0.45)';
+
+  const spots = totalSpots ?? 0;
+  const breakoutsClear = spots === 0;
+
+  const findIn = (cats: string[]) =>
+    assessment?.find((a) => cats.includes(a.category));
+
+  const poresItem = findIn(['comedones', 'pore_visibility']);
+  const toneItem = findIn(['skin_tone_evenness', 'dark_spots']);
+
+  // Slot 1 — Breakouts
+  const breakouts: Finding = breakoutsClear
+    ? {
+        key: 'breakouts',
+        icon: <Shield size={18} color={C.green} />,
+        iconBg: greenBgI,
+        iconBorder: greenBd,
+        title: 'No active breakouts',
+        desc: "No inflamed acne detected in today's scan.",
+        pillText: 'Clear',
+        pillTone: 'green',
+      }
+    : {
+        key: 'breakouts',
+        icon: <Shield size={18} color={C.violetSoft} />,
+        iconBg: violetBg,
+        iconBorder: violetBd,
+        title: `${spots} active spot${spots === 1 ? '' : 's'}`,
+        desc: 'A few inflamed spots showed up in this scan.',
+        pillText: spots > 8 ? 'Watch' : 'Mild',
+        pillTone: 'violet',
+      };
+
+  // Slot 2 — Pores
+  const poresMild = poresItem ? !poresItem.is_strength || (poresItem.score ?? 0) >= 3 : false;
+  const pores: Finding = poresMild
+    ? {
+        key: 'pores',
+        icon: <DotsIcon size={18} color={C.violetSoft} />,
+        iconBg: violetBg,
+        iconBorder: violetBd,
+        title: 'Pores look calm',
+        desc: 'Minor congestion only, mostly on the forehead.',
+        pillText: 'Mild',
+        pillTone: 'violet',
+      }
+    : {
+        key: 'pores',
+        icon: <DotsIcon size={18} color={C.green} />,
+        iconBg: greenBgI,
+        iconBorder: greenBd,
+        title: 'Pores look clear',
+        desc: 'Few clogged pores detected across your zones.',
+        pillText: 'Clear',
+        pillTone: 'green',
+      };
+
+  // Slot 3 — Tone
+  const toneStable = !toneItem || toneItem.is_strength;
+  const tone: Finding = toneStable
+    ? {
+        key: 'tone',
+        icon: <Sun size={18} color={C.green} />,
+        iconBg: greenBgI,
+        iconBorder: greenBd,
+        title: 'Tone looks even',
+        desc: 'No visible dark spots or redness spikes.',
+        pillText: 'Stable',
+        pillTone: 'green',
+      }
+    : {
+        key: 'tone',
+        icon: <Sun size={18} color={C.violetSoft} />,
+        iconBg: violetBg,
+        iconBorder: violetBd,
+        title: 'Tone variation',
+        desc: 'Slight unevenness picked up across your face.',
+        pillText: 'Mild',
+        pillTone: 'violet',
+      };
+
+  return [breakouts, pores, tone];
+}
+
+interface RoutineStepData {
+  key: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  body: string;
+}
+
+function deriveRoutineSteps(
+  score: number,
+  assessment: SkinAssessmentItem[] | undefined,
+  totalSpots: number | null | undefined,
+): RoutineStepData[] {
+  const spots = totalSpots ?? 0;
+  const maintenance = score >= 80 && spots === 0;
+
+  if (maintenance) {
+    return [
+      {
+        key: 'cleanse',
+        icon: <BottleIcon size={20} color={C.greenSoft} />,
+        title: 'Cleanse',
+        desc: 'Wash off sunscreen, sweat, and oil gently.',
+        body: 'A gentle low-pH cleanser removes the day without stripping your barrier. Lukewarm water only — hot water breaks down your skin barrier.',
+      },
+      {
+        key: 'moisturize',
+        icon: <DropletFilled size={20} color={C.violetSoft} />,
+        title: 'Moisturize',
+        desc: 'Use a light moisturizer to keep your barrier calm.',
+        body: 'A lightweight moisturizer with ceramides or niacinamide locks in hydration overnight without feeling heavy.',
+      },
+      {
+        key: 'skip',
+        icon: <SlashCircle size={20} color={C.greenSoft} />,
+        title: 'Skip strong actives',
+        desc: 'No need to over-treat tonight. Keep it simple.',
+        body: 'When your skin looks balanced, layering retinoids or acids can disrupt your barrier. Take the night off — your skin will thank you tomorrow.',
+      },
+    ];
+  }
+
+  return [
+    {
+      key: 'cleanse',
+      icon: <BottleIcon size={20} color={C.greenSoft} />,
+      title: 'Cleanse',
+      desc: 'Wash off sunscreen, sweat, and oil gently.',
+      body: 'A gentle low-pH cleanser removes the day without stripping your barrier. Lukewarm water only.',
+    },
+    {
+      key: 'treat',
+      icon: <DropletFilled size={20} color={C.violetSoft} />,
+      title: 'Treat',
+      desc: 'Spot-treat with a targeted active where needed.',
+      body: 'Apply a BHA or benzoyl peroxide only to active spots. Avoid layering multiple actives on the same night.',
+    },
+    {
+      key: 'moisturize',
+      icon: <DropletFilled size={20} color={C.violetSoft} />,
+      title: 'Moisturize',
+      desc: 'Seal in hydration to support your barrier.',
+      body: 'A moisturizer with ceramides or hyaluronic acid restores moisture and helps actives work without irritation.',
+    },
+  ];
+}
+
+function deriveTakeaway(score: number, description: string | undefined) {
+  if (score >= 80) {
+    return {
+      title: "You're in maintenance mode today.",
+      body: description?.trim() || "Keep your routine simple tonight—cleanse, moisturize, and avoid over-treating.",
+      maintenance: true,
+    };
+  }
+  if (score >= 65) {
+    return {
+      title: 'Your skin is looking solid today.',
+      body: description?.trim() || 'Stay consistent with your routine—you\'re trending in the right direction.',
+      maintenance: false,
+    };
+  }
+  if (score >= 50) {
+    return {
+      title: 'A few areas to focus on tonight.',
+      body: description?.trim() || 'Spot-treat actives, hydrate, and avoid layering too much.',
+      maintenance: false,
+    };
+  }
+  return {
+    title: "Let's give your skin some care tonight.",
+    body: description?.trim() || 'Stick to gentle cleansing, targeted treatment, and a calming moisturizer.',
+    maintenance: false,
+  };
+}
+
 // ─── Main Component ─────────────────────────────────────────────────────────
 
 export default function GlowAnalysisDashboard({
@@ -1429,13 +2169,10 @@ export default function GlowAnalysisDashboard({
 
   const score = deriveGlowScore({ totalSpots, zoneScores, skinAssessment, primaryAcneType });
   const accent = deriveScoreAccent(score);
-  const breakouts = deriveBreakouts(totalSpots, primaryAcneType);
-  const trend = deriveTrend(scanHistory, currentSessionId);
-  const trendBadge = deriveTrendBadge(scanHistory, currentSessionId);
-  const highlights = deriveHighlights(skinAssessment);
-  const concerns = deriveConcerns(skinAssessment);
-  const worstZone = deriveWorstZone(zoneScores);
-  const eyebrow = score >= 80 ? 'Great news!' : score >= 65 ? 'Looking good' : score >= 50 ? 'Worth a look' : 'Heads up';
+  const findings = deriveFindings(skinAssessment, totalSpots);
+  const routineSteps = deriveRoutineSteps(score, skinAssessment, totalSpots);
+  const takeaway = deriveTakeaway(score, description);
+  const eyebrow = "Today's Scan";
 
   const SKIN_TYPE_INFO: Record<string, string> = {
     Normal:      'Normal skin has a healthy balance of oil and moisture. Pores are small, tone is even, and breakouts are rare. Keep it up with gentle cleansing and daily SPF.',
@@ -1533,8 +2270,8 @@ export default function GlowAnalysisDashboard({
           headline={headline}
           subline={
             totalSpots && totalSpots > 0
-              ? `${totalSpots} spot${totalSpots !== 1 ? 's' : ''} detected`
-              : 'Skin looking clear'
+              ? `${totalSpots} spot${totalSpots !== 1 ? 's' : ''} detected today.`
+              : 'No active breakouts detected today.'
           }
           score={score}
           scoreLabel={accent.label}
@@ -1543,128 +2280,68 @@ export default function GlowAnalysisDashboard({
           imageNativeHeight={imageNativeHeight}
         />
 
-        <View style={styles.statRow}>
-          <StatCard
-            icon={<CheckSm size={18} color={breakouts.color} />}
-            label={breakouts.label}
-            value={breakouts.value}
-            valueColor={breakouts.color}
-            iconBg={breakouts.color === C.green ? 'rgba(52,211,153,0.12)' : breakouts.color === C.amber ? C.amberBg : C.coralBg}
-            iconBorder={breakouts.color === C.green ? 'rgba(52,211,153,0.25)' : breakouts.color === C.amber ? C.amberBorder : C.coralBorder}
-            onPress={() => setModal({ title: 'Breakouts', body: BREAKOUT_INFO(breakouts.value, totalSpots) })}
-          />
-          {worstZone ? (
-            <StatCard
-              icon={<MapPin size={18} color={worstZone.severity === 'severe' ? C.coral : worstZone.severity === 'moderate' ? C.amber : C.violetSoft} />}
-              label="Focus Zone"
-              value={ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone}
-              valueColor={worstZone.severity === 'severe' ? C.coral : worstZone.severity === 'moderate' ? C.amber : C.violetSoft}
-              iconBg={worstZone.severity === 'severe' ? C.coralBg : worstZone.severity === 'moderate' ? C.amberBg : 'rgba(124,92,252,0.14)'}
-              iconBorder={worstZone.severity === 'severe' ? C.coralBorder : worstZone.severity === 'moderate' ? C.amberBorder : 'rgba(124,92,252,0.30)'}
-              onPress={() => setModal({
-                title: `Focus Zone · ${ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone}`,
-                body: `Your ${ZONE_SHORT_LABELS[worstZone.zone] ?? worstZone.zone} area shows the most activity this scan — ${worstZone.severity} severity${worstZone.lesion_count > 0 ? ` with ${worstZone.lesion_count} spot${worstZone.lesion_count !== 1 ? 's' : ''} detected` : ''}. Applying targeted treatments here first will have the biggest impact on your overall score.`,
-              })}
-            />
-          ) : (
-            <StatCard
-              icon={<Drop size={18} color={C.violetSoft} />}
-              label="Skin type"
-              value={skinType || 'Normal'}
-              valueColor={C.text}
-              iconBg="rgba(124,92,252,0.14)"
-              iconBorder="rgba(124,92,252,0.30)"
-              onPress={() => setModal({ title: `Skin Type · ${skinType || 'Normal'}`, body: SKIN_TYPE_INFO[skinType] ?? SKIN_TYPE_INFO['Normal'] })}
-            />
-          )}
-          <StatCard
-            icon={
-              trend.icon === 'down' ? <TrendDown size={18} color={trend.color} /> :
-              trend.icon === 'flat' ? <TrendFlat size={18} color={trend.color} /> :
-              <TrendUp size={18} color={trend.color} />
-            }
-            label={trend.label}
-            value={trend.value}
-            valueColor={trend.color}
-            iconBg={trend.color === C.green ? 'rgba(52,211,153,0.12)' : trend.color === C.coral ? C.coralBg : 'rgba(124,92,252,0.14)'}
-            iconBorder={trend.color === C.green ? 'rgba(52,211,153,0.25)' : trend.color === C.coral ? C.coralBorder : 'rgba(124,92,252,0.30)'}
-            onPress={() => setModal({ title: `Trend · ${trend.value}`, body: TREND_INFO[trend.value] ?? TREND_INFO['Stable'] })}
-          />
-        </View>
+        <MainTakeawayCard
+          label="Main Takeaway"
+          title={takeaway.title}
+          body={takeaway.body}
+          showMaintenancePill={takeaway.maintenance}
+        />
 
         <SectionCard>
-          <SectionHead title="Today's Highlights" />
-          {highlights.map((h, i) => (
-            <HighlightRow
-              key={h.key}
-              icon={h.icon}
-              iconBg={h.iconBg}
-              title={h.title}
-              desc={h.desc}
-              last={i === highlights.length - 1}
-              onPress={() => setModal(HIGHLIGHT_INFO[h.title] ?? { title: h.title, body: h.desc })}
-            />
-          ))}
-        </SectionCard>
-
-        {concerns.length > 0 && (
-          <SectionCard>
-            <SectionHead title="Areas to Work On" />
-            {concerns.map((c, i) => (
-              <HighlightRow
-                key={c.key}
-                icon={c.icon}
-                iconBg={c.iconBg}
-                iconBorder={c.iconBorder}
-                title={c.title}
-                desc={c.desc}
-                last={i === concerns.length - 1}
-                onPress={() => setModal(HIGHLIGHT_INFO[c.title] ?? { title: c.title, body: c.desc })}
+          <FancySectionHead
+            icon={<Sparkle size={14} color={C.violetSoft} />}
+            iconBg="rgba(124,92,252,0.18)"
+            title="Scan Findings"
+            subtitle="AI analysis from today's skin scan"
+            badge={<OverallPill score={score} />}
+          />
+          <View style={findingStyles.row}>
+            {findings.map((f) => (
+              <FindingCard
+                key={f.key}
+                icon={f.icon}
+                iconBg={f.iconBg}
+                iconBorder={f.iconBorder}
+                title={f.title}
+                desc={f.desc}
+                pillText={f.pillText}
+                pillTone={f.pillTone}
+                onPress={() => setModal(HIGHLIGHT_INFO[f.title] ?? { title: f.title, body: f.desc })}
               />
             ))}
-          </SectionCard>
-        )}
-
-        <SectionCard>
-          <SectionHead title="Maintain Your Glow" badge={<Pill text="Maintenance mode" tone="green" />} />
-          <HighlightRow
-            icon={<Cleanse size={22} color={C.green} />}
-            iconBg="rgba(52,211,153,0.10)"
-            title="Gentle cleanse"
-            desc="Wash away sweat, oil, and buildup."
-            onPress={() => setModal({ title: 'Gentle Cleanse', body: 'Cleansing twice a day removes excess oil, sweat, and environmental debris that clog pores and cause breakouts. Use a gentle low-pH cleanser (pH 4.5–5.5) — harsh soaps strip your acid mantle and trigger more oil production as compensation. Lukewarm water only; hot water breaks down your skin barrier.', product: { name: 'Hydrating Facial Cleanser', brand: 'CeraVe', buyUrl: 'https://www.amazon.com/dp/B01MSSDEPK', iconType: 'cleanse' } })}
-          />
-          <HighlightRow
-            icon={<Moisturize size={20} color={C.violetSoft} />}
-            iconBg="rgba(124,92,252,0.12)"
-            iconBorder="rgba(124,92,252,0.28)"
-            title="Hydrate + moisturize"
-            desc="Keep your barrier strong and balanced."
-            onPress={() => setModal({ title: 'Hydrate + Moisturize', body: 'A healthy skin barrier keeps moisture in and irritants out. Apply a hydrating serum (hyaluronic acid) to damp skin, then seal with a moisturiser. Even oily skin needs moisturiser — skipping it signals your glands to produce more oil. Look for ceramides, niacinamide, or glycerin in your formula.', product: { name: 'Hyaluronic Acid 2% + B5', brand: 'The Ordinary', buyUrl: 'https://www.amazon.com/dp/B01N9SPQHM', iconType: 'hydrate' } })}
-          />
-          <HighlightRow
-            icon={<Sun size={20} color={C.green} />}
-            iconBg="rgba(52,211,153,0.10)"
-            title="SPF every morning"
-            desc="Protect clear skin from dark spots."
-            last
-            onPress={() => setModal({ title: 'SPF Every Morning', body: 'UV exposure is the #1 cause of dark spots, accelerated ageing, and post-acne marks getting darker. SPF 30+ applied every morning — even on cloudy days and indoors near windows — is non-negotiable. Reapply every 2 hours if you\'re outside. Mineral (zinc oxide) or chemical SPF both work; pick the texture you\'ll actually wear daily.', product: { name: 'UV Clear Broad-Spectrum SPF 46', brand: 'EltaMD', buyUrl: 'https://www.amazon.com/dp/B002MSN3QQ', iconType: 'spf' } })}
-          />
+          </View>
         </SectionCard>
 
-        {/* Progress chart */}
-        {scanHistory && scanHistory.length > 0 && (
-          <SectionCard>
-            <SectionHead
-              title="Your Progress"
-              badge={<Pill text={`${scanHistory.length} scan${scanHistory.length === 1 ? '' : 's'}`} tone="green" />}
-            />
-            <View style={{ marginTop: 4 }}>
-              <ProgressMiniChart history={scanHistory} currentSessionId={currentSessionId} />
-            </View>
-            <Text style={progressStyles.caption}>Spot count over time — lower is better</Text>
-          </SectionCard>
-        )}
+        <SectionCard>
+          <FancySectionHead
+            icon={<MoonStars size={18} color={C.violetSoft} />}
+            iconBg="rgba(124,92,252,0.18)"
+            title="Your Routine Tonight"
+            subtitle="Personalized plan based on your scan"
+            badge={<MaintenancePill />}
+          />
+          <View style={routineStyles.row}>
+            {routineSteps.map((step, i) => (
+              <React.Fragment key={step.key}>
+                <RoutineStep
+                  number={i + 1}
+                  icon={step.icon}
+                  title={step.title}
+                  desc={step.desc}
+                  onPress={() => setModal({ title: step.title, body: step.body })}
+                />
+                {i < routineSteps.length - 1 && <DottedConnector />}
+              </React.Fragment>
+            ))}
+          </View>
+          <View style={routineStyles.footer}>
+            <SparkleSmall size={11} color={C.green} />
+            <Text style={routineStyles.footerText}>
+              <Text style={routineStyles.footerHighlight}>Less is more.</Text>
+              {'  '}Your skin looks balanced—support and protect tonight.
+            </Text>
+          </View>
+        </SectionCard>
 
         {/* Recommended products carousel */}
         <View style={styles.carouselWrap}>
@@ -1675,11 +2352,14 @@ export default function GlowAnalysisDashboard({
             style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
           />
           <View style={styles.carouselHead}>
-            <View style={sectionStyles.headLeft}>
-              <Sparkle size={11} color={C.violetSoft} />
-              <Text style={sectionStyles.headTitle}>RECOMMENDED FOR YOU</Text>
-            </View>
-            <Pill text="Top Picks" tone="green" />
+            <FancySectionHead
+              icon={<Sparkle size={14} color={C.violetSoft} />}
+              iconBg="rgba(124,92,252,0.18)"
+              title="Recommended For Your Routine"
+              subtitle="Recommended because your scan is clear and your goal is maintenance."
+              badge={<Pill text="Top Picks" tone="green" />}
+              compact
+            />
           </View>
           <ScrollView
             horizontal
@@ -1762,9 +2442,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   carouselHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 14,
     marginBottom: 10,
   },
