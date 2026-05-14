@@ -221,12 +221,34 @@ const StarOutline = ({ size = 20, color = C.violetSoft }: { size?: number; color
 
 const DotsIcon = ({ size = 20, color = C.violetSoft }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Circle cx={12} cy={6.5} r={1.6} fill={color} />
-    <Circle cx={7.5} cy={10} r={1.6} fill={color} />
-    <Circle cx={16.5} cy={10} r={1.6} fill={color} />
-    <Circle cx={12} cy={13.5} r={1.6} fill={color} />
-    <Circle cx={8} cy={17} r={1.6} fill={color} />
-    <Circle cx={16} cy={17} r={1.6} fill={color} />
+    <Circle cx={12} cy={12} r={1.7} fill={color} />
+    <Circle cx={12} cy={6.8} r={1.7} fill={color} />
+    <Circle cx={16.5} cy={9.4} r={1.7} fill={color} />
+    <Circle cx={16.5} cy={14.6} r={1.7} fill={color} />
+    <Circle cx={12} cy={17.2} r={1.7} fill={color} />
+    <Circle cx={7.5} cy={14.6} r={1.7} fill={color} />
+    <Circle cx={7.5} cy={9.4} r={1.7} fill={color} />
+  </Svg>
+);
+
+const ShieldOutline = ({ size = 20, color = C.green }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 3l8 3v6c0 4.5-3.4 8.4-8 9-4.6-.6-8-4.5-8-9V6l8-3z"
+      fill={color}
+      fillOpacity={0.18}
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const TripleSparkle = ({ size = 18, color = C.violetSoft }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M10 4.5l1.5 4.4 4.4 1.5-4.4 1.5-1.5 4.4-1.5-4.4-4.4-1.5 4.4-1.5z" fill={color} />
+    <Path d="M17.5 13l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7z" fill={color} />
+    <Path d="M16.5 4l.4 1.2 1.2.4-1.2.4-.4 1.2-.4-1.2-1.2-.4 1.2-.4z" fill={color} />
   </Svg>
 );
 
@@ -1524,16 +1546,16 @@ const fancyHeadStyles = StyleSheet.create({
     marginBottom: 4,
   },
   iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
     fontFamily: Fonts.bold,
-    fontSize: 15,
-    lineHeight: 18,
+    fontSize: 16,
+    lineHeight: 19,
     color: C.text,
     letterSpacing: -0.2,
   },
@@ -1749,62 +1771,61 @@ function FindingCard({
 const findingStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 7,
   },
   card: {
     flex: 1,
     minWidth: 0,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.18)',
+    borderColor: 'rgba(124,92,252,0.22)',
     backgroundColor: 'rgba(10,4,26,0.45)',
-    paddingVertical: 11,
-    paddingHorizontal: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 11,
     alignItems: 'flex-start',
-    gap: 6,
+    gap: 9,
   },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
   },
   title: {
     fontFamily: Fonts.bold,
-    fontSize: 12,
-    lineHeight: 14.5,
+    fontSize: 13.5,
+    lineHeight: 16,
     color: C.text,
-    letterSpacing: -0.1,
+    letterSpacing: -0.2,
   },
   desc: {
     fontFamily: Fonts.regular,
-    fontSize: 9.5,
-    lineHeight: 12.5,
+    fontSize: 11,
+    lineHeight: 14.5,
     color: C.textDim,
-    minHeight: 36,
+    minHeight: 44,
   },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: 1,
     marginTop: 2,
   },
   pillTilde: {
     fontFamily: Fonts.bold,
-    fontSize: 11,
-    lineHeight: 12,
+    fontSize: 12,
+    lineHeight: 13,
   },
   pillText: {
     fontFamily: Fonts.semibold,
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 11,
+    lineHeight: 13,
   },
 });
 
@@ -1975,7 +1996,7 @@ function deriveFindings(
   const breakouts: Finding = breakoutsClear
     ? {
         key: 'breakouts',
-        icon: <Shield size={18} color={C.green} />,
+        icon: <ShieldOutline size={22} color={C.green} />,
         iconBg: greenBgI,
         iconBorder: greenBd,
         title: 'No active breakouts',
@@ -1985,7 +2006,7 @@ function deriveFindings(
       }
     : {
         key: 'breakouts',
-        icon: <Shield size={18} color={C.violetSoft} />,
+        icon: <ShieldOutline size={22} color={C.violetSoft} />,
         iconBg: violetBg,
         iconBorder: violetBd,
         title: `${spots} active spot${spots === 1 ? '' : 's'}`,
@@ -1999,7 +2020,7 @@ function deriveFindings(
   const pores: Finding = poresMild
     ? {
         key: 'pores',
-        icon: <DotsIcon size={18} color={C.violetSoft} />,
+        icon: <DotsIcon size={22} color={C.violetSoft} />,
         iconBg: violetBg,
         iconBorder: violetBd,
         title: 'Pores look calm',
@@ -2009,7 +2030,7 @@ function deriveFindings(
       }
     : {
         key: 'pores',
-        icon: <DotsIcon size={18} color={C.green} />,
+        icon: <DotsIcon size={22} color={C.green} />,
         iconBg: greenBgI,
         iconBorder: greenBd,
         title: 'Pores look clear',
@@ -2023,7 +2044,7 @@ function deriveFindings(
   const tone: Finding = toneStable
     ? {
         key: 'tone',
-        icon: <Sun size={18} color={C.green} />,
+        icon: <Sun size={22} color={C.green} />,
         iconBg: greenBgI,
         iconBorder: greenBd,
         title: 'Tone looks even',
@@ -2033,7 +2054,7 @@ function deriveFindings(
       }
     : {
         key: 'tone',
-        icon: <Sun size={18} color={C.violetSoft} />,
+        icon: <Sun size={22} color={C.violetSoft} />,
         iconBg: violetBg,
         iconBorder: violetBd,
         title: 'Tone variation',
@@ -2289,7 +2310,7 @@ export default function GlowAnalysisDashboard({
 
         <SectionCard>
           <FancySectionHead
-            icon={<Sparkle size={14} color={C.violetSoft} />}
+            icon={<TripleSparkle size={20} color={C.violetSoft} />}
             iconBg="rgba(124,92,252,0.18)"
             title="Scan Findings"
             subtitle="AI analysis from today's skin scan"
@@ -2353,7 +2374,7 @@ export default function GlowAnalysisDashboard({
           />
           <View style={styles.carouselHead}>
             <FancySectionHead
-              icon={<Sparkle size={14} color={C.violetSoft} />}
+              icon={<TripleSparkle size={20} color={C.violetSoft} />}
               iconBg="rgba(124,92,252,0.18)"
               title="Recommended For Your Routine"
               subtitle="Recommended because your scan is clear and your goal is maintenance."
