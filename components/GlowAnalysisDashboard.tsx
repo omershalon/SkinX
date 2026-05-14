@@ -487,7 +487,6 @@ function HeroCard({
 
   return (
     <View style={heroStyles.outer}>
-      <View style={heroStyles.glow} />
       <View style={heroStyles.card}>
         <LinearGradient
           colors={['#2E0B6B', '#1C0655', '#160448']}
@@ -555,20 +554,6 @@ const heroStyles = StyleSheet.create({
   outer: {
     position: 'relative',
     marginBottom: 12,
-  },
-  glow: {
-    position: 'absolute',
-    top: -8,
-    left: -8,
-    right: -8,
-    bottom: -8,
-    borderRadius: 28,
-    backgroundColor: 'rgba(124,92,252,0.12)',
-    shadowColor: C.violet,
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 6,
   },
   card: {
     flexDirection: 'row',
