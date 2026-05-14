@@ -489,7 +489,7 @@ function HeroCard({
     <View style={heroStyles.outer}>
       <View style={heroStyles.card}>
         <LinearGradient
-          colors={['rgba(20,8,42,0.55)', 'rgba(10,4,26,0.55)']}
+          colors={['#3A1B85', '#2A1066']}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
