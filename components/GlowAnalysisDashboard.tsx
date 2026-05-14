@@ -1854,10 +1854,10 @@ function RoutineStep({
         <View style={routineStyles.numberBadge}>
           <Text style={routineStyles.numberText}>{number}</Text>
         </View>
+        <Text style={routineStyles.title} numberOfLines={1}>{title}</Text>
         <View style={routineStyles.iconWrap}>{icon}</View>
       </View>
-      <Text style={routineStyles.title} numberOfLines={2}>{title}</Text>
-      <Text style={routineStyles.desc} numberOfLines={3}>{desc}</Text>
+      <Text style={routineStyles.desc} numberOfLines={2}>{desc}</Text>
     </TouchableOpacity>
   );
 }
@@ -1874,25 +1874,24 @@ function DottedConnector() {
 }
 
 const routineStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
+  scrollContent: {
+    alignItems: 'center',
+    paddingVertical: 2,
   },
   card: {
-    flex: 1,
-    minWidth: 0,
+    width: 200,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.22)',
     backgroundColor: 'rgba(10,4,26,0.45)',
     paddingVertical: 13,
-    paddingHorizontal: 11,
+    paddingHorizontal: 13,
     gap: 8,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 8,
   },
   numberBadge: {
     width: 22,
@@ -1909,12 +1908,12 @@ const routineStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   title: {
+    flex: 1,
     fontFamily: Fonts.bold,
-    fontSize: 13.5,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 17,
     color: C.text,
     letterSpacing: -0.2,
-    marginTop: 2,
   },
   iconWrap: {
     width: 22,
@@ -1924,10 +1923,9 @@ const routineStyles = StyleSheet.create({
   },
   desc: {
     fontFamily: Fonts.regular,
-    fontSize: 11,
-    lineHeight: 14.5,
+    fontSize: 11.5,
+    lineHeight: 15,
     color: C.textDim,
-    marginTop: 2,
   },
   connector: {
     flexDirection: 'row',
@@ -2348,7 +2346,11 @@ export default function GlowAnalysisDashboard({
             subtitle="Personalized plan based on your scan"
             badge={<MaintenancePill />}
           />
-          <View style={routineStyles.row}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={routineStyles.scrollContent}
+          >
             {routineSteps.map((step, i) => (
               <React.Fragment key={step.key}>
                 <RoutineStep
@@ -2361,7 +2363,7 @@ export default function GlowAnalysisDashboard({
                 {i < routineSteps.length - 1 && <DottedConnector />}
               </React.Fragment>
             ))}
-          </View>
+          </ScrollView>
           <View style={routineStyles.footer}>
             <SparkleSmall size={11} color={C.green} />
             <Text style={routineStyles.footerText}>
