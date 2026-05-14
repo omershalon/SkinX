@@ -1854,9 +1854,9 @@ function RoutineStep({
         <View style={routineStyles.numberBadge}>
           <Text style={routineStyles.numberText}>{number}</Text>
         </View>
-        <Text style={routineStyles.title} numberOfLines={2}>{title}</Text>
         <View style={routineStyles.iconWrap}>{icon}</View>
       </View>
+      <Text style={routineStyles.title} numberOfLines={2}>{title}</Text>
       <Text style={routineStyles.desc} numberOfLines={3}>{desc}</Text>
     </TouchableOpacity>
   );
@@ -1892,7 +1892,7 @@ const routineStyles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    justifyContent: 'space-between',
   },
   numberBadge: {
     width: 22,
@@ -1909,12 +1909,12 @@ const routineStyles = StyleSheet.create({
     color: '#FFFFFF',
   },
   title: {
-    flex: 1,
     fontFamily: Fonts.bold,
     fontSize: 13.5,
     lineHeight: 16,
     color: C.text,
     letterSpacing: -0.2,
+    marginTop: 2,
   },
   iconWrap: {
     width: 22,
@@ -1927,6 +1927,7 @@ const routineStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14.5,
     color: C.textDim,
+    marginTop: 2,
   },
   connector: {
     flexDirection: 'row',
