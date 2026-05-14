@@ -489,10 +489,10 @@ function HeroCard({
     <View style={heroStyles.outer}>
       <View style={heroStyles.card}>
         <LinearGradient
-          colors={['#2E0B6B', '#1C0655', '#160448']}
+          colors={['rgba(20,8,42,0.55)', 'rgba(10,4,26,0.55)']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: 22 }]}
+          end={{ x: 0, y: 1 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
         />
         {/* avatar — tappable to expand */}
         <TouchableOpacity
@@ -559,18 +559,18 @@ const heroStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    borderRadius: 22,
-    padding: 16,
-    paddingTop: 18,
-    paddingBottom: 18,
-    borderWidth: 1.5,
-    borderColor: 'rgba(167,139,250,0.55)',
+    borderRadius: 18,
+    padding: 14,
+    paddingTop: 16,
+    paddingBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.2)',
     overflow: 'hidden',
     shadowColor: C.violet,
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 4,
   },
   avatarWrap: {
     width: 96,
