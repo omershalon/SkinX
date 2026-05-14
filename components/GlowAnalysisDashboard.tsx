@@ -290,9 +290,15 @@ const LeafIcon = ({ size = 13, color = C.violetSoft }: { size?: number; color?: 
 
 const BottleIcon = ({ size = 22, color = C.greenSoft }: { size?: number; color?: string }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M10 4h4v3h-4z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
-    <Path d="M8 8.5h8v11.5a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1z" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
-    <Path d="M8 13h8" stroke={color} strokeWidth={1.4} strokeLinecap="round" />
+    <Path d="M10.5 3.5h3v2.5h-3z" stroke={color} strokeWidth={1.4} strokeLinejoin="round" fill="none" />
+    <Path
+      d="M8 8.5c0-.5.4-1 1-1h6c.6 0 1 .5 1 1v11c0 .6-.4 1-1 1H9c-.6 0-1-.4-1-1z"
+      stroke={color}
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+      fill="none"
+    />
+    <Path d="M8 12.5h8" stroke={color} strokeWidth={1.3} strokeLinecap="round" />
   </Svg>
 );
 
@@ -1870,88 +1876,88 @@ function DottedConnector() {
 const routineStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   card: {
     flex: 1,
     minWidth: 0,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.20)',
+    borderColor: 'rgba(124,92,252,0.22)',
     backgroundColor: 'rgba(10,4,26,0.45)',
-    paddingVertical: 10,
-    paddingHorizontal: 9,
-    gap: 4,
+    paddingVertical: 13,
+    paddingHorizontal: 11,
+    gap: 8,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 7,
   },
   numberBadge: {
-    width: 19,
-    height: 19,
-    borderRadius: 10,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: C.violet,
     alignItems: 'center',
     justifyContent: 'center',
   },
   numberText: {
     fontFamily: Fonts.bold,
-    fontSize: 10.5,
-    lineHeight: 12,
+    fontSize: 12,
+    lineHeight: 14,
     color: '#FFFFFF',
   },
   title: {
     flex: 1,
     fontFamily: Fonts.bold,
-    fontSize: 11.5,
-    lineHeight: 13.5,
+    fontSize: 13.5,
+    lineHeight: 16,
     color: C.text,
-    letterSpacing: -0.1,
+    letterSpacing: -0.2,
   },
   iconWrap: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   desc: {
     fontFamily: Fonts.regular,
-    fontSize: 9.5,
-    lineHeight: 12.5,
+    fontSize: 11,
+    lineHeight: 14.5,
     color: C.textDim,
-    marginTop: 2,
   },
   connector: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 3,
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 4,
   },
   connectorDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: 'rgba(124,92,252,0.55)',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(124,92,252,0.6)',
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    gap: 7,
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(52,211,153,0.25)',
+    borderColor: 'rgba(52,211,153,0.28)',
     backgroundColor: 'rgba(52,211,153,0.06)',
   },
   footerText: {
     flex: 1,
     fontFamily: Fonts.regular,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 11.5,
+    lineHeight: 15,
     color: C.textDim,
   },
   footerHighlight: {
@@ -2086,21 +2092,21 @@ function deriveRoutineSteps(
     return [
       {
         key: 'cleanse',
-        icon: <BottleIcon size={20} color={C.greenSoft} />,
+        icon: <BottleIcon size={22} color={C.greenSoft} />,
         title: 'Cleanse',
         desc: 'Wash off sunscreen, sweat, and oil gently.',
         body: 'A gentle low-pH cleanser removes the day without stripping your barrier. Lukewarm water only — hot water breaks down your skin barrier.',
       },
       {
         key: 'moisturize',
-        icon: <DropletFilled size={20} color={C.violetSoft} />,
+        icon: <DropletFilled size={22} color={C.violetSoft} />,
         title: 'Moisturize',
         desc: 'Use a light moisturizer to keep your barrier calm.',
         body: 'A lightweight moisturizer with ceramides or niacinamide locks in hydration overnight without feeling heavy.',
       },
       {
         key: 'skip',
-        icon: <SlashCircle size={20} color={C.greenSoft} />,
+        icon: <SlashCircle size={22} color={C.greenSoft} />,
         title: 'Skip strong actives',
         desc: 'No need to over-treat tonight. Keep it simple.',
         body: 'When your skin looks balanced, layering retinoids or acids can disrupt your barrier. Take the night off — your skin will thank you tomorrow.',
@@ -2111,21 +2117,21 @@ function deriveRoutineSteps(
   return [
     {
       key: 'cleanse',
-      icon: <BottleIcon size={20} color={C.greenSoft} />,
+      icon: <BottleIcon size={22} color={C.greenSoft} />,
       title: 'Cleanse',
       desc: 'Wash off sunscreen, sweat, and oil gently.',
       body: 'A gentle low-pH cleanser removes the day without stripping your barrier. Lukewarm water only.',
     },
     {
       key: 'treat',
-      icon: <DropletFilled size={20} color={C.violetSoft} />,
+      icon: <DropletFilled size={22} color={C.violetSoft} />,
       title: 'Treat',
       desc: 'Spot-treat with a targeted active where needed.',
       body: 'Apply a BHA or benzoyl peroxide only to active spots. Avoid layering multiple actives on the same night.',
     },
     {
       key: 'moisturize',
-      icon: <DropletFilled size={20} color={C.violetSoft} />,
+      icon: <DropletFilled size={22} color={C.violetSoft} />,
       title: 'Moisturize',
       desc: 'Seal in hydration to support your barrier.',
       body: 'A moisturizer with ceramides or hyaluronic acid restores moisture and helps actives work without irritation.',
@@ -2335,7 +2341,7 @@ export default function GlowAnalysisDashboard({
 
         <SectionCard>
           <FancySectionHead
-            icon={<MoonStars size={18} color={C.violetSoft} />}
+            icon={<MoonStars size={22} color={C.violetSoft} />}
             iconBg="rgba(124,92,252,0.18)"
             title="Your Routine Tonight"
             subtitle="Personalized plan based on your scan"
