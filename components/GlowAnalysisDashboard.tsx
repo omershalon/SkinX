@@ -513,7 +513,7 @@ function HeroCard({
             <Sparkle size={11} color={accent.ring} />
             <Text style={[heroStyles.eyebrow, { color: accent.ring }]}>{eyebrow}</Text>
           </View>
-          <Text style={heroStyles.headline} numberOfLines={2}>{headline}</Text>
+          <Text style={heroStyles.headline} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.72}>{headline}</Text>
           {!!subline && (
             <Text style={heroStyles.subline}>{subline}</Text>
           )}
@@ -558,11 +558,12 @@ const heroStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
+    gap: 10,
     borderRadius: 18,
-    padding: 14,
-    paddingTop: 16,
-    paddingBottom: 16,
+    padding: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingRight: 14,
     borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.2)',
     overflow: 'hidden',
@@ -573,9 +574,9 @@ const heroStyles = StyleSheet.create({
     elevation: 4,
   },
   avatarWrap: {
-    width: 96,
-    height: 124,
-    borderRadius: 16,
+    width: 110,
+    height: 150,
+    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
@@ -2370,8 +2371,7 @@ export default function GlowAnalysisDashboard({
             <FancySectionHead
               icon={<TripleSparkle size={20} color={C.violetSoft} />}
               iconBg="rgba(124,92,252,0.18)"
-              title="Recommended For Your Routine"
-              subtitle="Recommended because your scan is clear and your goal is maintenance."
+              title="Recommended Products For You"
               badge={<Pill text="Top Picks" tone="green" />}
               compact
             />
