@@ -511,7 +511,7 @@ function HeroCard({
         {/* text col */}
         <View style={heroStyles.textCol}>
           <View style={[heroStyles.eyebrowPill, { borderColor: accent.ring + '55', backgroundColor: accent.ring + '18' }]}>
-            <Sparkle size={9} color={accent.ring} />
+            <Sparkle size={11} color={accent.ring} />
             <Text style={[heroStyles.eyebrow, { color: accent.ring }]}>{eyebrow}</Text>
           </View>
           <Text style={heroStyles.headline} numberOfLines={2}>{headline}</Text>
@@ -524,7 +524,7 @@ function HeroCard({
         <View style={heroStyles.scoreCol}>
           <Text style={[heroStyles.scoreLabel, { color: accent.ring }]}>Glow Score</Text>
           <View style={{ position: 'relative' }}>
-            <GlowScoreRing score={score} accent={accent} />
+            <GlowScoreRing score={score} accent={accent} size={96} />
             <AnimatedRingSparkles accent={accent} />
           </View>
           <Text style={[heroStyles.scoreSub, { color: accent.ringSoft }]}>{scoreLabel}</Text>
@@ -573,11 +573,11 @@ const heroStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 13,
     borderRadius: 22,
-    padding: 14,
-    paddingTop: 16,
-    paddingBottom: 16,
+    padding: 16,
+    paddingTop: 18,
+    paddingBottom: 18,
     borderWidth: 1.5,
     borderColor: 'rgba(167,139,250,0.55)',
     overflow: 'hidden',
@@ -588,8 +588,8 @@ const heroStyles = StyleSheet.create({
     elevation: 10,
   },
   avatarWrap: {
-    width: 100,
-    height: 128,
+    width: 96,
+    height: 124,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -607,48 +607,48 @@ const heroStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 5,
+    gap: 6,
     borderWidth: 1,
     borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 9,
-    marginBottom: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
+    marginBottom: 9,
   },
   eyebrow: {
     fontFamily: Fonts.semibold,
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 0.1,
   },
   headline: {
     fontFamily: Fonts.bold,
-    fontSize: 19,
-    lineHeight: 23,
+    fontSize: 22,
+    lineHeight: 26,
     color: C.text,
-    letterSpacing: -0.4,
+    letterSpacing: -0.5,
   },
   subline: {
     fontFamily: Fonts.regular,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 16,
     color: C.textMuted,
-    marginTop: 5,
+    marginTop: 6,
   },
   scoreCol: {
     alignItems: 'center',
-    width: 88,
+    width: 96,
     flexShrink: 0,
   },
   scoreLabel: {
     fontFamily: Fonts.bold,
-    fontSize: 12,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 15,
     letterSpacing: 0.2,
     marginBottom: 14,
   },
   scoreSub: {
     fontFamily: Fonts.semibold,
-    fontSize: 12,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 15,
     marginTop: 14,
   },
   avatarModalBg: {
