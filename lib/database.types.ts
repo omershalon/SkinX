@@ -86,6 +86,9 @@ export type Database = {
           herbal_pillar: HerbalPillar;
           lifestyle_pillar: LifestylePillar;
           ranked_items: RankedItem[];
+          skin_goal: SkinGoal | null;
+          avoid_today: string[] | null;
+          coach_note: string | null;
           is_active: boolean;
           created_at: string;
         };
@@ -98,6 +101,9 @@ export type Database = {
           herbal_pillar: HerbalPillar;
           lifestyle_pillar: LifestylePillar;
           ranked_items?: RankedItem[];
+          skin_goal?: SkinGoal | null;
+          avoid_today?: string[] | null;
+          coach_note?: string | null;
           is_active?: boolean;
           created_at?: string;
         };
@@ -110,6 +116,9 @@ export type Database = {
           herbal_pillar?: HerbalPillar;
           lifestyle_pillar?: LifestylePillar;
           ranked_items?: RankedItem[];
+          skin_goal?: SkinGoal | null;
+          avoid_today?: string[] | null;
+          coach_note?: string | null;
           is_active?: boolean;
           created_at?: string;
         };
@@ -366,7 +375,22 @@ export interface RankedItem {
   rationale: string;
   notes?: string[];
   impact_rank: number;
-  time_of_day?: 'morning' | 'midday' | 'evening';
+  time_of_day?: 'morning' | 'night' | 'midday' | 'evening';
+  product_id?: string;
+  duration_min?: number;
+}
+
+export type SkinGoalTagKind = 'trend' | 'zone' | 'focus';
+
+export interface SkinGoalTag {
+  label: string;
+  kind: SkinGoalTagKind;
+}
+
+export interface SkinGoal {
+  headline: string;
+  description: string;
+  tags: SkinGoalTag[];
 }
 
 export interface RoutineItem {

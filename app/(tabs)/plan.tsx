@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,21 +8,23 @@ import {
   Alert,
   Animated,
   Dimensions,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useRouter, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { supabase } from '@/lib/supabase';
 import { useTabTransition } from '@/hooks/useTabTransition';
-import { Colors, Typography, BorderRadius, Spacing, Shadows } from '@/lib/theme';
+import { Colors, BorderRadius } from '@/lib/theme';
 import ScreenBackground from '@/components/ScreenBackground';
 import { PlanSkeleton } from '@/components/SkeletonLoader';
-import type { Database, RankedItem, AcneType } from '@/lib/database.types';
+import type { Database, RankedItem, AcneType, SkinGoal, SkinGoalTag } from '@/lib/database.types';
 import PickDetailModal from '@/components/PickDetailModal';
 import { useTranslation } from 'react-i18next';
+import { PRODUCTS } from '@/lib/products';
 
 type PersonalizedPlan = Database['public']['Tables']['personalized_plans']['Row'];
 
@@ -40,30 +42,29 @@ const PILLAR_XP: Record<string, number> = {
 };
 const XP_PER_LEVEL = 500;
 
-/* ── Time-of-day grouping ── */
-type TimeOfDay = 'morning' | 'midday' | 'evening';
+/* ── Time-of-day grouping (Morning / Night only) ── */
+type TimeOfDay = 'morning' | 'night';
 
 const PILLAR_TIME: Record<string, TimeOfDay> = {
   product:   'morning',
-  diet:      'midday',
-  lifestyle: 'midday',
-  herbal:    'evening',
+  diet:      'morning',
+  lifestyle: 'morning',
+  herbal:    'night',
 };
 
-const PILLAR_DURATION: Record<string, string> = {
-  product:   '2 min',
-  diet:      '5 min',
-  lifestyle: '10–15 min',
-  herbal:    '5 min',
-};
+/** Defensive: fold legacy 'midday'/'evening' values into morning/night. */
+function bucketTime(raw: RankedItem['time_of_day'], pillar: string): TimeOfDay {
+  if (raw === 'morning' || raw === 'night') return raw;
+  if (raw === 'evening') return 'night';
+  if (raw === 'midday')  return 'morning';
+  return PILLAR_TIME[pillar] ?? 'morning';
+}
 
-const TIME_SECTIONS: { key: TimeOfDay; label: string }[] = [
-  { key: 'morning', label: 'MORNING' },
-  { key: 'midday',  label: 'MIDDAY'  },
-  { key: 'evening', label: 'EVENING' },
-];
+/* ── Product image lookup ── */
+const PRODUCT_BY_ID: Record<string, (typeof PRODUCTS)[number]> =
+  Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
 
-/* ── Objective headlines ── */
+/* ── Objective fallback for plans without skin_goal ── */
 const OBJECTIVE_HEADLINE: Partial<Record<AcneType, string>> = {
   hormonal:     'Balance hormones, reduce inflammation, and support clear skin.',
   cystic:       'Deep cleanse, reduce cystic inflammation, and protect your barrier.',
@@ -130,61 +131,80 @@ async function incrementStreakOnce(): Promise<StreakState> {
 }
 
 /* ── SVG Icons ── */
-function SunIcon({ size = 18 }: { size?: number }) {
+function FlameIcon({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={4} fill="#FCD34D" />
-      <Path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-        stroke="#FCD34D" strokeWidth={2} strokeLinecap="round" />
+      <Path
+        d="M12 2c0 4-4 5-4 9a4 4 0 0 0 8 0c0-2-1-3-2-4 1 4-2 5-2 5s-2-2 0-10z"
+        fill={color}
+      />
+      <Path
+        d="M8 13a4 4 0 0 0 8 0c0-2-1-3-2-4"
+        stroke={color} strokeWidth={1.4} strokeLinecap="round" fill="none" opacity={0.0}
+      />
     </Svg>
   );
 }
-function SunMidIcon({ size = 18 }: { size?: number }) {
+
+function SunIcon({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={5} fill="#FB923C" fillOpacity={0.25} stroke="#FB923C" strokeWidth={1.5} />
-      <Path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12"
-        stroke="#FB923C" strokeWidth={1.8} strokeLinecap="round" />
+      <Circle cx={12} cy={12} r={4} stroke={color} strokeWidth={1.8} fill="none" />
+      <Path
+        d="M12 2v2.5M12 19.5V22M4.22 4.22l1.77 1.77M18.01 18.01l1.77 1.77M2 12h2.5M19.5 12H22M4.22 19.78l1.77-1.77M18.01 5.99l1.77-1.77"
+        stroke={color} strokeWidth={1.8} strokeLinecap="round"
+      />
     </Svg>
   );
 }
-function MoonStarIcon({ size = 18 }: { size?: number }) {
+
+function MoonIcon({ size = 18, color = '#fff' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"
-        fill="#A78BFA" fillOpacity={0.2} stroke="#A78BFA" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path
+        d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"
+        fill="none" stroke={color} strokeWidth={1.8} strokeLinejoin="round"
+      />
     </Svg>
   );
 }
-const PILLAR_ICON: Record<string, (done: boolean) => JSX.Element> = {
-  product: (done) => (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 2h6l1 4H8L9 2z" stroke={done ? '#fff' : '#A78BFA'} strokeWidth={1.8} strokeLinejoin="round" fill="none" />
-      <Path d="M7 6h10l1 14H6L7 6z" stroke={done ? '#fff' : '#A78BFA'} strokeWidth={1.8} strokeLinejoin="round" fill="none" />
-      <Path d="M10 11c0 1.1.9 2 2 2s2-.9 2-2" stroke={done ? '#fff' : '#A78BFA'} strokeWidth={1.6} strokeLinecap="round" fill="none" />
+
+function ClockIcon({ size = 12, color = 'rgba(255,255,255,0.45)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.8} fill="none" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
     </Svg>
-  ),
-  diet: (done) => (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2C8 2 5 6 5 10c0 3.5 2.5 6.5 6 7.4V20h2v-2.6c3.5-.9 6-3.9 6-7.4 0-4-3-8-7-8z" stroke={done ? '#fff' : '#4ADE80'} strokeWidth={1.8} strokeLinejoin="round" fill="none" />
-      <Path d="M12 6v6" stroke={done ? '#fff' : '#4ADE80'} strokeWidth={1.6} strokeLinecap="round" />
+  );
+}
+
+function TrendUpIcon({ size = 14, color = '#34D399' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 17l6-6 4 4 8-9" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path d="M14 6h7v7" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </Svg>
-  ),
-  herbal: (done) => (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 22V12" stroke={done ? '#fff' : '#34D399'} strokeWidth={1.8} strokeLinecap="round" />
-      <Path d="M12 12C12 12 7 10 5 5c4 0 7 3 7 7z" stroke={done ? '#fff' : '#34D399'} strokeWidth={1.6} strokeLinejoin="round" fill="none" />
-      <Path d="M12 12C12 12 17 10 19 5c-4 0-7 3-7 7z" stroke={done ? '#fff' : '#34D399'} strokeWidth={1.6} strokeLinejoin="round" fill="none" />
+  );
+}
+
+function TargetIcon({ size = 14, color = '#A78BFA' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={1.7} fill="none" />
+      <Circle cx={12} cy={12} r={5} stroke={color} strokeWidth={1.7} fill="none" />
+      <Circle cx={12} cy={12} r={1.6} fill={color} />
     </Svg>
-  ),
-  lifestyle: (done) => (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={4} stroke={done ? '#fff' : '#FB923C'} strokeWidth={1.8} fill="none" />
-      <Path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"
-        stroke={done ? '#fff' : '#FB923C'} strokeWidth={1.6} strokeLinecap="round" />
+  );
+}
+
+function ShieldIcon({ size = 14, color = '#60A5FA' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" stroke={color} strokeWidth={1.7} fill="none" strokeLinejoin="round" />
+      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </Svg>
-  ),
-};
+  );
+}
 
 function SparkleIcon({ size = 20, color = '#A78BFA' }: { size?: number; color?: string }) {
   return (
@@ -193,6 +213,15 @@ function SparkleIcon({ size = 20, color = '#A78BFA' }: { size?: number; color?: 
     </Svg>
   );
 }
+
+function ChevronRightIcon({ size = 18, color = 'rgba(255,255,255,0.6)' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 6l6 6-6 6" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Svg>
+  );
+}
+
 function ClipboardIcon({ size = 48, color = 'rgba(255,255,255,0.3)' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -203,223 +232,428 @@ function ClipboardIcon({ size = 48, color = 'rgba(255,255,255,0.3)' }: { size?: 
   );
 }
 
-const TIME_ICONS: Record<TimeOfDay, (p: { size?: number }) => JSX.Element> = {
-  morning: (p) => <SunIcon     size={p.size} />,
-  midday:  (p) => <SunMidIcon  size={p.size} />,
-  evening: (p) => <MoonStarIcon size={p.size} />,
-};
+/* ── Avoid-today bullet icons (cycle by index) ── */
+function DotsIcon({ size = 18, color = '#A78BFA' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {[6, 12, 18].map(y => (
+        [6, 12, 18].map(x => <Circle key={`${x}-${y}`} cx={x} cy={y} r={1.2} fill={color} />)
+      ))}
+    </Svg>
+  );
+}
+function HandIcon({ size = 18, color = '#A78BFA' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={11} r={5.5} stroke={color} strokeWidth={1.6} fill="none" />
+      <Path d="M9 10c.5-.6 1.5-1 3-1s2.5.4 3 1" stroke={color} strokeWidth={1.4} strokeLinecap="round" fill="none" />
+      <Circle cx={10} cy={11.5} r={0.7} fill={color} />
+      <Circle cx={14} cy={11.5} r={0.7} fill={color} />
+      <Path d="M10 14c.5.5 1.2.8 2 .8s1.5-.3 2-.8" stroke={color} strokeWidth={1.3} strokeLinecap="round" fill="none" />
+    </Svg>
+  );
+}
+function FlaskIcon({ size = 18, color = '#A78BFA' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" stroke={color} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Svg>
+  );
+}
+const AVOID_ICONS: Array<(p: { size?: number; color?: string }) => JSX.Element> = [
+  DotsIcon, HandIcon, FlaskIcon,
+];
 
-/* ── Step Row ── */
-function StepRow({ item, done, onToggle, onInfo, last }: {
-  item: RankedItem; done: boolean; onToggle: () => void; onInfo: () => void; last?: boolean;
+/* ── Pillar fallback thumbnails for non-product steps ── */
+const PILLAR_THUMB_GRADIENT: Record<string, readonly [string, string]> = {
+  diet:      ['#0E7A4A', '#0A5C36'],
+  herbal:    ['#0E7A4A', '#1B4332'],
+  lifestyle: ['#6E45E8', '#4F22BE'],
+  product:   ['#1F1147', '#0E0930'],
+};
+function PillarThumbIcon({ pillar, size = 28 }: { pillar: string; size?: number }) {
+  const c = '#fff';
+  if (pillar === 'diet') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 2C8 2 5 6 5 10c0 3.5 2.5 6.5 6 7.4V20h2v-2.6c3.5-.9 6-3.9 6-7.4 0-4-3-8-7-8z"
+          stroke={c} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
+        <Path d="M12 6v6" stroke={c} strokeWidth={1.4} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+  if (pillar === 'herbal') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Path d="M12 22V12" stroke={c} strokeWidth={1.6} strokeLinecap="round" />
+        <Path d="M12 12C12 12 7 10 5 5c4 0 7 3 7 7z" stroke={c} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
+        <Path d="M12 12C12 12 17 10 19 5c-4 0-7 3-7 7z" stroke={c} strokeWidth={1.5} fill="none" strokeLinejoin="round" />
+      </Svg>
+    );
+  }
+  if (pillar === 'lifestyle') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+        <Circle cx={12} cy={12} r={4} stroke={c} strokeWidth={1.6} fill="none" />
+        <Path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12"
+          stroke={c} strokeWidth={1.4} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+  // product
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 2h6l1 4H8L9 2z" stroke={c} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
+      <Path d="M7 6h10l1 14H6L7 6z" stroke={c} strokeWidth={1.6} fill="none" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   SkinGoalCard
+   ───────────────────────────────────────────────────────── */
+function tagIconFor(kind: SkinGoalTag['kind']): { Icon: (p: { size?: number; color?: string }) => JSX.Element; color: string; bg: string; border: string } {
+  switch (kind) {
+    case 'trend': return { Icon: TrendUpIcon, color: '#34D399', bg: 'rgba(52,211,153,0.10)',  border: 'rgba(52,211,153,0.35)' };
+    case 'zone':  return { Icon: TargetIcon,  color: '#A78BFA', bg: 'rgba(167,139,250,0.10)', border: 'rgba(167,139,250,0.35)' };
+    case 'focus':
+    default:      return { Icon: ShieldIcon,  color: '#60A5FA', bg: 'rgba(96,165,250,0.10)',  border: 'rgba(96,165,250,0.35)' };
+  }
+}
+
+function SkinGoalCard({ goal, doneCount, totalCount, fallbackHeadline }: {
+  goal: SkinGoal | null | undefined;
+  doneCount: number;
+  totalCount: number;
+  fallbackHeadline: string;
 }) {
-  const xp       = PILLAR_XP[item.pillar] ?? 20;
-  const duration = PILLAR_DURATION[item.pillar] ?? '5 min';
+  const pct = totalCount > 0 ? doneCount / totalCount : 0;
+  const headline    = goal?.headline    ?? fallbackHeadline;
+  const description = goal?.description ?? '';
+  const tags        = goal?.tags ?? [];
 
   return (
-    <TouchableOpacity
-      style={[sr.row, last && { borderBottomWidth: 0 }]}
-      onPress={onToggle}
-      activeOpacity={0.72}
-    >
+    <View style={sg.card}>
+      <Text style={sg.eyebrow}>TODAY'S SKIN GOAL</Text>
+      <Text style={sg.headline}>{headline}</Text>
+      {!!description && <Text style={sg.description}>{description}</Text>}
+
+      {tags.length > 0 && (
+        <View style={sg.tagRow}>
+          {tags.map((t, i) => {
+            const meta = tagIconFor(t.kind);
+            const Icon = meta.Icon;
+            return (
+              <View key={i} style={[sg.tag, { backgroundColor: meta.bg, borderColor: meta.border }]}>
+                <Icon size={13} color={meta.color} />
+                <Text style={[sg.tagText, { color: meta.color }]}>{t.label}</Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      <View style={sg.divider} />
+
+      <View style={sg.footer}>
+        <Text style={sg.footerText}>{doneCount} of {totalCount} steps completed</Text>
+        <View style={sg.barTrack}>
+          <View style={[sg.barFill, { width: `${Math.round(pct * 100)}%` as any }]} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const sg = StyleSheet.create({
+  card: {
+    marginHorizontal: 16, marginBottom: 14,
+    borderRadius: 18, borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.22)',
+    backgroundColor: 'rgba(14,6,32,0.85)',
+    padding: 18,
+  },
+  eyebrow:     { fontSize: 11, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, marginBottom: 10 },
+  headline:    { fontSize: 19, fontWeight: '800', color: '#fff', lineHeight: 26, letterSpacing: -0.3 },
+  description: { fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 19, marginTop: 8 },
+  tagRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  tag: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 11, paddingVertical: 7,
+    borderRadius: 999, borderWidth: 1,
+  },
+  tagText:    { fontSize: 12, fontWeight: '600' },
+  divider:    { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 16 },
+  footer:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
+  footerText: { fontSize: 12, color: 'rgba(255,255,255,0.55)' },
+  barTrack:   { flex: 1, height: 5, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' },
+  barFill:    { height: '100%', backgroundColor: '#7C5CFC', borderRadius: 3 },
+});
+
+/* ─────────────────────────────────────────────────────────
+   TimeOfDayTabs (Morning / Night)
+   ───────────────────────────────────────────────────────── */
+function TimeOfDayTabs({ value, onChange }: { value: TimeOfDay; onChange: (v: TimeOfDay) => void }) {
+  return (
+    <View style={tt.row}>
+      {(['morning', 'night'] as TimeOfDay[]).map(tab => {
+        const active = tab === value;
+        const Icon = tab === 'morning' ? SunIcon : MoonIcon;
+        return (
+          <TouchableOpacity
+            key={tab}
+            style={tt.tabWrap}
+            activeOpacity={0.85}
+            onPress={() => {
+              if (tab !== value) {
+                Haptics.selectionAsync();
+                onChange(tab);
+              }
+            }}
+          >
+            {active ? (
+              <LinearGradient
+                colors={['#7C5CFC', '#5B36E0']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={tt.tabInner}
+              >
+                <Icon size={16} color="#fff" />
+                <Text style={[tt.tabText, { color: '#fff' }]}>{tab === 'morning' ? 'Morning' : 'Night'}</Text>
+              </LinearGradient>
+            ) : (
+              <View style={[tt.tabInner, tt.tabInactive]}>
+                <Icon size={16} color="rgba(255,255,255,0.55)" />
+                <Text style={[tt.tabText, { color: 'rgba(255,255,255,0.55)' }]}>
+                  {tab === 'morning' ? 'Morning' : 'Night'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+const tt = StyleSheet.create({
+  row: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 12, gap: 8 },
+  tabWrap: { flex: 1 },
+  tabInner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 13, borderRadius: 14,
+  },
+  tabInactive: { backgroundColor: 'rgba(14,6,32,0.85)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.18)' },
+  tabText: { fontSize: 14, fontWeight: '700', letterSpacing: 0.1 },
+});
+
+/* ─────────────────────────────────────────────────────────
+   StepRow (redesigned: circle checkbox + product thumbnail)
+   ───────────────────────────────────────────────────────── */
+function StepRow({ item, done, onToggle, onOpen }: {
+  item: RankedItem;
+  done: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const product = item.product_id ? PRODUCT_BY_ID[item.product_id] : undefined;
+  const showImage = !!product?.image_url && !imgError && item.pillar === 'product';
+  const durationMin = item.duration_min ?? (item.pillar === 'product' ? 1 : 5);
+  const gradient = PILLAR_THUMB_GRADIENT[item.pillar] ?? PILLAR_THUMB_GRADIENT.product;
+
+  return (
+    <TouchableOpacity style={sr.row} activeOpacity={0.85} onPress={onOpen}>
       {/* Checkbox */}
-      <View style={[sr.checkbox, done && sr.checkboxDone]}>
+      <TouchableOpacity
+        onPress={(e) => { e.stopPropagation(); onToggle(); }}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        style={[sr.checkbox, done && sr.checkboxDone]}
+      >
         {done && (
-          <Svg width={11} height={11} viewBox="0 0 12 12">
+          <Svg width={12} height={12} viewBox="0 0 12 12">
             <Path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </Svg>
         )}
-      </View>
+      </TouchableOpacity>
 
-      {/* Pillar icon badge */}
-      <View style={[sr.numBadge, done && sr.numBadgeDone]}>
-        {PILLAR_ICON[item.pillar]?.(done)}
+      {/* Thumbnail */}
+      <View style={sr.thumbWrap}>
+        {showImage ? (
+          <Image
+            source={{ uri: product!.image_url }}
+            style={sr.thumbImage}
+            resizeMode="cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <LinearGradient
+            colors={gradient}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={sr.thumbFallback}
+          >
+            <PillarThumbIcon pillar={item.pillar} size={26} />
+          </LinearGradient>
+        )}
       </View>
 
       {/* Text */}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={[sr.title, done && sr.titleDone]} numberOfLines={1}>{item.title}</Text>
-        <Text style={sr.desc} numberOfLines={1}>{item.rationale}</Text>
+        <Text style={sr.desc} numberOfLines={2}>{item.rationale}</Text>
       </View>
 
-      {/* Meta */}
-      <View style={sr.meta}>
-        <Text style={sr.time}>⏱ {duration}</Text>
-        <Text style={sr.xp}>+{xp} XP</Text>
+      {/* Duration */}
+      <View style={sr.metaCol}>
+        <ClockIcon size={12} />
+        <Text style={sr.metaText}>{durationMin} min</Text>
       </View>
-
-      {/* Info button */}
-      <TouchableOpacity onPress={onInfo} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={sr.infoBtn}>
-        <Text style={sr.infoText}>i</Text>
-      </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 const sr = StyleSheet.create({
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 13, paddingHorizontal: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 10,
+    padding: 12,
+    borderRadius: 16, borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.18)',
+    backgroundColor: 'rgba(14,6,32,0.85)',
   },
   checkbox: {
     width: 24, height: 24, borderRadius: 12,
-    borderWidth: 1.8, borderColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1.8, borderColor: '#7C5CFC',
     alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   checkboxDone: { backgroundColor: '#7C5CFC', borderColor: '#7C5CFC' },
-  numBadge: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: 'rgba(124,92,252,0.22)',
-    alignItems: 'center', justifyContent: 'center',
+  thumbWrap: {
+    width: 60, height: 60, borderRadius: 12, overflow: 'hidden',
+    backgroundColor: '#F5F5F5',
   },
-  numBadgeDone: { backgroundColor: 'rgba(124,92,252,0.45)' },
-  numText: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  title: { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: -0.1 },
-  titleDone: { textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.4)' },
-  desc: { fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 1 },
-  meta: { alignItems: 'flex-end', gap: 2, minWidth: 58 },
-  time: { fontSize: 10, color: 'rgba(255,255,255,0.35)' },
-  xp:   { fontSize: 11, fontWeight: '700', color: '#34D399' },
-  infoBtn: {
-    width: 20, height: 20, borderRadius: 10,
-    borderWidth: 1.2, borderColor: 'rgba(167,139,250,0.45)',
-    alignItems: 'center', justifyContent: 'center', marginLeft: 2,
-  },
-  infoText: { fontSize: 11, fontWeight: '700', color: 'rgba(167,139,250,0.8)', lineHeight: 14 },
+  thumbImage:    { width: '100%', height: '100%' },
+  thumbFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  title:    { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.15 },
+  titleDone:{ textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.45)' },
+  desc:     { fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 17, marginTop: 3 },
+  metaCol:  { alignItems: 'center', gap: 4, minWidth: 42 },
+  metaText: { fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
 });
 
-/* ── Section Card ── */
-function SectionCard({ tod, items, doneToday, onToggle, onInfo }: {
-  tod: { key: TimeOfDay; label: string };
-  items: RankedItem[];
-  doneToday: Set<number>;
-  onToggle: (item: RankedItem) => void;
-  onInfo: (item: RankedItem) => void;
-}) {
-  if (items.length === 0) return null;
-  const Icon = TIME_ICONS[tod.key];
+/* ─────────────────────────────────────────────────────────
+   AvoidTodayCard + CoachNoteCard (2-column footer)
+   ───────────────────────────────────────────────────────── */
+function AvoidTodayCard({ items }: { items: string[] }) {
   return (
-    <View style={sc.card}>
-      <View style={sc.header}>
-        <View style={sc.headerLeft}>
-          <Icon size={16} />
-          <Text style={sc.label}>{tod.label}</Text>
-        </View>
-        <View style={sc.badge}>
-          <Text style={sc.badgeText}>{items.length} step{items.length !== 1 ? 's' : ''}</Text>
-        </View>
-      </View>
-      {items.map((item, idx) => (
-        <StepRow
-          key={item.impact_rank}
-          item={item}
-          done={doneToday.has(item.impact_rank)}
-          onToggle={() => onToggle(item)}
-          onInfo={() => onInfo(item)}
-          last={idx === items.length - 1}
-        />
-      ))}
-    </View>
-  );
-}
-
-const sc = StyleSheet.create({
-  card: {
-    marginHorizontal: 16, marginBottom: 10,
-    borderRadius: 16, borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.2)',
-    backgroundColor: 'rgba(14,6,32,0.9)',
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.07)',
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  label: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.82)', letterSpacing: 1.5 },
-  badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20, backgroundColor: 'rgba(124,92,252,0.22)' },
-  badgeText: { fontSize: 10, fontWeight: '700', color: '#A78BFA' },
-});
-
-/* ── Objective Card ── */
-function ObjectiveCard({ objective, doneCount, totalCount }: {
-  objective: string; doneCount: number; totalCount: number;
-}) {
-  const pct = totalCount > 0 ? doneCount / totalCount : 0;
-  return (
-    <View style={oc.card}>
-      <LinearGradient
-        colors={['rgba(124,92,252,0.15)', 'rgba(50,15,100,0.08)']}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View style={oc.top}>
-        <View style={oc.iconWrap}>
-          <SparkleIcon size={22} color="#34D399" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={oc.eyebrow}>TODAY'S OBJECTIVE</Text>
-          <Text style={oc.headline}>{objective}</Text>
-        </View>
-      </View>
-      <View style={oc.barTrack}>
-        <View style={[oc.barFill, { width: `${Math.round(pct * 100)}%` as any }]} />
-      </View>
-      <View style={oc.footer}>
-        <Text style={oc.footerLeft}>{doneCount} of {totalCount} completed</Text>
-        <Text style={oc.footerRight}>✦ Follow in this order</Text>
+    <View style={fc.card}>
+      <Text style={fc.eyebrow}>AVOID TODAY</Text>
+      <View style={{ gap: 10, marginTop: 12 }}>
+        {items.slice(0, 3).map((text, i) => {
+          const Icon = AVOID_ICONS[i % AVOID_ICONS.length];
+          return (
+            <View key={i} style={fc.bullet}>
+              <View style={fc.bulletIcon}>
+                <Icon size={16} color="#A78BFA" />
+              </View>
+              <Text style={fc.bulletText} numberOfLines={2}>{text}</Text>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
 
-const oc = StyleSheet.create({
+function CoachNoteCard({ text }: { text: string }) {
+  return (
+    <View style={fc.card}>
+      <Text style={fc.eyebrow}>COACH NOTE</Text>
+      <View style={fc.coachIcon}>
+        <SparkleIcon size={16} color="#A78BFA" />
+      </View>
+      <Text style={fc.coachText}>{text}</Text>
+    </View>
+  );
+}
+
+const fc = StyleSheet.create({
   card: {
-    marginHorizontal: 16, marginBottom: 10,
+    flex: 1,
     borderRadius: 16, borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.28)',
-    padding: 16, overflow: 'hidden',
+    borderColor: 'rgba(124,92,252,0.18)',
+    backgroundColor: 'rgba(14,6,32,0.85)',
+    padding: 14,
   },
-  top: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, marginBottom: 14 },
-  iconWrap: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: 'rgba(52,211,153,0.1)',
-    borderWidth: 1, borderColor: 'rgba(52,211,153,0.28)',
+  eyebrow: { fontSize: 11, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6 },
+  bullet:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  bulletIcon: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: 'rgba(124,92,252,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-  eyebrow: { fontSize: 10, fontWeight: '700', color: '#A78BFA', letterSpacing: 1.2, marginBottom: 4 },
-  headline: { fontSize: 15, fontWeight: '700', color: '#fff', lineHeight: 21, letterSpacing: -0.2 },
-  barTrack: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, marginBottom: 10, overflow: 'hidden' },
-  barFill:  { height: '100%', backgroundColor: '#7C5CFC', borderRadius: 2 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between' },
-  footerLeft:  { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  footerRight: { fontSize: 11, fontWeight: '600', color: '#A78BFA' },
+  bulletText: { flex: 1, fontSize: 13, color: '#fff', fontWeight: '500', lineHeight: 17 },
+  coachIcon: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(124,92,252,0.14)',
+    alignItems: 'center', justifyContent: 'center',
+    marginTop: 12, marginBottom: 8,
+  },
+  coachText: { fontSize: 13, color: '#fff', fontWeight: '500', lineHeight: 19 },
 });
 
-/* ── Circular Progress ── */
-function CircleProgress({ pct, size = 44 }: { pct: number; size?: number }) {
-  const stroke = 3.5;
+/* ─────────────────────────────────────────────────────────
+   Bottom progress bar (sticky, with N/M ring + chevron)
+   ───────────────────────────────────────────────────────── */
+function BottomProgressBar({ done, total, onPress }: { done: number; total: number; onPress: () => void }) {
+  const pct = total > 0 ? done / total : 0;
+  const size = 44, stroke = 3.5;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const dash = pct * circ;
+
   return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.1)" strokeWidth={stroke} fill="none" />
-        <Circle cx={size / 2} cy={size / 2} r={r} stroke="#7C5CFC" strokeWidth={stroke} fill="none"
-          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-          rotation="-90" origin={`${size / 2},${size / 2}`} />
-      </Svg>
-      <Text style={{ fontSize: 9, fontWeight: '800', color: '#fff' }}>{Math.round(pct * 100)}%</Text>
-    </View>
+    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={bp.outer}>
+      <LinearGradient
+        colors={['rgba(124,92,252,0.18)', 'rgba(91,54,224,0.10)']}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <View style={bp.inner}>
+        <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={size} height={size} style={{ position: 'absolute' }}>
+            <Circle cx={size / 2} cy={size / 2} r={r} stroke="rgba(255,255,255,0.10)" strokeWidth={stroke} fill="none" />
+            <Circle cx={size / 2} cy={size / 2} r={r} stroke="#7C5CFC" strokeWidth={stroke} fill="none"
+              strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+              rotation="-90" origin={`${size / 2},${size / 2}`} />
+          </Svg>
+          <Text style={bp.ringText}>{done}/{total}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={bp.title}>{done}/{total} complete today</Text>
+          <Text style={bp.sub}>Small steps every day lead to clear skin.</Text>
+        </View>
+        <ChevronRightIcon size={20} color="rgba(255,255,255,0.7)" />
+      </View>
+    </TouchableOpacity>
   );
 }
 
-/* ── Main Screen ── */
+const bp = StyleSheet.create({
+  outer: {
+    marginHorizontal: 16, marginTop: 6,
+    borderRadius: 16, borderWidth: 1,
+    borderColor: 'rgba(124,92,252,0.32)',
+    overflow: 'hidden',
+  },
+  inner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  ringText: { fontSize: 11, fontWeight: '800', color: '#fff' },
+  title: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  sub:   { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+});
+
+/* ─────────────────────────────────────────────────────────
+   Main screen
+   ───────────────────────────────────────────────────────── */
 export default function PlanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -436,10 +670,12 @@ export default function PlanScreen() {
   const [streak,       setStreak]       = useState<StreakState>({ count: 0, lastDate: '' });
   const [allDone,      setAllDone]      = useState(false);
   const [selectedPick, setSelectedPick] = useState<RankedItem | null>(null);
-  const allDoneRef = useRef(false);
+  const [activeTab,    setActiveTab]    = useState<TimeOfDay>('morning');
 
+  const allDoneRef    = useRef(false);
   const streakScaleAnim = useRef(new Animated.Value(1)).current;
   const xpBarAnim       = useRef(new Animated.Value(0)).current;
+  const scrollRef       = useRef<ScrollView>(null);
 
   /* ── Confetti ── */
   const CONFETTI_COUNT  = 30;
@@ -538,6 +774,26 @@ export default function PlanScreen() {
     }
   };
 
+  /* ── Derived data (memoized so toggleMission references stable values) ── */
+  const rankedItems: RankedItem[] = useMemo(
+    () => (plan?.ranked_items as unknown as RankedItem[]) ?? [],
+    [plan]
+  );
+  const sortedItems = useMemo(
+    () => [...rankedItems].sort((a, b) => a.impact_rank - b.impact_rank),
+    [rankedItems]
+  );
+  const totalItems = rankedItems.length;
+  const doneCount  = rankedItems.filter(i => doneToday.has(i.impact_rank)).length;
+  const progress   = totalItems > 0 ? doneCount / totalItems : 0;
+  const fallbackObjective = acneType ? (OBJECTIVE_HEADLINE[acneType] ?? DEFAULT_OBJECTIVE) : DEFAULT_OBJECTIVE;
+
+  const visibleItems = sortedItems.filter(i => bucketTime(i.time_of_day, i.pillar) === activeTab);
+
+  const skinGoal:   SkinGoal | null = (plan?.skin_goal as unknown as SkinGoal | null) ?? null;
+  const avoidToday: string[]        = Array.isArray(plan?.avoid_today) ? (plan!.avoid_today as string[]) : [];
+  const coachNote:  string          = (plan?.coach_note as string | null) ?? '';
+
   /* ── Toggle step ── */
   const toggleMission = async (item: RankedItem) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -582,19 +838,6 @@ export default function PlanScreen() {
     }
   };
 
-  /* ── Derived ── */
-  const rankedItems: RankedItem[] = (plan?.ranked_items as unknown as RankedItem[]) ?? [];
-  const sortedItems = [...rankedItems].sort((a, b) => a.impact_rank - b.impact_rank);
-  const totalItems  = rankedItems.length;
-  const doneCount   = rankedItems.filter(i => doneToday.has(i.impact_rank)).length;
-  const xpToday     = rankedItems.filter(i => doneToday.has(i.impact_rank)).reduce((s, i) => s + (PILLAR_XP[i.pillar] ?? 20), 0);
-  const xpInLevel   = xpState.totalXp % XP_PER_LEVEL;
-  const progress    = totalItems > 0 ? doneCount / totalItems : 0;
-  const objective   = acneType ? (OBJECTIVE_HEADLINE[acneType] ?? DEFAULT_OBJECTIVE) : DEFAULT_OBJECTIVE;
-
-  const sectionItems = (tod: TimeOfDay) =>
-    sortedItems.filter(i => (i.time_of_day ?? PILLAR_TIME[i.pillar]) === tod);
-
   /* ── Loading ── */
   if (loading) {
     return (
@@ -635,45 +878,80 @@ export default function PlanScreen() {
     <Animated.View style={[s.container, { paddingTop: insets.top }, animatedStyle]}>
       <ScreenBackground preset="plan" />
 
-      {/* ── Header ── */}
-      <View style={s.header}>
-        <View style={s.headerRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.eyebrow}>YOUR PLAN</Text>
-            <Text style={s.title}>Today's Plan</Text>
-            <Text style={s.subtitle}>A simple routine to keep your skin clear and balanced.</Text>
-          </View>
-          <Animated.View style={{ transform: [{ scale: streakScaleAnim }] }}>
-            <LinearGradient
-              colors={['#6E46FF', '#8B5CFF']}
-              style={s.streakPill}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            >
-              <Text style={s.streakNumber}>{streak.count}</Text>
-              <Text style={s.streakLabel}>DAY STREAK</Text>
-            </LinearGradient>
-          </Animated.View>
-        </View>
-      </View>
-
-      {/* ── Scroll body ── */}
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         contentContainerStyle={s.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <ObjectiveCard objective={objective} doneCount={doneCount} totalCount={totalItems} />
+        {/* ── Header ── */}
+        <View style={s.header}>
+          <View style={s.headerRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.eyebrow}>YOUR PLAN</Text>
+              <Text style={s.title}>Today's Plan</Text>
+              <Text style={s.subtitle}>Your personalized routine based on today's scan</Text>
+            </View>
+            <Animated.View style={{ transform: [{ scale: streakScaleAnim }] }}>
+              <LinearGradient
+                colors={['#6E46FF', '#8B5CFF']}
+                style={s.streakPill}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              >
+                <View style={s.streakTopRow}>
+                  <FlameIcon size={18} color="#fff" />
+                  <Text style={s.streakNumber}>{streak.count}</Text>
+                </View>
+                <Text style={s.streakLabel}>DAY STREAK</Text>
+              </LinearGradient>
+            </Animated.View>
+          </View>
+        </View>
 
-        {TIME_SECTIONS.map(tod => (
-          <SectionCard
-            key={tod.key}
-            tod={tod}
-            items={sectionItems(tod.key)}
-            doneToday={doneToday}
-            onToggle={toggleMission}
-            onInfo={setSelectedPick}
-          />
-        ))}
+        {/* ── Skin goal ── */}
+        <SkinGoalCard
+          goal={skinGoal}
+          doneCount={doneCount}
+          totalCount={totalItems}
+          fallbackHeadline={fallbackObjective}
+        />
+
+        {/* ── Morning / Night tabs ── */}
+        <TimeOfDayTabs value={activeTab} onChange={setActiveTab} />
+
+        {/* ── Step rows ── */}
+        {visibleItems.length === 0 ? (
+          <View style={s.emptyTabWrap}>
+            <Text style={s.emptyTabText}>
+              No {activeTab === 'morning' ? 'morning' : 'night'} steps in this plan.
+            </Text>
+          </View>
+        ) : (
+          visibleItems.map(item => (
+            <StepRow
+              key={item.impact_rank}
+              item={item}
+              done={doneToday.has(item.impact_rank)}
+              onToggle={() => toggleMission(item)}
+              onOpen={() => setSelectedPick(item)}
+            />
+          ))
+        )}
+
+        {/* ── Avoid Today + Coach Note (2-column) ── */}
+        {(avoidToday.length > 0 || coachNote) && (
+          <View style={s.footerRow}>
+            {avoidToday.length > 0 && <AvoidTodayCard items={avoidToday} />}
+            {coachNote.length > 0   && <CoachNoteCard  text={coachNote} />}
+          </View>
+        )}
+
+        {/* ── Bottom progress card ── */}
+        <BottomProgressBar
+          done={doneCount}
+          total={totalItems}
+          onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+        />
 
         {/* Regenerate */}
         <TouchableOpacity style={s.regenRow} onPress={generatePlan} disabled={generating}>
@@ -682,22 +960,6 @@ export default function PlanScreen() {
 
         <View style={{ height: 110 }} />
       </ScrollView>
-
-      {/* ── Sticky bottom bar ── */}
-      <View style={[s.bottomBar, { paddingBottom: 18 }]}>
-        <LinearGradient
-          colors={['rgba(4,1,12,0)', 'rgba(4,1,12,0.96)']}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View style={s.bottomInner}>
-          <CircleProgress pct={progress} size={44} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.bottomCount}>{doneCount} of {totalItems} complete today</Text>
-            <Text style={s.bottomSub}>Keep going—consistency is your glow.</Text>
-          </View>
-        </View>
-      </View>
 
       {/* ── Pick detail modal ── */}
       <PickDetailModal
@@ -735,35 +997,30 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centered:  { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12, paddingBottom: 80 },
 
-  header:    { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14 },
+  header:    { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  eyebrow:   { fontSize: 10, fontWeight: '700', color: 'rgba(167,139,250,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 2 },
-  title:     { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -0.6, lineHeight: 32 },
-  subtitle:  { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 4, lineHeight: 17 },
+  eyebrow:   { fontSize: 11, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 4 },
+  title:     { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: -0.8, lineHeight: 36 },
+  subtitle:  { fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 6, lineHeight: 18 },
 
-  streakPill:   { borderRadius: 14, paddingVertical: 10, paddingHorizontal: 14, alignItems: 'center', minWidth: 68 },
-  streakNumber: { fontSize: 24, fontWeight: '900', color: '#fff', lineHeight: 26 },
-  streakLabel:  { fontSize: 8, fontWeight: '700', color: 'rgba(255,255,255,0.8)', letterSpacing: 1.2, marginTop: 1 },
-
-  scrollContent: { paddingTop: 4 },
-
-  regenRow: { alignItems: 'center', paddingVertical: 20 },
-  regenText: { fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: '500' },
-
-  bottomBar: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
-    paddingTop: 120,
+  streakPill:   {
+    borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16,
+    alignItems: 'center', minWidth: 100,
+    borderWidth: 1, borderColor: 'rgba(167,139,250,0.45)',
   },
-  bottomInner: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginHorizontal: 16,
-    marginTop: 32,
-  },
-  bottomCount: { fontSize: 13, fontWeight: '700', color: '#fff' },
-  bottomSub:   { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 1 },
-  ctaBtn:      { borderRadius: 14, overflow: 'hidden' },
-  ctaGradient: { paddingVertical: 14, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
-  ctaText:     { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.1 },
+  streakTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  streakNumber: { fontSize: 28, fontWeight: '900', color: '#fff', lineHeight: 30 },
+  streakLabel:  { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.85)', letterSpacing: 1.4, marginTop: 4 },
+
+  scrollContent: { paddingTop: 4, paddingBottom: 24 },
+
+  footerRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 14, marginBottom: 12 },
+
+  emptyTabWrap: { alignItems: 'center', paddingVertical: 36, marginHorizontal: 16 },
+  emptyTabText: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
+
+  regenRow:  { alignItems: 'center', paddingVertical: 18 },
+  regenText: { fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
 
   emptyTitle:       { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center' },
   emptySubtitle:    { fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
