@@ -169,8 +169,8 @@ Return ONE JSON object (no markdown, no backticks, no commentary) with exactly t
 
 {
   "skin_goal": {
-    "headline":    "<one calm action-oriented sentence describing today's focus, ~10-14 words, ends with a period>",
-    "description": "<one sentence starting with 'Based on your latest scan:' summarising current state + key zone>",
+    "headline":    "<short calm action-oriented phrase, MAX 8 words, no full stop needed, e.g. 'Calm skin, protect your barrier today'>",
+    "description": "<one very short clause, max 12 words, e.g. 'Skin stable, forehead is the focus zone'>",
     "tags": [
       { "label": "Stable" | "Improving" | "Flare-up", "kind": "trend" },
       { "label": "<zone>",  "kind": "zone"  },

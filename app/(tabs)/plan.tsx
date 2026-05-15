@@ -64,6 +64,20 @@ function bucketTime(raw: RankedItem['time_of_day'], pillar: string): TimeOfDay {
 const PRODUCT_BY_ID: Record<string, (typeof PRODUCTS)[number]> =
   Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
 
+/** Fuzzy-match a plan item title to the closest product in the catalogue. */
+function findBestProduct(title: string): (typeof PRODUCTS)[number] | undefined {
+  const words = title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  if (words.length === 0) return PRODUCTS.find(p => p.category === 'Skincare');
+  let bestScore = 0;
+  let best: (typeof PRODUCTS)[number] | undefined;
+  for (const p of PRODUCTS) {
+    const hay = (p.name + ' ' + p.description).toLowerCase();
+    const score = words.reduce((n, w) => n + (hay.includes(w) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; best = p; }
+  }
+  return best ?? PRODUCTS.find(p => p.category === 'Skincare');
+}
+
 /* ── Objective fallback for plans without skin_goal ── */
 const OBJECTIVE_HEADLINE: Partial<Record<AcneType, string>> = {
   hormonal:     'Balance hormones, reduce inflammation, and support clear skin.',
@@ -335,8 +349,7 @@ function SkinGoalCard({ goal, doneCount, totalCount, fallbackHeadline }: {
   return (
     <View style={sg.card}>
       <Text style={sg.eyebrow}>TODAY'S SKIN GOAL</Text>
-      <Text style={sg.headline}>{headline}</Text>
-      {!!description && <Text style={sg.description}>{description}</Text>}
+      <Text style={sg.headline} numberOfLines={2}>{headline}</Text>
 
       {tags.length > 0 && (
         <View style={sg.tagRow}>
@@ -369,8 +382,8 @@ const sg = StyleSheet.create({
   card: {
     marginHorizontal: 16, marginBottom: 8,
     borderRadius: 16, borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.22)',
-    backgroundColor: 'rgba(14,6,32,0.85)',
+    borderColor: 'rgba(124,92,252,0.28)',
+    backgroundColor: 'rgba(12,5,28,0.93)',
     padding: 12,
   },
   eyebrow:     { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, marginBottom: 5 },
@@ -442,7 +455,7 @@ const tt = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingVertical: 9, borderRadius: 12,
   },
-  tabInactive: { backgroundColor: 'rgba(14,6,32,0.85)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.18)' },
+  tabInactive: { backgroundColor: 'rgba(12,5,28,0.93)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.25)' },
   tabText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.1 },
 });
 
@@ -456,7 +469,10 @@ function StepRow({ item, done, onToggle, onOpen }: {
   onOpen: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
-  const product = item.product_id ? PRODUCT_BY_ID[item.product_id] : undefined;
+  const exactProduct = item.product_id ? PRODUCT_BY_ID[item.product_id] : undefined;
+  const product = item.pillar === 'product'
+    ? (exactProduct ?? findBestProduct(item.title))
+    : exactProduct;
   const showImage = !!product?.image_url && !imgError && item.pillar === 'product';
   const durationMin = item.duration_min ?? (item.pillar === 'product' ? 1 : 5);
   const gradient = PILLAR_THUMB_GRADIENT[item.pillar] ?? PILLAR_THUMB_GRADIENT.product;
@@ -518,8 +534,8 @@ const sr = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 6,
     padding: 8,
     borderRadius: 14, borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.18)',
-    backgroundColor: 'rgba(14,6,32,0.85)',
+    borderColor: 'rgba(124,92,252,0.25)',
+    backgroundColor: 'rgba(12,5,28,0.93)',
   },
   checkbox: {
     width: 22, height: 22, borderRadius: 11,
@@ -581,8 +597,8 @@ const fc = StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: 14, borderWidth: 1,
-    borderColor: 'rgba(124,92,252,0.18)',
-    backgroundColor: 'rgba(14,6,32,0.85)',
+    borderColor: 'rgba(124,92,252,0.25)',
+    backgroundColor: 'rgba(12,5,28,0.93)',
     padding: 10,
   },
   eyebrow: { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6 },
@@ -615,7 +631,7 @@ function BottomProgressBar({ done, total, onPress }: { done: number; total: numb
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={bp.outer}>
       <LinearGradient
-        colors={['rgba(124,92,252,0.18)', 'rgba(91,54,224,0.10)']}
+        colors={['rgba(124,92,252,0.25)', 'rgba(91,54,224,0.10)']}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
