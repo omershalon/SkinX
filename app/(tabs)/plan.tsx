@@ -367,27 +367,27 @@ function SkinGoalCard({ goal, doneCount, totalCount, fallbackHeadline }: {
 
 const sg = StyleSheet.create({
   card: {
-    marginHorizontal: 16, marginBottom: 14,
-    borderRadius: 18, borderWidth: 1,
+    marginHorizontal: 16, marginBottom: 8,
+    borderRadius: 16, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.22)',
     backgroundColor: 'rgba(14,6,32,0.85)',
-    padding: 18,
+    padding: 12,
   },
-  eyebrow:     { fontSize: 11, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, marginBottom: 10 },
-  headline:    { fontSize: 19, fontWeight: '800', color: '#fff', lineHeight: 26, letterSpacing: -0.3 },
-  description: { fontSize: 13, color: 'rgba(255,255,255,0.55)', lineHeight: 19, marginTop: 8 },
-  tagRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  eyebrow:     { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, marginBottom: 5 },
+  headline:    { fontSize: 16, fontWeight: '800', color: '#fff', lineHeight: 21, letterSpacing: -0.3 },
+  description: { fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 16, marginTop: 4 },
+  tagRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
   tag: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 11, paddingVertical: 7,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 9, paddingVertical: 4,
     borderRadius: 999, borderWidth: 1,
   },
-  tagText:    { fontSize: 12, fontWeight: '600' },
-  divider:    { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 16 },
-  footer:     { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 },
-  footerText: { fontSize: 12, color: 'rgba(255,255,255,0.55)' },
-  barTrack:   { flex: 1, height: 5, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 3, overflow: 'hidden' },
-  barFill:    { height: '100%', backgroundColor: '#7C5CFC', borderRadius: 3 },
+  tagText:    { fontSize: 11, fontWeight: '600' },
+  divider:    { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 10 },
+  footer:     { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8 },
+  footerText: { fontSize: 11, color: 'rgba(255,255,255,0.55)' },
+  barTrack:   { flex: 1, height: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 2, overflow: 'hidden' },
+  barFill:    { height: '100%', backgroundColor: '#7C5CFC', borderRadius: 2 },
 });
 
 /* ─────────────────────────────────────────────────────────
@@ -436,14 +436,14 @@ function TimeOfDayTabs({ value, onChange }: { value: TimeOfDay; onChange: (v: Ti
 }
 
 const tt = StyleSheet.create({
-  row: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 12, gap: 8 },
+  row: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 8, gap: 8 },
   tabWrap: { flex: 1 },
   tabInner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    paddingVertical: 13, borderRadius: 14,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingVertical: 9, borderRadius: 12,
   },
   tabInactive: { backgroundColor: 'rgba(14,6,32,0.85)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.18)' },
-  tabText: { fontSize: 14, fontWeight: '700', letterSpacing: 0.1 },
+  tabText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.1 },
 });
 
 /* ─────────────────────────────────────────────────────────
@@ -460,6 +460,7 @@ function StepRow({ item, done, onToggle, onOpen }: {
   const showImage = !!product?.image_url && !imgError && item.pillar === 'product';
   const durationMin = item.duration_min ?? (item.pillar === 'product' ? 1 : 5);
   const gradient = PILLAR_THUMB_GRADIENT[item.pillar] ?? PILLAR_THUMB_GRADIENT.product;
+
 
   return (
     <TouchableOpacity style={sr.row} activeOpacity={0.85} onPress={onOpen}>
@@ -491,7 +492,7 @@ function StepRow({ item, done, onToggle, onOpen }: {
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={sr.thumbFallback}
           >
-            <PillarThumbIcon pillar={item.pillar} size={26} />
+            <PillarThumbIcon pillar={item.pillar} size={22} />
           </LinearGradient>
         )}
       </View>
@@ -513,31 +514,31 @@ function StepRow({ item, done, onToggle, onOpen }: {
 
 const sr = StyleSheet.create({
   row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 16, marginBottom: 10,
-    padding: 12,
-    borderRadius: 16, borderWidth: 1,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginHorizontal: 16, marginBottom: 6,
+    padding: 8,
+    borderRadius: 14, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.18)',
     backgroundColor: 'rgba(14,6,32,0.85)',
   },
   checkbox: {
-    width: 24, height: 24, borderRadius: 12,
+    width: 22, height: 22, borderRadius: 11,
     borderWidth: 1.8, borderColor: '#7C5CFC',
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'transparent',
   },
   checkboxDone: { backgroundColor: '#7C5CFC', borderColor: '#7C5CFC' },
   thumbWrap: {
-    width: 60, height: 60, borderRadius: 12, overflow: 'hidden',
+    width: 48, height: 48, borderRadius: 10, overflow: 'hidden',
     backgroundColor: '#F5F5F5',
   },
   thumbImage:    { width: '100%', height: '100%' },
   thumbFallback: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  title:    { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: -0.15 },
+  title:    { fontSize: 14, fontWeight: '700', color: '#fff', letterSpacing: -0.15 },
   titleDone:{ textDecorationLine: 'line-through', color: 'rgba(255,255,255,0.45)' },
-  desc:     { fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 17, marginTop: 3 },
-  metaCol:  { alignItems: 'center', gap: 4, minWidth: 42 },
-  metaText: { fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
+  desc:     { fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 15, marginTop: 2 },
+  metaCol:  { alignItems: 'center', gap: 3, minWidth: 38 },
+  metaText: { fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
 });
 
 /* ─────────────────────────────────────────────────────────
@@ -547,7 +548,7 @@ function AvoidTodayCard({ items }: { items: string[] }) {
   return (
     <View style={fc.card}>
       <Text style={fc.eyebrow}>AVOID TODAY</Text>
-      <View style={{ gap: 10, marginTop: 12 }}>
+      <View style={{ gap: 7, marginTop: 8 }}>
         {items.slice(0, 3).map((text, i) => {
           const Icon = AVOID_ICONS[i % AVOID_ICONS.length];
           return (
@@ -579,26 +580,26 @@ function CoachNoteCard({ text }: { text: string }) {
 const fc = StyleSheet.create({
   card: {
     flex: 1,
-    borderRadius: 16, borderWidth: 1,
+    borderRadius: 14, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.18)',
     backgroundColor: 'rgba(14,6,32,0.85)',
-    padding: 14,
+    padding: 10,
   },
-  eyebrow: { fontSize: 11, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6 },
-  bullet:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  eyebrow: { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6 },
+  bullet:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
   bulletIcon: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 24, height: 24, borderRadius: 12,
     backgroundColor: 'rgba(124,92,252,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-  bulletText: { flex: 1, fontSize: 13, color: '#fff', fontWeight: '500', lineHeight: 17 },
+  bulletText: { flex: 1, fontSize: 11, color: '#fff', fontWeight: '500', lineHeight: 15 },
   coachIcon: {
-    width: 32, height: 32, borderRadius: 16,
+    width: 26, height: 26, borderRadius: 13,
     backgroundColor: 'rgba(124,92,252,0.14)',
     alignItems: 'center', justifyContent: 'center',
-    marginTop: 12, marginBottom: 8,
+    marginTop: 8, marginBottom: 6,
   },
-  coachText: { fontSize: 13, color: '#fff', fontWeight: '500', lineHeight: 19 },
+  coachText: { fontSize: 11, color: '#fff', fontWeight: '500', lineHeight: 16 },
 });
 
 /* ─────────────────────────────────────────────────────────
@@ -606,7 +607,7 @@ const fc = StyleSheet.create({
    ───────────────────────────────────────────────────────── */
 function BottomProgressBar({ done, total, onPress }: { done: number; total: number; onPress: () => void }) {
   const pct = total > 0 ? done / total : 0;
-  const size = 44, stroke = 3.5;
+  const size = 40, stroke = 3;
   const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
   const dash = pct * circ;
@@ -640,15 +641,15 @@ function BottomProgressBar({ done, total, onPress }: { done: number; total: numb
 
 const bp = StyleSheet.create({
   outer: {
-    marginHorizontal: 16, marginTop: 6,
-    borderRadius: 16, borderWidth: 1,
+    marginHorizontal: 16, marginTop: 4,
+    borderRadius: 14, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.32)',
     overflow: 'hidden',
   },
-  inner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  ringText: { fontSize: 11, fontWeight: '800', color: '#fff' },
-  title: { fontSize: 14, fontWeight: '700', color: '#fff' },
-  sub:   { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+  inner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10 },
+  ringText: { fontSize: 10, fontWeight: '800', color: '#fff' },
+  title: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  sub:   { fontSize: 11, color: 'rgba(255,255,255,0.55)', marginTop: 1 },
 });
 
 /* ─────────────────────────────────────────────────────────
@@ -958,7 +959,7 @@ export default function PlanScreen() {
           <Text style={s.regenText}>{generating ? t('plan.generating') : t('plan.regenerate')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
 
       {/* ── Pick detail modal ── */}
@@ -997,29 +998,29 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   centered:  { justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32, gap: 12, paddingBottom: 80 },
 
-  header:    { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 16 },
+  header:    { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  eyebrow:   { fontSize: 11, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 4 },
-  title:     { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: -0.8, lineHeight: 36 },
-  subtitle:  { fontSize: 13, color: 'rgba(255,255,255,0.55)', marginTop: 6, lineHeight: 18 },
+  eyebrow:   { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, textTransform: 'uppercase', marginBottom: 3 },
+  title:     { fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -0.8, lineHeight: 30 },
+  subtitle:  { fontSize: 12, color: 'rgba(255,255,255,0.55)', marginTop: 2, lineHeight: 16 },
 
   streakPill:   {
-    borderRadius: 16, paddingVertical: 12, paddingHorizontal: 16,
-    alignItems: 'center', minWidth: 100,
+    borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12,
+    alignItems: 'center', minWidth: 86,
     borderWidth: 1, borderColor: 'rgba(167,139,250,0.45)',
   },
-  streakTopRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  streakNumber: { fontSize: 28, fontWeight: '900', color: '#fff', lineHeight: 30 },
-  streakLabel:  { fontSize: 10, fontWeight: '800', color: 'rgba(255,255,255,0.85)', letterSpacing: 1.4, marginTop: 4 },
+  streakTopRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  streakNumber: { fontSize: 22, fontWeight: '900', color: '#fff', lineHeight: 26 },
+  streakLabel:  { fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.85)', letterSpacing: 1.4, marginTop: 2 },
 
-  scrollContent: { paddingTop: 4, paddingBottom: 24 },
+  scrollContent: { paddingTop: 2, paddingBottom: 16 },
 
-  footerRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginTop: 14, marginBottom: 12 },
+  footerRow: { flexDirection: 'row', gap: 8, marginHorizontal: 16, marginTop: 6, marginBottom: 4 },
 
   emptyTabWrap: { alignItems: 'center', paddingVertical: 36, marginHorizontal: 16 },
   emptyTabText: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
 
-  regenRow:  { alignItems: 'center', paddingVertical: 18 },
+  regenRow:  { alignItems: 'center', paddingVertical: 8 },
   regenText: { fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
 
   emptyTitle:       { fontSize: 20, fontWeight: '800', color: Colors.text, textAlign: 'center' },
