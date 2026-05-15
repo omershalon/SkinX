@@ -64,18 +64,32 @@ function bucketTime(raw: RankedItem['time_of_day'], pillar: string): TimeOfDay {
 const PRODUCT_BY_ID: Record<string, (typeof PRODUCTS)[number]> =
   Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
 
+/** Pillar → preferred product category, used to bias fuzzy-matching. */
+const PILLAR_CATEGORY: Record<string, (typeof PRODUCTS)[number]['category']> = {
+  product:   'Skincare',
+  herbal:    'Herbal',
+  diet:      'Foods',
+  lifestyle: 'Accessories',
+};
+
 /** Fuzzy-match a plan item title to the closest product in the catalogue. */
-function findBestProduct(title: string): (typeof PRODUCTS)[number] | undefined {
+function findBestProduct(title: string, pillar?: string): (typeof PRODUCTS)[number] | undefined {
+  const preferred = pillar ? PILLAR_CATEGORY[pillar] : undefined;
   const words = title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
-  if (words.length === 0) return PRODUCTS.find(p => p.category === 'Skincare');
-  let bestScore = 0;
   let best: (typeof PRODUCTS)[number] | undefined;
+  let bestScore = 0;
   for (const p of PRODUCTS) {
     const hay = (p.name + ' ' + p.description).toLowerCase();
-    const score = words.reduce((n, w) => n + (hay.includes(w) ? 1 : 0), 0);
+    let score = words.reduce((n, w) => n + (hay.includes(w) ? 1 : 0), 0);
+    if (preferred && p.category === preferred) score += 0.5;
     if (score > bestScore) { bestScore = score; best = p; }
   }
-  return best ?? PRODUCTS.find(p => p.category === 'Skincare');
+  if (best) return best;
+  if (preferred) {
+    const fallback = PRODUCTS.find(p => p.category === preferred);
+    if (fallback) return fallback;
+  }
+  return PRODUCTS.find(p => p.category === 'Skincare');
 }
 
 /* ── Objective fallback for plans without skin_goal ── */
@@ -349,7 +363,12 @@ function SkinGoalCard({ goal, doneCount, totalCount, fallbackHeadline }: {
   return (
     <View style={sg.card}>
       <Text style={sg.eyebrow}>TODAY'S SKIN GOAL</Text>
-      <Text style={sg.headline} numberOfLines={2}>{headline}</Text>
+      <Text
+        style={sg.headline}
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.65}
+      >{headline}</Text>
 
       {tags.length > 0 && (
         <View style={sg.tagRow}>
@@ -470,10 +489,8 @@ function StepRow({ item, done, onToggle, onOpen }: {
 }) {
   const [imgError, setImgError] = useState(false);
   const exactProduct = item.product_id ? PRODUCT_BY_ID[item.product_id] : undefined;
-  const product = item.pillar === 'product'
-    ? (exactProduct ?? findBestProduct(item.title))
-    : exactProduct;
-  const showImage = !!product?.image_url && !imgError && item.pillar === 'product';
+  const product = exactProduct ?? findBestProduct(item.title, item.pillar);
+  const showImage = !!product?.image_url && !imgError;
   const durationMin = item.duration_min ?? (item.pillar === 'product' ? 1 : 5);
   const gradient = PILLAR_THUMB_GRADIENT[item.pillar] ?? PILLAR_THUMB_GRADIENT.product;
 
@@ -800,12 +817,16 @@ export default function PlanScreen() {
     () => [...rankedItems].sort((a, b) => a.impact_rank - b.impact_rank),
     [rankedItems]
   );
-  const totalItems = rankedItems.length;
-  const doneCount  = rankedItems.filter(i => doneToday.has(i.impact_rank)).length;
+  const morningItems = sortedItems.filter(i => bucketTime(i.time_of_day, i.pillar) === 'morning').slice(0, 4);
+  const nightItems   = sortedItems.filter(i => bucketTime(i.time_of_day, i.pillar) === 'night').slice(0, 4);
+  const allVisible   = [...morningItems, ...nightItems];
+
+  const totalItems = allVisible.length;
+  const doneCount  = allVisible.filter(i => doneToday.has(i.impact_rank)).length;
   const progress   = totalItems > 0 ? doneCount / totalItems : 0;
   const fallbackObjective = acneType ? (OBJECTIVE_HEADLINE[acneType] ?? DEFAULT_OBJECTIVE) : DEFAULT_OBJECTIVE;
 
-  const visibleItems = sortedItems.filter(i => bucketTime(i.time_of_day, i.pillar) === activeTab);
+  const visibleItems = activeTab === 'morning' ? morningItems : nightItems;
 
   const skinGoal:   SkinGoal | null = (plan?.skin_goal as unknown as SkinGoal | null) ?? null;
   const avoidToday: string[]        = Array.isArray(plan?.avoid_today) ? (plan!.avoid_today as string[]) : [];
@@ -838,7 +859,7 @@ export default function PlanScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
 
-    const nowAllDone = rankedItems.length > 0 && rankedItems.every(i => nextDone.has(i.impact_rank));
+    const nowAllDone = allVisible.length > 0 && allVisible.every(i => nextDone.has(i.impact_rank));
     if (nowAllDone && !wasDone && !allDoneRef.current) {
       incrementStreakOnce().then(s => setStreak(s));
       Animated.sequence([
