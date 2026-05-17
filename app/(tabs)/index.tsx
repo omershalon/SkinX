@@ -142,7 +142,7 @@ function CheckDoneIcon({ size = 20 }: { size?: number }) {
 // ─── Week Chart ──────────────────────────────────────────────────────────────
 
 function WeekChart({ sessions }: { sessions: Array<{ created_at: string; severity_score?: number | null }> }) {
-  const W = SW * 0.38;
+  const W = (SW - 40) * 0.425 - 28;
   const H = 44;
   const padX = 8, padY = 5;
   const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -858,6 +858,7 @@ const s = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
   },
   trackTitle: {
     fontFamily: Fonts.bold,

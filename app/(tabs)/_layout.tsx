@@ -198,7 +198,7 @@ export default function TabsLayout() {
 
       {showFab && (
         <TouchableOpacity
-          style={[ts.fab, { bottom: insets.bottom + 91 }]}
+          style={[ts.fab, { bottom: insets.bottom + 102 }]}
           activeOpacity={0.85}
           onPress={() => router.push('/coach')}
         >

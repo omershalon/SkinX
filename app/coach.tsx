@@ -423,12 +423,6 @@ export default function CoachScreen() {
                 {msg.content}
               </Text>
             </View>
-            {/* Tap to hear assistant messages */}
-            {msg.role === 'assistant' && (
-              <TouchableOpacity onPress={() => speakResponse(msg.content)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={{ fontSize: 16, color: Colors.textMuted }}>{'\u{1F50A}'}</Text>
-              </TouchableOpacity>
-            )}
           </View>
         ))}
 

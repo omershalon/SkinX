@@ -102,6 +102,42 @@ const OBJECTIVE_HEADLINE: Partial<Record<AcneType, string>> = {
 };
 const DEFAULT_OBJECTIVE = 'Calm skin, maintain hydration, and protect your barrier.';
 
+const DESCRIPTION_FALLBACK: Partial<Record<AcneType, string>> = {
+  hormonal:     'Based on your latest scan: hormonal patterns detected — focus on consistency and anti-inflammatory steps.',
+  cystic:       'Based on your latest scan: deep cystic activity detected, prioritize barrier protection.',
+  comedonal:    'Based on your latest scan: pore congestion is the main concern — keep your routine gentle.',
+  fungal:       'Based on your latest scan: fungal triggers present — stick to antifungal-friendly products.',
+  inflammatory: 'Based on your latest scan: inflammation is the primary concern — focus on calming your skin.',
+};
+const DEFAULT_DESCRIPTION = 'Based on your latest scan: follow your personalized routine for best results.';
+
+const TAG_FALLBACKS: Partial<Record<AcneType, SkinGoalTag[]>> = {
+  hormonal:     [{ kind: 'trend', label: 'Fluctuating' }, { kind: 'focus', label: 'Hormonal care' }],
+  cystic:       [{ kind: 'trend', label: 'Active' },      { kind: 'focus', label: 'Deep cleanse' }],
+  comedonal:    [{ kind: 'trend', label: 'Stable' },      { kind: 'zone',  label: 'T-zone' },       { kind: 'focus', label: 'Pore care' }],
+  fungal:       [{ kind: 'trend', label: 'Sensitive' },   { kind: 'focus', label: 'Barrier care' }],
+  inflammatory: [{ kind: 'trend', label: 'Stable' }, { kind: 'zone', label: 'Redness' }, { kind: 'focus', label: 'Barrier care' }],
+};
+const DEFAULT_TAGS: SkinGoalTag[] = [{ kind: 'trend', label: 'Stable' }, { kind: 'zone', label: 'Redness' }, { kind: 'focus', label: 'Barrier care' }];
+
+const AVOID_FALLBACKS: Partial<Record<AcneType, string[]>> = {
+  hormonal:     ["Avoid high-glycemic foods", "Don't skip your routine", "Limit dairy intake"],
+  cystic:       ["Avoid oil-based products", "Don't squeeze cysts", "Skip abrasive scrubs"],
+  comedonal:    ["Avoid heavy moisturizers", "Don't skip cleansing", "Skip occlusive oils"],
+  fungal:       ["Avoid sugary foods", "Skip oily hair products", "Don't use harsh antibiotics"],
+  inflammatory: ["Don't over-exfoliate", "Don't pick at spots", "Skip harsh new actives"],
+};
+const DEFAULT_AVOID = ["Don't over-exfoliate", "Don't pick at spots", "Skip harsh new actives"];
+
+const COACH_FALLBACKS: Partial<Record<AcneType, string>> = {
+  hormonal:     'Hormonal cycles affect your skin — stay consistent and give your routine time to work.',
+  cystic:       'Deep cleansing and anti-inflammatory steps are key right now. Be patient with your skin.',
+  comedonal:    'Consistent cleansing and avoiding pore-cloggers will make the biggest difference.',
+  fungal:       'Stick to antifungal-friendly products and keep your routine simple today.',
+  inflammatory: 'Your skin looks calm today. Keep the routine simple and stay consistent.',
+};
+const DEFAULT_COACH = 'Stay consistent with your routine and be gentle with your skin today.';
+
 /* ── Missions helpers ── */
 async function loadMissionsState(): Promise<{ doneRanks: Set<number> }> {
   try {
@@ -349,16 +385,18 @@ function tagIconFor(kind: SkinGoalTag['kind']): { Icon: (p: { size?: number; col
   }
 }
 
-function SkinGoalCard({ goal, doneCount, totalCount, fallbackHeadline }: {
+function SkinGoalCard({ goal, doneCount, totalCount, fallbackHeadline, fallbackDescription, fallbackTags }: {
   goal: SkinGoal | null | undefined;
   doneCount: number;
   totalCount: number;
   fallbackHeadline: string;
+  fallbackDescription: string;
+  fallbackTags: SkinGoalTag[];
 }) {
   const pct = totalCount > 0 ? doneCount / totalCount : 0;
   const headline    = goal?.headline    ?? fallbackHeadline;
-  const description = goal?.description ?? '';
-  const tags        = goal?.tags ?? [];
+  const description = goal?.description || fallbackDescription;
+  const tags        = goal?.tags?.length ? goal.tags : fallbackTags;
 
   return (
     <View style={sg.card}>
@@ -402,7 +440,7 @@ const sg = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 8,
     borderRadius: 16, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.28)',
-    backgroundColor: 'rgba(12,5,28,0.93)',
+    backgroundColor: 'rgba(14,11,31,0.97)',
     padding: 12,
   },
   eyebrow:     { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6, marginBottom: 5 },
@@ -474,7 +512,7 @@ const tt = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     paddingVertical: 9, borderRadius: 12,
   },
-  tabInactive: { backgroundColor: 'rgba(12,5,28,0.93)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.25)' },
+  tabInactive: { backgroundColor: 'rgba(14,11,31,0.97)', borderWidth: 1, borderColor: 'rgba(124,92,252,0.25)' },
   tabText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.1 },
 });
 
@@ -552,7 +590,7 @@ const sr = StyleSheet.create({
     padding: 8,
     borderRadius: 14, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.25)',
-    backgroundColor: 'rgba(12,5,28,0.93)',
+    backgroundColor: 'rgba(14,11,31,0.97)',
   },
   checkbox: {
     width: 22, height: 22, borderRadius: 11,
@@ -615,7 +653,7 @@ const fc = StyleSheet.create({
     flex: 1,
     borderRadius: 14, borderWidth: 1,
     borderColor: 'rgba(124,92,252,0.25)',
-    backgroundColor: 'rgba(12,5,28,0.93)',
+    backgroundColor: 'rgba(14,11,31,0.97)',
     padding: 10,
   },
   eyebrow: { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 1.6 },
@@ -829,8 +867,15 @@ export default function PlanScreen() {
   const visibleItems = activeTab === 'morning' ? morningItems : nightItems;
 
   const skinGoal:   SkinGoal | null = (plan?.skin_goal as unknown as SkinGoal | null) ?? null;
-  const avoidToday: string[]        = Array.isArray(plan?.avoid_today) ? (plan!.avoid_today as string[]) : [];
-  const coachNote:  string          = (plan?.coach_note as string | null) ?? '';
+  const avoidToday: string[]        = Array.isArray(plan?.avoid_today) && (plan!.avoid_today as string[]).length > 0
+    ? (plan!.avoid_today as string[])
+    : (acneType ? AVOID_FALLBACKS[acneType] : undefined) ?? DEFAULT_AVOID;
+  const coachNote:  string          =
+    ((plan?.coach_note as string | null) || null) ??
+    (acneType ? COACH_FALLBACKS[acneType] : null) ??
+    DEFAULT_COACH;
+  const fallbackDescription = (acneType ? DESCRIPTION_FALLBACK[acneType] : undefined) ?? DEFAULT_DESCRIPTION;
+  const fallbackTags        = (acneType ? TAG_FALLBACKS[acneType] : undefined) ?? DEFAULT_TAGS;
 
   /* ── Toggle step ── */
   const toggleMission = async (item: RankedItem) => {
@@ -952,6 +997,8 @@ export default function PlanScreen() {
           doneCount={doneCount}
           totalCount={totalItems}
           fallbackHeadline={fallbackObjective}
+          fallbackDescription={fallbackDescription}
+          fallbackTags={fallbackTags}
         />
 
         {/* ── Morning / Night tabs ── */}
@@ -977,12 +1024,10 @@ export default function PlanScreen() {
         )}
 
         {/* ── Avoid Today + Coach Note (2-column) ── */}
-        {(avoidToday.length > 0 || coachNote) && (
-          <View style={s.footerRow}>
-            {avoidToday.length > 0 && <AvoidTodayCard items={avoidToday} />}
-            {coachNote.length > 0   && <CoachNoteCard  text={coachNote} />}
-          </View>
-        )}
+        <View style={s.footerRow}>
+          <AvoidTodayCard items={avoidToday} />
+          <CoachNoteCard  text={coachNote} />
+        </View>
 
         {/* ── Bottom progress card ── */}
         <BottomProgressBar
