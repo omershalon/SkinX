@@ -60,6 +60,16 @@ function bucketTime(raw: RankedItem['time_of_day'], pillar: string): TimeOfDay {
   return PILLAR_TIME[pillar] ?? 'morning';
 }
 
+/* ── Static lifestyle image overrides ── */
+const LIFESTYLE_IMAGES: Record<string, ReturnType<typeof require>> = {
+  'morning sunlight': require('@/assets/images/morning-sunlight.webp'),
+  'omega-3 foods': require('@/assets/images/omega3-foods.jpg'),
+};
+
+function getLifestyleImage(title: string): ReturnType<typeof require> | undefined {
+  return LIFESTYLE_IMAGES[title.toLowerCase().trim()];
+}
+
 /* ── Product image lookup ── */
 const PRODUCT_BY_ID: Record<string, (typeof PRODUCTS)[number]> =
   Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
@@ -526,9 +536,10 @@ function StepRow({ item, done, onToggle, onOpen }: {
   onOpen: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  const localImage = getLifestyleImage(item.title);
   const exactProduct = item.product_id ? PRODUCT_BY_ID[item.product_id] : undefined;
   const product = exactProduct ?? findBestProduct(item.title, item.pillar);
-  const showImage = !!product?.image_url && !imgError;
+  const showImage = (!!localImage || !!product?.image_url) && !imgError;
   const durationMin = item.duration_min ?? (item.pillar === 'product' ? 1 : 5);
   const gradient = PILLAR_THUMB_GRADIENT[item.pillar] ?? PILLAR_THUMB_GRADIENT.product;
 
@@ -552,7 +563,7 @@ function StepRow({ item, done, onToggle, onOpen }: {
       <View style={sr.thumbWrap}>
         {showImage ? (
           <Image
-            source={{ uri: product!.image_url }}
+            source={localImage ?? { uri: product!.image_url }}
             style={sr.thumbImage}
             resizeMode="cover"
             onError={() => setImgError(true)}
