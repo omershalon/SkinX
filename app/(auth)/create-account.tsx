@@ -80,7 +80,13 @@ export default function CreateAccountScreen() {
   const params = useLocalSearchParams<{ onboardingData?: string; analysisResult?: string; photoFront?: string }>();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<'choose' | 'email'>('choose');
-  const [name, setName] = useState('');
+  const prefilledName = (() => {
+    try {
+      const o = params.onboardingData ? JSON.parse(params.onboardingData) : {};
+      return [o.firstName, o.lastName].filter(Boolean).join(' ').trim();
+    } catch { return ''; }
+  })();
+  const [name, setName] = useState(prefilledName);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

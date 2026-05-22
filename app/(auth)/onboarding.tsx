@@ -24,18 +24,19 @@ import {
 
 
 type Ans = {
+  firstName: string; lastName: string;
   gender: string; birthDate: BirthDate; skinType: string; sensitivity: string; duration: string;
   concerns: string[]; breakoutZones: string[]; goal: string[];
   barriers: string[]; skincareRoutine: string; hormonalTreatment: string[]; hearAbout: string; triedApps: string;
   referralCode: string;
 };
 const DEFAULT_BIRTH: BirthDate = { month: 1, day: 1, year: 2026 };
-const EMPTY: Ans = { gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', concerns: [], breakoutZones: [], goal: [], barriers: [], skincareRoutine: '', hormonalTreatment: [], hearAbout: '', triedApps: '', referralCode: '' };
+const EMPTY: Ans = { firstName: '', lastName: '', gender: '', birthDate: DEFAULT_BIRTH, skinType: '', sensitivity: '', duration: '', concerns: [], breakoutZones: [], goal: [], barriers: [], skincareRoutine: '', hormonalTreatment: [], hearAbout: '', triedApps: '', referralCode: '' };
 
-// Step 12 (hormonal treatment) only renders for female users, so total screens is gender-dependent.
-const TOTAL_FEMALE = 19;
-const TOTAL_OTHER = 18;
-const HORMONAL_STEP = 12;
+// Step 13 (hormonal treatment) only renders for female users, so total screens is gender-dependent.
+const TOTAL_FEMALE = 20;
+const TOTAL_OTHER = 19;
+const HORMONAL_STEP = 13;
 
 const HEAR_SOURCES = [
   { id: 'x',              label: 'X',               icon: (_s: boolean) => <XBrandIcon size={36} /> },
@@ -169,6 +170,8 @@ export default function OnboardingScreen() {
   const [a, setA] = useState<Ans>(EMPTY);
   const [ageGateVisible, setAgeGateVisible] = useState(false);
   const [referralFocused, setReferralFocused] = useState(false);
+  const [firstNameFocused, setFirstNameFocused] = useState(false);
+  const [lastNameFocused, setLastNameFocused] = useState(false);
   const [selectedStar, setSelectedStar] = useState(0);
   const prog = useRef(new Animated.Value(1 / TOTAL_FEMALE)).current;
   const enterAnim = useRef(new Animated.Value(0)).current;
@@ -177,18 +180,18 @@ export default function OnboardingScreen() {
   const rateAdvanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (step === 15) {
+    if (step === 16) {
       trustLottieRef.current?.reset();
       trustLottieRef.current?.play();
     }
-    if (step === 16) setSelectedStar(0);
+    if (step === 17) setSelectedStar(0);
     // Leaving the Rate screen: cancel any pending auto-advance so a manual
     // Continue tap can't collide with the 800ms setTimeout firing a second next().
-    if (step !== 16 && rateAdvanceTimer.current) {
+    if (step !== 17 && rateAdvanceTimer.current) {
       clearTimeout(rateAdvanceTimer.current);
       rateAdvanceTimer.current = null;
     }
-    if (step !== 17) return;
+    if (step !== 18) return;
     const anim = Animated.loop(
       Animated.sequence([
         Animated.timing(fingerBounce, { toValue: -8, duration: 600, useNativeDriver: true }),
@@ -248,35 +251,77 @@ export default function OnboardingScreen() {
 
   const canNext = (): boolean => {
     switch (step) {
-      case 0:  return !!a.gender;
-      case 1:  return new Date(a.birthDate.year, a.birthDate.month - 1, a.birthDate.day) <= new Date();
-      case 2:  return !!a.hearAbout;
-      case 3:  return !!a.triedApps;
-      case 4:  return true; // graph (always can proceed)
-      case 5:  return !!a.skinType;
-      case 6:  return !!a.sensitivity;
-      case 7:  return a.breakoutZones.length > 0;
-      case 8:  return !!a.duration;
-      case 9:  return true; // bar comparison
-      case 10: return a.barriers.length > 0;
-      case 11: return !!a.skincareRoutine;
-      case 12: return a.hormonalTreatment.length > 0; // female-only
-      case 13: return a.goal.length > 0;
-      case 14: return true; // affirmation
-      case 15: return true; // trust screen
-      case 16: return selectedStar > 0; // rate the app — must tap a star
-      case 17: return true; // notifications
-      case 18: return true; // referral code (optional — skip always allowed)
+      case 0:  return !!a.firstName.trim(); // first name required; last name optional
+      case 1:  return !!a.gender;
+      case 2:  return new Date(a.birthDate.year, a.birthDate.month - 1, a.birthDate.day) <= new Date();
+      case 3:  return !!a.hearAbout;
+      case 4:  return !!a.triedApps;
+      case 5:  return true; // graph (always can proceed)
+      case 6:  return !!a.skinType;
+      case 7:  return !!a.sensitivity;
+      case 8:  return a.breakoutZones.length > 0;
+      case 9:  return !!a.duration;
+      case 10: return true; // bar comparison
+      case 11: return a.barriers.length > 0;
+      case 12: return !!a.skincareRoutine;
+      case 13: return a.hormonalTreatment.length > 0; // female-only
+      case 14: return a.goal.length > 0;
+      case 15: return true; // affirmation
+      case 16: return true; // trust screen
+      case 17: return selectedStar > 0; // rate the app — must tap a star
+      case 18: return true; // notifications
+      case 19: return true; // referral code (optional — skip always allowed)
       default: return false;
     }
   };
 
-  const isLastStep = step === 18;
+  const isLastStep = step === 19;
 
   const renderStep = () => {
     switch (step) {
-      // ── 0: Gender ──
+      // ── 0: Name ──
       case 0: return (
+        <View style={st.qWrap}>
+          <View style={st.qTop}>
+            <Text style={st.nameTitle}>Let's start with your name</Text>
+          </View>
+          <View style={st.qMid}>
+            <View style={st.optionList}>
+              <View style={[st.nameInputCard, firstNameFocused && st.nameInputCardFocused]}>
+                <TextInput
+                  style={st.nameInput}
+                  placeholder="First name"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  value={a.firstName}
+                  onChangeText={(v) => setA(p => ({ ...p, firstName: v }))}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                  onFocus={() => setFirstNameFocused(true)}
+                  onBlur={() => setFirstNameFocused(false)}
+                />
+              </View>
+              <View style={[st.nameInputCard, lastNameFocused && st.nameInputCardFocused]}>
+                <TextInput
+                  style={st.nameInput}
+                  placeholder="Last name"
+                  placeholderTextColor="rgba(255,255,255,0.4)"
+                  value={a.lastName}
+                  onChangeText={(v) => setA(p => ({ ...p, lastName: v }))}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onFocus={() => setLastNameFocused(true)}
+                  onBlur={() => setLastNameFocused(false)}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
+      );
+
+      // ── 1: Gender ──
+      case 1: return (
         <Q title={t('onboarding.gender')} subtitle={t('onboarding.helpPersonalize')}>
           <View style={st.optionList}>
             {([
@@ -290,15 +335,15 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 1: Birth date ──
-      case 1: return (
+      // ── 2: Birth date ──
+      case 2: return (
         <Q title={t('onboarding.birthDate')} subtitle={t('onboarding.helpPersonalize')}>
           <DatePicker value={a.birthDate} onChange={v => setA(p => ({ ...p, birthDate: v }))} />
         </Q>
       );
 
-      // ── 2: Where did you hear about us ──
-      case 2: return (
+      // ── 3: Where did you hear about us ──
+      case 3: return (
         <Q title={t('onboarding.hearAbout')} sticky>
           <View style={st.optionList}>
             {HEAR_SOURCES.map(src => (
@@ -308,8 +353,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 3: Tried other skincare apps ──
-      case 3: return (
+      // ── 4: Tried other skincare apps ──
+      case 4: return (
         <Q title={t('onboarding.triedApps')}>
           <View style={st.optionList}>
             <RowOption label={t('onboarding.yes')} icon={(sel) => <View style={{ width: 22, height: 22, overflow: 'hidden' }}><ThumbsUpIcon size={22} color={sel ? '#000' : '#fff'} /></View>} selected={a.triedApps === 'yes'} onPress={() => setA(p => ({ ...p, triedApps: 'yes' }))} />
@@ -318,11 +363,11 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 4: Animated graph proof screen ──
-      case 4: return <AnimatedGraph />;
+      // ── 5: Animated graph proof screen ──
+      case 5: return <AnimatedGraph />;
 
-      // ── 5: Skin type ──
-      case 5: return (
+      // ── 6: Skin type ──
+      case 6: return (
         <Q title={t('onboarding.skinType')}>
           <View style={st.optionList}>
             {([
@@ -336,8 +381,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 6: Skin sensitivity ──
-      case 6: return (
+      // ── 7: Skin sensitivity ──
+      case 7: return (
         <Q title={t('onboarding.sensitivity')}>
           <View style={st.optionList}>
             {([
@@ -352,8 +397,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 7: Breakout zones ──
-      case 7: return (
+      // ── 8: Breakout zones ──
+      case 8: return (
         <Q title={t('onboarding.breakoutZones')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -377,8 +422,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 8: Duration ──
-      case 8: return (
+      // ── 9: Duration ──
+      case 9: return (
         <Q title={t('onboarding.duration')}>
           <View style={st.optionList}>
             {([
@@ -394,11 +439,11 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 9: Bar comparison ──
-      case 9: return <BarComparison />;
+      // ── 10: Bar comparison ──
+      case 10: return <BarComparison />;
 
-      // ── 10: Barriers ──
-      case 10: return (
+      // ── 11: Barriers ──
+      case 11: return (
         <Q title={t('onboarding.barriers')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -415,8 +460,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 11: Skincare routine ──
-      case 11: return (
+      // ── 12: Skincare routine ──
+      case 12: return (
         <Q title={t('onboarding.routine')}>
           <View style={st.optionList}>
             <TouchableOpacity
@@ -441,8 +486,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 12: Hormonal treatment (female-only) ──
-      case 12: return (
+      // ── 13: Hormonal treatment (female-only) ──
+      case 13: return (
         <Q title={t('onboarding.hormonalTitle')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -460,8 +505,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 13: Goal ──
-      case 13: return (
+      // ── 14: Goal ──
+      case 14: return (
         <Q title={t('onboarding.goals')} subtitle={t('onboarding.selectAll')} sticky>
           <View style={st.optionList}>
             {[
@@ -482,8 +527,8 @@ export default function OnboardingScreen() {
         </Q>
       );
 
-      // ── 14: Skin transition graph ──
-      case 14: return (
+      // ── 15: Skin transition graph ──
+      case 15: return (
         <View style={{ flex: 1 }}>
           <View style={{ paddingTop: 28, paddingBottom: 20 }}>
             <Text style={st.title}>
@@ -498,8 +543,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 15: Trust / Privacy ──
-      case 15: return (
+      // ── 16: Trust / Privacy ──
+      case 16: return (
         <View style={st.trustWrap}>
           <LottieView
             ref={trustLottieRef}
@@ -519,8 +564,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 16: Rate the app ──
-      case 16: return (
+      // ── 17: Rate the app ──
+      case 17: return (
         <View style={st.rateWrap}>
 <Text style={st.rateTitle}>Enjoying Skin<Text style={{ color: '#7C5CFC' }}>X</Text> so far?</Text>
           <Text style={st.rateSub}>Tap a star to rate us on the App Store.</Text>
@@ -553,8 +598,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 17: Push notifications ──
-      case 17: return (
+      // ── 18: Push notifications ──
+      case 18: return (
         <View style={st.notifWrap}>
           <Text style={st.notifTitle}>Get reminded to{'\n'}log scans.</Text>
           <View style={st.notifCard}>
@@ -583,8 +628,8 @@ export default function OnboardingScreen() {
         </View>
       );
 
-      // ── 18: Referral code (optional) ──
-      case 18: return (
+      // ── 19: Referral code (optional) ──
+      case 19: return (
         <Q title={t('onboarding.referralTitle')} subtitle={t('onboarding.referralSub')}>
           {/* Input lifts by half the Skip button's lift so it remains centered between the
               title (fixed) and the Skip button (lifted) when the keyboard is open. */}
@@ -653,9 +698,9 @@ export default function OnboardingScreen() {
         opacity: enterAnim,
         transform: [{ translateY: enterAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }],
       }]}>
-        {step === 1 || step === 9 || step === 15 || step === 16 || step === 17 ? (
+        {step === 2 || step === 10 || step === 16 || step === 17 || step === 18 ? (
           <View style={[st.scroll, { flex: 1 }]}>{renderStep()}</View>
-        ) : step === 2 || step === 7 || step === 10 || step === 12 || step === 13 || step === 18 ? (
+        ) : step === 0 || step === 3 || step === 8 || step === 11 || step === 13 || step === 14 || step === 19 ? (
           <View style={{ flex: 1, paddingHorizontal: 24 }}>{renderStep()}</View>
         ) : (
           <ScrollView contentContainerStyle={st.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false}>
@@ -666,14 +711,14 @@ export default function OnboardingScreen() {
 
       {/* Bottom bar — translated by keyboardLift so only the Skip button rises with the keyboard.
           The title above stays pinned in place. */}
-      {step !== 17 && <Animated.View style={[st.bottomBar, {
+      {step !== 18 && <Animated.View style={[st.bottomBar, {
         paddingBottom: insets.bottom + 12,
       }]}>
         <TouchableOpacity
           style={[st.nextBtn, !canNext() && st.nextBtnDisabled]}
           onPress={() => {
             if (!canNext()) return;
-            if (step === 1) {
+            if (step === 2) {
               const { month, day, year } = a.birthDate;
               const today = new Date();
               const dob = new Date(year, month - 1, day);
@@ -859,6 +904,29 @@ const st = StyleSheet.create({
   modalBody: { fontFamily: Fonts.regular, fontSize: 16, color: '#555', lineHeight: 23, marginBottom: 20 },
   modalBtn: { backgroundColor: '#111', borderRadius: 14, height: 54, justifyContent: 'center', alignItems: 'center' },
   modalBtnText: { fontFamily: Fonts.semibold, fontSize: 16, color: '#FFF' },
+
+  // Name screen — first/last name inputs
+  nameTitle: {
+    fontFamily: Fonts.bold,
+    fontSize: 40,
+    color: '#FFF',
+    lineHeight: 46,
+    letterSpacing: -1,
+  },
+  nameInputCard: {
+    backgroundColor: '#1A1A1E',
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  nameInputCardFocused: { borderColor: 'rgba(255,255,255,0.3)' },
+  nameInput: {
+    fontFamily: Fonts.medium,
+    fontSize: 16,
+    color: '#FFFFFF',
+    paddingVertical: 20,
+  },
 
   // Referral code screen (dark-theme inversion of the screenshot)
   referralCard: {
