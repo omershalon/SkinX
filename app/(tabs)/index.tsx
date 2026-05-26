@@ -549,22 +549,15 @@ export default function HomeScreen() {
       <ScreenBackground preset="home" />
       {Header}
       <ScrollView
-        contentContainerStyle={s.heroContent}
+        contentContainerStyle={[s.heroContent, { flexGrow: 1, justifyContent: 'center' }]}
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
         overScrollMode="never"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7C5CFC" />}
       >
-        <View style={s.heroGlow} pointerEvents="none" />
-        <View style={s.heroTextBlock}>
-          <Text style={s.heroPreSub}>Personalized scan results, routine, and progress in one place</Text>
-          <Text style={s.heroPreTitle}>{t('home.hero.title')}</Text>
-          <Text style={s.heroPreBody}>{t('home.hero.body')}</Text>
-        </View>
         <TouchableOpacity style={s.heroCta} activeOpacity={0.88} onPress={() => router.push('/(tabs)/scan')}>
           <Text style={s.heroCtaText}>{t('home.hero.cta')}</Text>
         </TouchableOpacity>
-        <View style={{ height: 80 }} />
       </ScrollView>
     </Animated.View>
   );

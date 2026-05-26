@@ -216,8 +216,6 @@ export default function CreateAccountScreen() {
         <View style={s.formArea}>
           <Text style={s.heading}>{t('createAccount.heading')}</Text>
 
-          <TextInput style={s.input} placeholder={t('createAccount.namePlaceholder')} placeholderTextColor="rgba(255,255,255,0.25)"
-            value={name} onChangeText={setName} autoCapitalize="words" />
           <TextInput style={s.input} placeholder={t('createAccount.emailPlaceholder')} placeholderTextColor="rgba(255,255,255,0.25)"
             value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
           <TextInput style={s.input} placeholder={t('createAccount.passwordPlaceholder')} placeholderTextColor="rgba(255,255,255,0.25)"
